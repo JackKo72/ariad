@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ClinicalStructure",
+  "description": "Output contract for prompts/structure_transcript.md (prompt_id=structure_transcript). Mirrors apps/api/app/domain/models.py:ClinicalStructure.",
+  "type": "object",
+  "required": ["problems", "tests", "medications", "plan", "warnings", "follow_up", "questions_or_conflicts"],
+  "additionalProperties": false,
+  "properties": {
+    "problems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["text", "certainty", "source_segment_ids"],
+        "properties": {
+          "text": {"type": "string"},
+          "certainty": {"enum": ["stated", "uncertain"]},
+          "source_segment_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "reason", "status", "source_segment_ids"],
+        "properties": {
+          "name": {"type": "string"},
+          "reason": {"type": "string"},
+          "status": {"enum": ["planned", "completed", "unknown"]},
+          "source_segment_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "medications": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "dose", "route", "frequency", "action", "source_segment_ids", "needs_confirmation"],
+        "properties": {
+          "name": {"type": "string"},
+          "dose": {"type": "string"},
+          "route": {"type": "string"},
+          "frequency": {"type": "string"},
+          "action": {"enum": ["start", "continue", "stop", "unknown"]},
+          "source_segment_ids": {"type": "array", "items": {"type": "string"}},
+          "needs_confirmation": {"type": "boolean"}
+        }
+      }
+    },
+    "plan": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["text", "source_segment_ids"],
+        "properties": {
+          "text": {"type": "string"},
+          "source_segment_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["text", "source_segment_ids"],
+        "properties": {
+          "text": {"type": "string"},
+          "source_segment_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "follow_up": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["text", "source_segment_ids"],
+        "properties": {
+          "text": {"type": "string"},
+          "source_segment_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "questions_or_conflicts": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}

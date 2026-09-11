@@ -1,0 +1,8 @@
+{
+  "name": "ariad-e2e",
+  "private": true,
+  "description": "Playwright E2E harness for tasks/01_VERTICAL_SLICE.md. apps/web has its own package.json for the Next.js app itself.",
+  "devDependencies": {
+    "@playwright/test": "^1.49.1"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ExplanationDraft",
+  "description": "Output contract for prompts/patient_explanation.md (prompt_id=patient_explanation). Mirrors apps/api/app/domain/models.py:ExplanationDraft. This is also the only shape /public/explanations/{token} ever returns.",
+  "type": "object",
+  "required": [
+    "draft_notice",
+    "current_situation",
+    "tests_and_reasons",
+    "treatment_plan",
+    "medication_instructions",
+    "warning_signs",
+    "what_to_do_next",
+    "follow_up",
+    "items_to_confirm_with_clinician",
+    "source_map"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "draft_notice": {"type": "string"},
+    "current_situation": {"type": "array", "items": {"type": "string"}},
+    "tests_and_reasons": {"type": "array", "items": {"type": "string"}},
+    "treatment_plan": {"type": "array", "items": {"type": "string"}},
+    "medication_instructions": {"type": "array", "items": {"type": "string"}},
+    "warning_signs": {"type": "array", "items": {"type": "string"}},
+    "what_to_do_next": {"type": "array", "items": {"type": "string"}},
+    "follow_up": {"type": "array", "items": {"type": "string"}},
+    "items_to_confirm_with_clinician": {"type": "array", "items": {"type": "string"}},
+    "source_map": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["field", "source_segment_ids"],
+        "properties": {
+          "field": {"type": "string"},
+          "source_segment_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    }
+  }
+}

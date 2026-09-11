@@ -1,0 +1,68 @@
+"""SQLite connection + schema (docs/ARCHITECTURE.md: Local DB: SQLite).
+
+Only IDs, hashes, status, and timestamps are meant to live in ancillary
+tables like audit_events -- never transcript/structure/explanation bodies
+(docs/DEBUGGING.md structured log fields).
+"""
+
+from __future__ import annotations
+
+import sqlite3
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Iterator
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS encounters (
+    id TEXT PRIMARY KEY,
+    status TEXT NOT NULL,
+    consent_confirmed INTEGER NOT NULL,
+    error_code TEXT,
+    public_token TEXT UNIQUE,
+    current_draft_version_id TEXT,
+    approved_version_id TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS encounter_versions (
+    id TEXT PRIMARY KEY,
+    encounter_id TEXT NOT NULL REFERENCES encounters(id),
+    version_number INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    transcript_text TEXT NOT NULL,
+    structure_json TEXT NOT NULL,
+    explanation_json TEXT NOT NULL,
+    prompt_version_structure TEXT,
+    prompt_version_explanation TEXT,
+    created_at TEXT NOT NULL,
+    approved_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS audit_events (
+    id TEXT PRIMARY KEY,
+    encounter_id TEXT NOT NULL REFERENCES encounters(id),
+    event_type TEXT NOT NULL,
+    metadata_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+"""
+
+
+def connect(db_path: str) -> sqlite3.Connection:
+    if db_path != ":memory:":
+        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(db_path, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.executescript(SCHEMA)
+    return conn
+
+
+@contextmanager
+def session(db_path: str) -> Iterator[sqlite3.Connection]:
+    conn = connect(db_path)
+    try:
+        yield conn
+    finally:
+        conn.close()

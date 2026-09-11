@@ -1,0 +1,28 @@
+# Python
+apps/api/.venv/
+apps/api/__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node
+node_modules/
+apps/web/.next/
+apps/web/node_modules/
+
+# Local data (never commit local SQLite DB, synthetic or not)
+data/
+*.db
+*.sqlite3
+
+# Debug artifacts (local-only, synthetic data mode)
+debug_runs/
+
+# Env
+.env
+.env.local
+
+# Test artifacts
+test-results/
+playwright-report/
+apps/web/coverage/

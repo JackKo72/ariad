@@ -1,0 +1,17 @@
+[
+  {
+    "id": "doctor_patient_simple",
+    "description": "의사 1명 + 환자 1명, 짧은 진료",
+    "transcript_text": "의사: 오늘 혈압이 조금 높게 나왔어요.\n환자: 요즘 짜게 먹었어요.\n의사: 혈압약 5mg 하루 한 번 드세요.\n환자: 네, 알겠습니다."
+  },
+  {
+    "id": "doctor_patient_guardian",
+    "description": "의사 + 환자 + 보호자",
+    "transcript_text": "의사: 검사 결과 특이 소견은 없습니다.\n보호자: 그럼 약은 계속 먹여야 하나요?\n의사: 네, 기존 약을 계속 유지하세요.\n환자: 알겠습니다."
+  },
+  {
+    "id": "negation_and_uncertainty",
+    "description": "부정 표현과 불확실 표현 포함",
+    "transcript_text": "의사: 지난번 처방된 약은 드셨나요?\n환자: 아니요, 복용하지 않았어요.\n의사: 아마 다음 주에 다시 확인해 보겠습니다."
+  }
+]
