@@ -3,6 +3,7 @@
 
 import type {
   ApiErrorBody,
+  AudioAsset,
   ClinicalStructure,
   Encounter,
   EncounterDetail,
@@ -101,4 +102,47 @@ export function revokeEncounter(id: string): Promise<EncounterDetail> {
 
 export function getPublicExplanation(token: string): Promise<ExplanationDraft> {
   return request<ExplanationDraft>(`/public/explanations/${token}`);
+}
+
+// Uses XMLHttpRequest (not fetch) because upload progress events need it.
+export function uploadAudio(
+  encounterId: string,
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<AudioAsset> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE_URL}/encounters/${encounterId}/audio`);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      let body: unknown;
+      try {
+        body = JSON.parse(xhr.responseText);
+      } catch {
+        body = { error_code: "UNKNOWN_ERROR", message: `HTTP ${xhr.status}`, retryable: false };
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(body as AudioAsset);
+      } else {
+        reject(new ApiError(xhr.status, body as ApiErrorBody));
+      }
+    };
+    xhr.onerror = () => {
+      reject(new ApiError(0, { error_code: "NETWORK_ERROR", message: "네트워크 오류로 업로드에 실패했습니다.", retryable: true }));
+    };
+
+    const formData = new FormData();
+    formData.append("file", file);
+    xhr.send(formData);
+  });
+}
+
+export function audioStreamUrl(encounterId: string, assetId: string): string {
+  return `${API_BASE_URL}/encounters/${encounterId}/audio/${assetId}/stream`;
 }

@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.domain.errors import AriadError
-from app.routes import encounters, public
+from app.routes import audio, encounters, public
 
 app = FastAPI(title="ARIAD API")
 
@@ -31,4 +31,5 @@ def healthz() -> dict[str, str]:
 
 
 app.include_router(encounters.router)
+app.include_router(audio.router)
 app.include_router(public.router)

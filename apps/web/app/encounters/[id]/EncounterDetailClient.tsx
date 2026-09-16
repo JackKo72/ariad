@@ -14,6 +14,9 @@ import {
 } from "@/lib/api";
 import { STATUS_LABELS, type EncounterDetail, type ExplanationDraft } from "@/lib/types";
 import { arrayToText, buildExplanationFromText, buildStructureFromText } from "@/lib/textFields";
+import AudioUploadPanel from "./AudioUploadPanel";
+
+type InputMethod = "transcript" | "audio";
 
 const EXPLANATION_TEXT_FIELDS = [
   ["current_situation", "현재 상태"],
@@ -32,6 +35,7 @@ export default function EncounterDetailClient({ id }: { id: string }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
+  const [inputMethod, setInputMethod] = useState<InputMethod>("transcript");
   const [transcriptInput, setTranscriptInput] = useState("");
   const [problemsText, setProblemsText] = useState("");
   const [draftNotice, setDraftNotice] = useState("");
@@ -140,23 +144,46 @@ export default function EncounterDetailClient({ id }: { id: string }) {
 
       {encounter.status === "DRAFT" && (
         <div className="card">
-          <h2 style={{ marginTop: 0 }}>합성 전사문 입력</h2>
-          <textarea
-            data-testid="transcript-input"
-            rows={8}
-            placeholder={"의사: ...\n환자: ..."}
-            value={transcriptInput}
-            onChange={(e) => setTranscriptInput(e.target.value)}
-          />
-          <div className="actions">
+          <h2 style={{ marginTop: 0 }}>입력 방법 선택</h2>
+          <div className="actions" style={{ marginTop: 0, marginBottom: 12 }}>
             <button
-              data-testid="submit-input-button"
-              disabled={actionLoading || transcriptInput.trim().length === 0}
-              onClick={() => runAction(() => submitInput(id, transcriptInput))}
+              data-testid="input-method-transcript"
+              className={inputMethod === "transcript" ? "" : "secondary"}
+              onClick={() => setInputMethod("transcript")}
             >
-              제출
+              전사문 직접 입력
+            </button>
+            <button
+              data-testid="input-method-audio"
+              className={inputMethod === "audio" ? "" : "secondary"}
+              onClick={() => setInputMethod("audio")}
+            >
+              내 컴퓨터에서 음성파일 선택
             </button>
           </div>
+
+          {inputMethod === "transcript" && (
+            <>
+              <textarea
+                data-testid="transcript-input"
+                rows={8}
+                placeholder={"의사: ...\n환자: ..."}
+                value={transcriptInput}
+                onChange={(e) => setTranscriptInput(e.target.value)}
+              />
+              <div className="actions">
+                <button
+                  data-testid="submit-input-button"
+                  disabled={actionLoading || transcriptInput.trim().length === 0}
+                  onClick={() => runAction(() => submitInput(id, transcriptInput))}
+                >
+                  제출
+                </button>
+              </div>
+            </>
+          )}
+
+          {inputMethod === "audio" && <AudioUploadPanel encounterId={id} />}
         </div>
       )}
 

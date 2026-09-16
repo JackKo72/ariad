@@ -17,6 +17,10 @@ def get_db_path() -> str:
     return os.environ.get("ARIAD_DB_PATH", "./data/ariad.db")
 
 
+def get_audio_dir() -> str:
+    return os.environ.get("ARIAD_AUDIO_DIR", "./data/audio")
+
+
 def get_repository() -> Iterator[EncounterRepository]:
     conn = db.connect(get_db_path())
     try:

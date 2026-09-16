@@ -14,6 +14,7 @@ from typing import Callable, Optional
 from app.clock import utc_now_iso
 from app.domain.errors import ApprovalStaleVersion, NotFoundError, PublishNotApproved
 from app.domain.models import (
+    AudioAsset,
     ClinicalStructure,
     Encounter,
     EncounterStatus,
@@ -52,6 +53,19 @@ def _row_to_version(row: sqlite3.Row) -> EncounterVersion:
         prompt_version_explanation=row["prompt_version_explanation"],
         created_at=row["created_at"],
         approved_at=row["approved_at"],
+    )
+
+
+def _row_to_audio_asset(row: sqlite3.Row) -> AudioAsset:
+    return AudioAsset(
+        id=row["id"],
+        encounter_id=row["encounter_id"],
+        kind=row["kind"],
+        original_filename=row["original_filename"],
+        mime_type=row["mime_type"],
+        size_bytes=row["size_bytes"],
+        duration_seconds=row["duration_seconds"],
+        created_at=row["created_at"],
     )
 
 
@@ -311,6 +325,74 @@ class EncounterRepository:
         self._add_audit_event(encounter_id, "REVOKED", {})
         self._conn.commit()
         return self.get_encounter(encounter_id)
+
+    # -- audio assets (tasks/02_AUDIO_PIPELINE.md Phase A) ------------------
+
+    def create_audio_asset(
+        self,
+        encounter_id: str,
+        *,
+        kind: str,
+        storage_path: str,
+        original_filename: Optional[str],
+        mime_type: Optional[str],
+        size_bytes: int,
+        duration_seconds: float,
+        sha256_hash: str,
+    ) -> AudioAsset:
+        # Uploading is only meaningful before a transcript exists; reuses the
+        # same DRAFT guard input/other Task 01 entry points use instead of
+        # inventing a parallel status check.
+        encounter = self.get_encounter(encounter_id)
+        ensure_status(encounter.status, {EncounterStatus.DRAFT}, "upload_audio")
+
+        asset_id = new_id()
+        now = self._now()
+        self._conn.execute(
+            """INSERT INTO audio_assets
+               (id, encounter_id, kind, storage_path, original_filename, mime_type,
+                size_bytes, duration_seconds, sha256_hash, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                asset_id,
+                encounter_id,
+                kind,
+                storage_path,
+                original_filename,
+                mime_type,
+                size_bytes,
+                duration_seconds,
+                sha256_hash,
+                now,
+            ),
+        )
+        self._add_audit_event(
+            encounter_id, "AUDIO_UPLOADED", {"asset_id": asset_id, "size_bytes": size_bytes}
+        )
+        self._conn.commit()
+        return self.get_audio_asset(asset_id)
+
+    def get_audio_asset(self, asset_id: str) -> AudioAsset:
+        row = self._conn.execute(
+            "SELECT * FROM audio_assets WHERE id = ?", (asset_id,)
+        ).fetchone()
+        if row is None:
+            raise NotFoundError("AudioAsset")
+        return _row_to_audio_asset(row)
+
+    def get_audio_asset_storage_path(self, asset_id: str) -> str:
+        row = self._conn.execute(
+            "SELECT storage_path FROM audio_assets WHERE id = ?", (asset_id,)
+        ).fetchone()
+        if row is None:
+            raise NotFoundError("AudioAsset")
+        return row["storage_path"]
+
+    def list_audio_assets(self, encounter_id: str) -> list[AudioAsset]:
+        rows = self._conn.execute(
+            "SELECT * FROM audio_assets WHERE encounter_id = ? ORDER BY created_at", (encounter_id,)
+        ).fetchall()
+        return [_row_to_audio_asset(row) for row in rows]
 
     # -- audit -------------------------------------------------------------
 

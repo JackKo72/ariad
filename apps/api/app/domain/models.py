@@ -84,6 +84,23 @@ class EncounterDetail(BaseModel):
     approved_version: Optional[EncounterVersion] = None
 
 
+class AudioAsset(BaseModel):
+    """API-facing shape for an uploaded/processed audio file.
+
+    Deliberately has no hash field -- docs/... task 02 section 5: "사용자에게
+    원본 hash를 공개하지 않는다". The hash lives only in the DB row.
+    """
+
+    id: str
+    encounter_id: str
+    kind: str  # "original" (Phase A). "processed" arrives in Phase B.
+    original_filename: Optional[str] = None
+    mime_type: Optional[str] = None
+    size_bytes: int
+    duration_seconds: float
+    created_at: str
+
+
 class PipelineResult(BaseModel):
     success: bool
     structure: Optional[ClinicalStructure] = None

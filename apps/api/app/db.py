@@ -46,6 +46,23 @@ CREATE TABLE IF NOT EXISTS audit_events (
     metadata_json TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
+
+-- tasks/02_AUDIO_PIPELINE.md Phase A. storage_path is a server-generated
+-- path, never derived from the user's filename (path traversal guard);
+-- sha256_hash is kept for future duplicate detection but is never returned
+-- by the API (docs/DEBUGGING.md: never expose hashes tying back to content).
+CREATE TABLE IF NOT EXISTS audio_assets (
+    id TEXT PRIMARY KEY,
+    encounter_id TEXT NOT NULL REFERENCES encounters(id),
+    kind TEXT NOT NULL,
+    storage_path TEXT NOT NULL,
+    original_filename TEXT,
+    mime_type TEXT,
+    size_bytes INTEGER NOT NULL,
+    duration_seconds REAL NOT NULL,
+    sha256_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 """
 
 

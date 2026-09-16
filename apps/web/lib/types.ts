@@ -67,6 +67,17 @@ export interface EncounterDetail {
   approved_version: EncounterVersion | null;
 }
 
+export interface AudioAsset {
+  id: string;
+  encounter_id: string;
+  kind: "original" | "processed";
+  original_filename: string | null;
+  mime_type: string | null;
+  size_bytes: number;
+  duration_seconds: number;
+  created_at: string;
+}
+
 export interface ApiErrorBody {
   error_code: string;
   message: string;

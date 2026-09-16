@@ -2,7 +2,9 @@
 
 Codes marked (task-01) are generic state-machine guards this vertical slice
 needs but that docs/DEBUGGING.md's taxonomy does not cover (that taxonomy is
-written for the audio/ASR pipeline in tasks/02_AUDIO_PIPELINE.md).
+written for the audio/ASR pipeline in tasks/02_AUDIO_PIPELINE.md). The
+AUDIO_* codes below are that taxonomy's Phase A (upload validation) subset --
+see tasks/02_AUDIO_PIPELINE.md section 5.
 """
 
 from __future__ import annotations
@@ -63,5 +65,55 @@ class NotFoundError(AriadError):
             code="NOT_FOUND",
             message=f"{entity} not found.",
             http_status=404,
+            retryable=False,
+        )
+
+
+class AudioFileTooLarge(AriadError):
+    def __init__(self, max_bytes: int):
+        super().__init__(
+            code="AUDIO_FILE_TOO_LARGE",
+            message=f"Audio file exceeds the {max_bytes // (1024 * 1024)} MB limit.",
+            http_status=413,
+            retryable=False,
+        )
+
+
+class AudioDurationTooLong(AriadError):
+    def __init__(self, max_minutes: int):
+        super().__init__(
+            code="AUDIO_DURATION_TOO_LONG",
+            message=f"Audio duration exceeds the {max_minutes}-minute development limit.",
+            http_status=422,
+            retryable=False,
+        )
+
+
+class AudioUnsupportedFormat(AriadError):
+    def __init__(self, detected: str | None):
+        super().__init__(
+            code="AUDIO_UNSUPPORTED_FORMAT",
+            message=f"Unsupported audio format (detected: {detected or 'unknown'}).",
+            http_status=422,
+            retryable=False,
+        )
+
+
+class AudioStreamMissing(AriadError):
+    def __init__(self):
+        super().__init__(
+            code="AUDIO_STREAM_MISSING",
+            message="The uploaded file has no usable audio stream.",
+            http_status=422,
+            retryable=False,
+        )
+
+
+class AudioProbeFailed(AriadError):
+    def __init__(self):
+        super().__init__(
+            code="AUDIO_PROBE_FAILED",
+            message="The uploaded file could not be read as media.",
+            http_status=422,
             retryable=False,
         )

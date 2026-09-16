@@ -20,7 +20,7 @@ export default defineConfig({
       url: "http://localhost:8000/healthz",
       reuseExistingServer: !process.env.CI,
       timeout: 30_000,
-      env: { ARIAD_DB_PATH: "./apps/api/data/e2e.db" },
+      env: { ARIAD_DB_PATH: "./apps/api/data/e2e.db", ARIAD_AUDIO_DIR: "./apps/api/data/e2e_audio" },
     },
     {
       command: "npm run dev --prefix apps/web -- --port 3000",

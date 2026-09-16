@@ -11,6 +11,9 @@ doctor:
 	@test -d apps/api/.venv && echo "apps/api/.venv: OK" || echo "apps/api/.venv: missing (run 'make setup')"
 	@test -d apps/web/node_modules && echo "apps/web/node_modules: OK" || echo "apps/web/node_modules: missing (run 'make setup')"
 	@test -d node_modules && echo "root node_modules (playwright): OK" || echo "root node_modules: missing (run 'make setup')"
+	@command -v ffmpeg >/dev/null && echo "ffmpeg: OK ($$(ffmpeg -version | head -1))" || echo "ffmpeg: missing. Install with: sudo apt-get install -y ffmpeg"
+	@command -v ffprobe >/dev/null && echo "ffprobe: OK" || echo "ffprobe: missing. Install with: sudo apt-get install -y ffmpeg"
+	@command -v espeak-ng >/dev/null && echo "espeak-ng (offline TTS, optional): OK" || echo "espeak-ng (offline TTS, optional, for 'make sample-audio'): missing. Install with: sudo apt-get install -y espeak-ng"
 
 setup:
 	python3 -m venv apps/api/.venv
@@ -23,7 +26,8 @@ dev:
 	@echo "Starting API on :8000 and web on :3000 (Ctrl+C to stop both)"
 	@( \
 	  trap 'kill 0' EXIT; \
-	  ARIAD_DB_PATH=./data/ariad.db apps/api/.venv/bin/uvicorn app.main:app --app-dir apps/api --reload --port 8000 & \
+	  ARIAD_DB_PATH=./apps/api/data/ariad.db ARIAD_AUDIO_DIR=./apps/api/data/audio \
+	    apps/api/.venv/bin/uvicorn app.main:app --app-dir apps/api --reload --port 8000 & \
 	  npm run dev --prefix apps/web -- --port 3000 & \
 	  wait \
 	)
@@ -34,6 +38,7 @@ test:
 
 e2e:
 	rm -f apps/api/data/e2e.db
+	rm -rf apps/api/data/e2e_audio
 	npx playwright test
 
 eval:
