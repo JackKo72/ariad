@@ -61,9 +61,27 @@ CREATE TABLE IF NOT EXISTS audio_assets (
     size_bytes INTEGER NOT NULL,
     duration_seconds REAL NOT NULL,
     sha256_hash TEXT NOT NULL,
+    preprocessing_mode TEXT,
+    source_asset_id TEXT,
     created_at TEXT NOT NULL
 );
 """
+
+# Columns added after the first release of a table above. SQLite has no
+# "ADD COLUMN IF NOT EXISTS", so existing local dev DBs (never migrated,
+# always gitignored) are patched in place instead of forcing a manual
+# delete-and-recreate every time the schema grows.
+_COLUMN_MIGRATIONS: list[tuple[str, str, str]] = [
+    ("audio_assets", "preprocessing_mode", "ALTER TABLE audio_assets ADD COLUMN preprocessing_mode TEXT"),
+    ("audio_assets", "source_asset_id", "ALTER TABLE audio_assets ADD COLUMN source_asset_id TEXT"),
+]
+
+
+def _apply_column_migrations(conn: sqlite3.Connection) -> None:
+    for table, column, ddl in _COLUMN_MIGRATIONS:
+        existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in existing:
+            conn.execute(ddl)
 
 
 def connect(db_path: str) -> sqlite3.Connection:
@@ -73,6 +91,7 @@ def connect(db_path: str) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(SCHEMA)
+    _apply_column_migrations(conn)
     return conn
 
 

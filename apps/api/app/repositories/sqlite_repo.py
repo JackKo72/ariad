@@ -65,6 +65,8 @@ def _row_to_audio_asset(row: sqlite3.Row) -> AudioAsset:
         mime_type=row["mime_type"],
         size_bytes=row["size_bytes"],
         duration_seconds=row["duration_seconds"],
+        preprocessing_mode=row["preprocessing_mode"],
+        source_asset_id=row["source_asset_id"],
         created_at=row["created_at"],
     )
 
@@ -339,10 +341,12 @@ class EncounterRepository:
         size_bytes: int,
         duration_seconds: float,
         sha256_hash: str,
+        preprocessing_mode: Optional[str] = None,
+        source_asset_id: Optional[str] = None,
     ) -> AudioAsset:
-        # Uploading is only meaningful before a transcript exists; reuses the
-        # same DRAFT guard input/other Task 01 entry points use instead of
-        # inventing a parallel status check.
+        # Uploading/preprocessing is only meaningful before a transcript
+        # exists; reuses the same DRAFT guard input/other Task 01 entry
+        # points use instead of inventing a parallel status check.
         encounter = self.get_encounter(encounter_id)
         ensure_status(encounter.status, {EncounterStatus.DRAFT}, "upload_audio")
 
@@ -351,8 +355,9 @@ class EncounterRepository:
         self._conn.execute(
             """INSERT INTO audio_assets
                (id, encounter_id, kind, storage_path, original_filename, mime_type,
-                size_bytes, duration_seconds, sha256_hash, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                size_bytes, duration_seconds, sha256_hash, preprocessing_mode,
+                source_asset_id, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 asset_id,
                 encounter_id,
@@ -363,11 +368,14 @@ class EncounterRepository:
                 size_bytes,
                 duration_seconds,
                 sha256_hash,
+                preprocessing_mode,
+                source_asset_id,
                 now,
             ),
         )
+        event_type = "AUDIO_UPLOADED" if kind == "original" else "AUDIO_PREPROCESSED"
         self._add_audit_event(
-            encounter_id, "AUDIO_UPLOADED", {"asset_id": asset_id, "size_bytes": size_bytes}
+            encounter_id, event_type, {"asset_id": asset_id, "size_bytes": size_bytes}
         )
         self._conn.commit()
         return self.get_audio_asset(asset_id)

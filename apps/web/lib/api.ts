@@ -146,3 +146,16 @@ export function uploadAudio(
 export function audioStreamUrl(encounterId: string, assetId: string): string {
   return `${API_BASE_URL}/encounters/${encounterId}/audio/${assetId}/stream`;
 }
+
+export type PreprocessingMode = "none" | "light_denoise";
+
+export function preprocessAudio(
+  encounterId: string,
+  sourceAssetId: string,
+  mode: PreprocessingMode,
+): Promise<AudioAsset> {
+  return request<AudioAsset>(`/encounters/${encounterId}/audio/preprocess`, {
+    method: "POST",
+    body: JSON.stringify({ source_asset_id: sourceAssetId, mode }),
+  });
+}

@@ -117,3 +117,13 @@ class AudioProbeFailed(AriadError):
             http_status=422,
             retryable=False,
         )
+
+
+class AudioConversionFailed(AriadError):
+    def __init__(self):
+        super().__init__(
+            code="AUDIO_CONVERSION_FAILED",
+            message="Audio standardization/preprocessing failed.",
+            http_status=422,
+            retryable=True,
+        )

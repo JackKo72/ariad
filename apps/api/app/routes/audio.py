@@ -12,8 +12,9 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, UploadFile
 from fastapi.responses import Response
+from pydantic import BaseModel
 
-from app.audio import storage, validation
+from app.audio import preprocess, storage, validation
 from app.domain.errors import AudioFileTooLarge, NotFoundError
 from app.domain.models import AudioAsset
 from app.repositories.sqlite_repo import EncounterRepository
@@ -88,6 +89,41 @@ async def upload_audio(
         size_bytes=len(content),
         duration_seconds=probe.duration_seconds,
         sha256_hash=sha256_hash,
+    )
+
+
+class PreprocessRequest(BaseModel):
+    source_asset_id: str
+    mode: preprocess.PreprocessingMode
+
+
+@router.post("/{encounter_id}/audio/preprocess", response_model=AudioAsset, status_code=201)
+def preprocess_audio(
+    encounter_id: str,
+    body: PreprocessRequest,
+    repo: EncounterRepository = Depends(get_repository),
+) -> AudioAsset:
+    source = repo.get_audio_asset(body.source_asset_id)
+    if source.encounter_id != encounter_id or source.kind != "original":
+        raise NotFoundError("AudioAsset")
+    source_path = Path(repo.get_audio_asset_storage_path(body.source_asset_id))
+
+    audio_dir = get_audio_dir()
+    asset_id, output_path = storage.new_asset_path(audio_dir, encounter_id)
+    preprocess.standardize_audio(source_path, output_path, body.mode)
+
+    probe = validation.probe_audio(str(output_path))
+    return repo.create_audio_asset(
+        encounter_id,
+        kind="processed",
+        storage_path=str(output_path),
+        original_filename=source.original_filename,
+        mime_type="audio/wav",
+        size_bytes=output_path.stat().st_size,
+        duration_seconds=probe.duration_seconds,
+        sha256_hash=storage.sha256_of_file(output_path),
+        preprocessing_mode=body.mode,
+        source_asset_id=body.source_asset_id,
     )
 
 

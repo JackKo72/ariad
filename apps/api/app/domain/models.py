@@ -93,11 +93,13 @@ class AudioAsset(BaseModel):
 
     id: str
     encounter_id: str
-    kind: str  # "original" (Phase A). "processed" arrives in Phase B.
+    kind: str  # "original" | "processed"
     original_filename: Optional[str] = None
     mime_type: Optional[str] = None
     size_bytes: int
     duration_seconds: float
+    preprocessing_mode: Optional[str] = None  # None for "original"; "none" | "light_denoise" for "processed"
+    source_asset_id: Optional[str] = None  # the "original" asset a "processed" one was derived from
     created_at: str
 
 

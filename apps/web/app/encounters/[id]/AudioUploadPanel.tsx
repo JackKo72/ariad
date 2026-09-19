@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ApiError, audioStreamUrl, uploadAudio } from "@/lib/api";
+import { ApiError, audioStreamUrl, preprocessAudio, uploadAudio, type PreprocessingMode } from "@/lib/api";
 import type { AudioAsset } from "@/lib/types";
 
 function formatBytes(bytes: number): string {
@@ -23,11 +23,17 @@ export default function AudioUploadPanel({ encounterId }: { encounterId: string 
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  const [preprocessingMode, setPreprocessingMode] = useState<PreprocessingMode>("none");
+  const [processedAsset, setProcessedAsset] = useState<AudioAsset | null>(null);
+  const [preprocessing, setPreprocessing] = useState(false);
+  const [preprocessError, setPreprocessError] = useState<string | null>(null);
+
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0];
     if (!selected) return;
     setFile(selected);
     setAsset(null);
+    setProcessedAsset(null);
     setError(null);
     setUploading(true);
     setProgress(0);
@@ -38,6 +44,20 @@ export default function AudioUploadPanel({ encounterId }: { encounterId: string 
       setError(err instanceof ApiError ? `[${err.code}] ${err.message}` : "업로드에 실패했습니다.");
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handlePreprocess() {
+    if (!asset) return;
+    setPreprocessing(true);
+    setPreprocessError(null);
+    try {
+      const processed = await preprocessAudio(encounterId, asset.id, preprocessingMode);
+      setProcessedAsset(processed);
+    } catch (err) {
+      setPreprocessError(err instanceof ApiError ? `[${err.code}] ${err.message}` : "전처리에 실패했습니다.");
+    } finally {
+      setPreprocessing(false);
     }
   }
 
@@ -69,19 +89,61 @@ export default function AudioUploadPanel({ encounterId }: { encounterId: string 
 
       {asset && (
         <div style={{ marginTop: 12 }} data-testid="audio-asset-info">
-          <div style={{ fontSize: "0.85rem", color: "var(--color-muted)" }}>
-            서버 확인 길이: {formatDuration(asset.duration_seconds)}
-          </div>
+          <label>원본 (서버 확인 길이: {formatDuration(asset.duration_seconds)})</label>
           <audio
             controls
             data-testid="original-audio-player"
             src={audioStreamUrl(encounterId, asset.id)}
-            style={{ width: "100%", marginTop: 8 }}
+            style={{ width: "100%" }}
           />
-          <p className="notice-box" style={{ marginTop: 12 }}>
-            업로드가 완료되었습니다. 오디오 표준화·전사 단계는 다음 단계에서 제공됩니다. 지금은
-            &quot;전사문 직접 입력&quot; 탭으로 전환해 계속 진행할 수 있습니다.
-          </p>
+
+          <label style={{ marginTop: 16 }}>전처리 방식</label>
+          <div className="actions" style={{ marginTop: 0 }}>
+            <button
+              data-testid="preprocess-mode-none"
+              className={preprocessingMode === "none" ? "" : "secondary"}
+              onClick={() => setPreprocessingMode("none")}
+            >
+              원본 유지 (표준화만)
+            </button>
+            <button
+              data-testid="preprocess-mode-light-denoise"
+              className={preprocessingMode === "light_denoise" ? "" : "secondary"}
+              onClick={() => setPreprocessingMode("light_denoise")}
+            >
+              가벼운 소음처리
+            </button>
+          </div>
+          <div className="actions">
+            <button
+              data-testid="preprocess-button"
+              disabled={preprocessing}
+              onClick={handlePreprocess}
+            >
+              {preprocessing ? "전처리 중..." : "전처리 시작"}
+            </button>
+          </div>
+
+          {preprocessError && <div className="error-box">{preprocessError}</div>}
+
+          {processedAsset && (
+            <div style={{ marginTop: 12 }} data-testid="processed-audio-info">
+              <label>
+                전처리 결과 ({processedAsset.preprocessing_mode === "light_denoise" ? "가벼운 소음처리" : "원본 유지"},
+                길이: {formatDuration(processedAsset.duration_seconds)})
+              </label>
+              <audio
+                controls
+                data-testid="processed-audio-player"
+                src={audioStreamUrl(encounterId, processedAsset.id)}
+                style={{ width: "100%" }}
+              />
+              <p className="notice-box" style={{ marginTop: 12 }}>
+                원본과 전처리 결과를 번갈아 들어보고 비교할 수 있습니다. 전사 연결은 다음 단계에서
+                제공됩니다. 지금은 &quot;전사문 직접 입력&quot; 탭으로 전환해 계속 진행할 수 있습니다.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -75,6 +75,8 @@ export interface AudioAsset {
   mime_type: string | null;
   size_bytes: number;
   duration_seconds: number;
+  preprocessing_mode: "none" | "light_denoise" | null;
+  source_asset_id: string | null;
   created_at: string;
 }
 
