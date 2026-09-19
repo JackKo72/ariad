@@ -1,4 +1,4 @@
-.PHONY: doctor setup dev test e2e eval lint
+.PHONY: doctor setup dev test e2e eval lint sample-audio
 
 doctor:
 	@echo "Checking required tools..."
@@ -14,6 +14,9 @@ doctor:
 	@command -v ffmpeg >/dev/null && echo "ffmpeg: OK ($$(ffmpeg -version | head -1))" || echo "ffmpeg: missing. Install with: sudo apt-get install -y ffmpeg"
 	@command -v ffprobe >/dev/null && echo "ffprobe: OK" || echo "ffprobe: missing. Install with: sudo apt-get install -y ffmpeg"
 	@command -v espeak-ng >/dev/null && echo "espeak-ng (offline TTS, optional): OK" || echo "espeak-ng (offline TTS, optional, for 'make sample-audio'): missing. Install with: sudo apt-get install -y espeak-ng"
+
+sample-audio:
+	python3 scripts/generate_sample_audio.py
 
 setup:
 	python3 -m venv apps/api/.venv
@@ -45,6 +48,6 @@ eval:
 	apps/api/.venv/bin/python tests/evals/run_eval.py
 
 lint:
-	apps/api/.venv/bin/ruff check apps/api
+	apps/api/.venv/bin/ruff check apps/api scripts
 	npm run lint --prefix apps/web
 	npm run typecheck --prefix apps/web

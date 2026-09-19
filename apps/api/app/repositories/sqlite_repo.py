@@ -16,10 +16,12 @@ from app.domain.errors import ApprovalStaleVersion, NotFoundError, PublishNotApp
 from app.domain.models import (
     AudioAsset,
     ClinicalStructure,
+    DiarizedSegment,
     Encounter,
     EncounterStatus,
     EncounterVersion,
     ExplanationDraft,
+    PipelineRun,
     VersionStatus,
 )
 from app.domain.state_machine import ensure_status, ensure_transition
@@ -67,7 +69,24 @@ def _row_to_audio_asset(row: sqlite3.Row) -> AudioAsset:
         duration_seconds=row["duration_seconds"],
         preprocessing_mode=row["preprocessing_mode"],
         source_asset_id=row["source_asset_id"],
+        sample_id=row["sample_id"],
         created_at=row["created_at"],
+    )
+
+
+def _row_to_pipeline_run(row: sqlite3.Row) -> PipelineRun:
+    return PipelineRun(
+        id=row["id"],
+        encounter_id=row["encounter_id"],
+        mode=row["mode"],
+        status=row["status"],
+        audio_asset_id=row["audio_asset_id"],
+        sample_id=row["sample_id"],
+        segments=[DiarizedSegment.model_validate(s) for s in json.loads(row["segments_json"])],
+        roles=json.loads(row["roles_json"]),
+        error_code=row["error_code"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
     )
 
 
@@ -343,6 +362,7 @@ class EncounterRepository:
         sha256_hash: str,
         preprocessing_mode: Optional[str] = None,
         source_asset_id: Optional[str] = None,
+        sample_id: Optional[str] = None,
     ) -> AudioAsset:
         # Uploading/preprocessing is only meaningful before a transcript
         # exists; reuses the same DRAFT guard input/other Task 01 entry
@@ -356,8 +376,8 @@ class EncounterRepository:
             """INSERT INTO audio_assets
                (id, encounter_id, kind, storage_path, original_filename, mime_type,
                 size_bytes, duration_seconds, sha256_hash, preprocessing_mode,
-                source_asset_id, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                source_asset_id, sample_id, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 asset_id,
                 encounter_id,
@@ -370,6 +390,7 @@ class EncounterRepository:
                 sha256_hash,
                 preprocessing_mode,
                 source_asset_id,
+                sample_id,
                 now,
             ),
         )
@@ -401,6 +422,92 @@ class EncounterRepository:
             "SELECT * FROM audio_assets WHERE encounter_id = ? ORDER BY created_at", (encounter_id,)
         ).fetchall()
         return [_row_to_audio_asset(row) for row in rows]
+
+    def update_draft_transcript_text(self, encounter_id: str, transcript_text: str) -> None:
+        """Fills in the placeholder ('') transcript_text a draft version was
+        created with (see submit_audio_pipeline_run) once it has actually
+        been derived from confirmed speaker roles. Not a clinician edit, so
+        no new version is created -- mirrors complete_processing's in-place
+        update of the same row."""
+        encounter = self.get_encounter(encounter_id)
+        self._conn.execute(
+            "UPDATE encounter_versions SET transcript_text = ? WHERE id = ?",
+            (transcript_text, encounter.current_draft_version_id),
+        )
+        self._conn.commit()
+
+    # -- pipeline runs (tasks/02_AUDIO_PIPELINE.md Phase C) -----------------
+
+    def create_pipeline_run(
+        self,
+        encounter_id: str,
+        *,
+        mode: str,
+        audio_asset_id: Optional[str],
+        sample_id: Optional[str],
+        segments: list[DiarizedSegment],
+    ) -> PipelineRun:
+        run_id = new_id()
+        now = self._now()
+        self._conn.execute(
+            """INSERT INTO pipeline_runs
+               (id, encounter_id, mode, status, audio_asset_id, sample_id,
+                segments_json, roles_json, error_code, created_at, updated_at)
+               VALUES (?, ?, ?, 'needs_role_confirmation', ?, ?, ?, '{}', NULL, ?, ?)""",
+            (
+                run_id,
+                encounter_id,
+                mode,
+                audio_asset_id,
+                sample_id,
+                json.dumps([s.model_dump() for s in segments]),
+                now,
+                now,
+            ),
+        )
+        self._add_audit_event(encounter_id, "PIPELINE_RUN_CREATED", {"run_id": run_id, "mode": mode})
+        self._conn.commit()
+        return self.get_pipeline_run(run_id)
+
+    def get_pipeline_run(self, run_id: str) -> PipelineRun:
+        row = self._conn.execute("SELECT * FROM pipeline_runs WHERE id = ?", (run_id,)).fetchone()
+        if row is None:
+            raise NotFoundError("PipelineRun")
+        return _row_to_pipeline_run(row)
+
+    def get_active_pipeline_run(self, encounter_id: str) -> Optional[PipelineRun]:
+        """The most recent run that hasn't completed yet, if any."""
+        row = self._conn.execute(
+            """SELECT * FROM pipeline_runs
+               WHERE encounter_id = ? AND status != 'completed'
+               ORDER BY created_at DESC LIMIT 1""",
+            (encounter_id,),
+        ).fetchone()
+        return _row_to_pipeline_run(row) if row else None
+
+    def set_pipeline_run_roles(self, run_id: str, roles: dict[str, str]) -> PipelineRun:
+        run = self.get_pipeline_run(run_id)
+        known_speakers = {seg.speaker for seg in run.segments}
+        if not roles or not set(roles.keys()).issubset(known_speakers):
+            raise NotFoundError("Speaker")
+        now = self._now()
+        self._conn.execute(
+            "UPDATE pipeline_runs SET roles_json = ?, updated_at = ? WHERE id = ?",
+            (json.dumps(roles), now, run_id),
+        )
+        self._add_audit_event(run.encounter_id, "SPEAKER_ROLES_CONFIRMED", {"run_id": run_id})
+        self._conn.commit()
+        return self.get_pipeline_run(run_id)
+
+    def complete_pipeline_run(self, run_id: str) -> PipelineRun:
+        run = self.get_pipeline_run(run_id)
+        now = self._now()
+        self._conn.execute(
+            "UPDATE pipeline_runs SET status = 'completed', updated_at = ? WHERE id = ?",
+            (now, run_id),
+        )
+        self._conn.commit()
+        return self.get_pipeline_run(run.id)
 
     # -- audit -------------------------------------------------------------
 

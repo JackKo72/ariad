@@ -4,10 +4,12 @@
 import type {
   ApiErrorBody,
   AudioAsset,
+  Capabilities,
   ClinicalStructure,
   Encounter,
   EncounterDetail,
   ExplanationDraft,
+  SampleSelectionResult,
 } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -158,4 +160,25 @@ export function preprocessAudio(
     method: "POST",
     body: JSON.stringify({ source_asset_id: sourceAssetId, mode }),
   });
+}
+
+export function selectSampleAudio(encounterId: string, sampleId: string): Promise<SampleSelectionResult> {
+  return request<SampleSelectionResult>(`/encounters/${encounterId}/audio/sample`, {
+    method: "POST",
+    body: JSON.stringify({ sample_id: sampleId }),
+  });
+}
+
+export function setSpeakerRoles(
+  encounterId: string,
+  roles: Record<string, string>,
+): Promise<EncounterDetail> {
+  return request<EncounterDetail>(`/encounters/${encounterId}/speaker-roles`, {
+    method: "PATCH",
+    body: JSON.stringify({ roles }),
+  });
+}
+
+export function getCapabilities(): Promise<Capabilities> {
+  return request<Capabilities>("/system/capabilities");
 }

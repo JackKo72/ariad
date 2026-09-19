@@ -15,8 +15,10 @@ import {
 import { STATUS_LABELS, type EncounterDetail, type ExplanationDraft } from "@/lib/types";
 import { arrayToText, buildExplanationFromText, buildStructureFromText } from "@/lib/textFields";
 import AudioUploadPanel from "./AudioUploadPanel";
+import SampleAudioPanel from "./SampleAudioPanel";
+import SpeakerRoleConfirmation from "./SpeakerRoleConfirmation";
 
-type InputMethod = "transcript" | "audio";
+type InputMethod = "transcript" | "audio" | "sample";
 
 const EXPLANATION_TEXT_FIELDS = [
   ["current_situation", "현재 상태"],
@@ -147,11 +149,11 @@ export default function EncounterDetailClient({ id }: { id: string }) {
           <h2 style={{ marginTop: 0 }}>입력 방법 선택</h2>
           <div className="actions" style={{ marginTop: 0, marginBottom: 12 }}>
             <button
-              data-testid="input-method-transcript"
-              className={inputMethod === "transcript" ? "" : "secondary"}
-              onClick={() => setInputMethod("transcript")}
+              data-testid="input-method-sample"
+              className={inputMethod === "sample" ? "" : "secondary"}
+              onClick={() => setInputMethod("sample")}
             >
-              전사문 직접 입력
+              샘플 음성 사용
             </button>
             <button
               data-testid="input-method-audio"
@@ -160,7 +162,16 @@ export default function EncounterDetailClient({ id }: { id: string }) {
             >
               내 컴퓨터에서 음성파일 선택
             </button>
+            <button
+              data-testid="input-method-transcript"
+              className={inputMethod === "transcript" ? "" : "secondary"}
+              onClick={() => setInputMethod("transcript")}
+            >
+              전사문 직접 입력
+            </button>
           </div>
+
+          {inputMethod === "sample" && <SampleAudioPanel encounterId={id} onSelected={reload} />}
 
           {inputMethod === "transcript" && (
             <>
@@ -189,16 +200,26 @@ export default function EncounterDetailClient({ id }: { id: string }) {
 
       {encounter.status === "SUBMITTED" && (
         <div className="card">
-          <p>전사문이 제출되었습니다. 처리를 시작하세요.</p>
-          <div className="actions">
-            <button
-              data-testid="process-button"
-              disabled={actionLoading}
-              onClick={() => runAction(() => processEncounter(id))}
-            >
-              {actionLoading ? "처리 중..." : "처리 시작"}
-            </button>
-          </div>
+          {detail.active_pipeline_run && detail.active_pipeline_run.status === "needs_role_confirmation" ? (
+            <SpeakerRoleConfirmation
+              encounterId={id}
+              pipelineRun={detail.active_pipeline_run}
+              onConfirmed={reload}
+            />
+          ) : (
+            <>
+              <p>전사문이 제출되었습니다. 처리를 시작하세요.</p>
+              <div className="actions">
+                <button
+                  data-testid="process-button"
+                  disabled={actionLoading}
+                  onClick={() => runAction(() => processEncounter(id))}
+                >
+                  {actionLoading ? "처리 중..." : "처리 시작"}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
 

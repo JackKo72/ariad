@@ -1,0 +1,49 @@
+{
+  "draft_notice": "의료진 검토 전 초안입니다.",
+  "current_situation": [
+    "오늘 혈압을 재보니 145에 92로 조금 높게 나왔습니다."
+  ],
+  "tests_and_reasons": [],
+  "treatment_plan": [
+    "혈압약 리시노프릴 오 밀리그램을 하루 한 번 아침에 드시는 걸로 시작하겠습니다.",
+    "아스피린은 지금 시작하지 않습니다."
+  ],
+  "medication_instructions": [
+    "혈압약 리시노프릴 오 밀리그램을 하루 한 번 아침에 드시는 걸로 시작하겠습니다."
+  ],
+  "warning_signs": [
+    "만약 갑자기 심한 두통이나 가슴 통증, 숨쉬기 어려운 증상이 생기면 바로 응급실로 가셔야 합니다."
+  ],
+  "what_to_do_next": [],
+  "follow_up": [
+    "그리고 이 주 뒤인 시월 첫째 주에 다시 오셔서 혈압을 확인하겠습니다."
+  ],
+  "items_to_confirm_with_clinician": [],
+  "source_map": [
+    {
+      "field": "current_situation",
+      "source_segment_ids": [
+        "seg_001"
+      ]
+    },
+    {
+      "field": "treatment_plan",
+      "source_segment_ids": [
+        "seg_003",
+        "seg_005"
+      ]
+    },
+    {
+      "field": "warning_signs",
+      "source_segment_ids": [
+        "seg_009"
+      ]
+    },
+    {
+      "field": "follow_up",
+      "source_segment_ids": [
+        "seg_007"
+      ]
+    }
+  ]
+}

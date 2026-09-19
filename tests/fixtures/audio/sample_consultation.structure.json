@@ -1,0 +1,61 @@
+{
+  "problems": [
+    {
+      "text": "혈압이 145/92로 높게 측정됨",
+      "certainty": "stated",
+      "source_segment_ids": [
+        "seg_001"
+      ]
+    }
+  ],
+  "tests": [],
+  "medications": [
+    {
+      "name": "리시노프릴",
+      "dose": "5mg",
+      "route": "경구",
+      "frequency": "하루 한 번 아침",
+      "action": "start",
+      "source_segment_ids": [
+        "seg_003"
+      ],
+      "needs_confirmation": false
+    },
+    {
+      "name": "아스피린",
+      "dose": "",
+      "route": "",
+      "frequency": "",
+      "action": "stop",
+      "source_segment_ids": [
+        "seg_005"
+      ],
+      "needs_confirmation": false
+    }
+  ],
+  "plan": [
+    {
+      "text": "2주 후 10월 첫째 주 재방문하여 혈압 확인",
+      "source_segment_ids": [
+        "seg_007"
+      ]
+    }
+  ],
+  "warnings": [
+    {
+      "text": "심한 두통, 가슴 통증, 호흡곤란 발생 시 즉시 응급실 방문",
+      "source_segment_ids": [
+        "seg_009"
+      ]
+    }
+  ],
+  "follow_up": [
+    {
+      "text": "10월 첫째 주 혈압 재확인",
+      "source_segment_ids": [
+        "seg_007"
+      ]
+    }
+  ],
+  "questions_or_conflicts": []
+}

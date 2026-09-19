@@ -61,10 +61,37 @@ export interface Encounter {
   updated_at: string;
 }
 
+export type SpeakerRole = "doctor" | "patient" | "guardian" | "unknown";
+
+export interface DiarizedSegment {
+  id: string;
+  speaker: string;
+  role: SpeakerRole;
+  role_confidence: number | null;
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface PipelineRun {
+  id: string;
+  encounter_id: string;
+  mode: "demo" | "manual" | "provider";
+  status: "needs_role_confirmation" | "completed";
+  audio_asset_id: string | null;
+  sample_id: string | null;
+  segments: DiarizedSegment[];
+  roles: Record<string, string>;
+  error_code: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface EncounterDetail {
   encounter: Encounter;
   draft_version: EncounterVersion | null;
   approved_version: EncounterVersion | null;
+  active_pipeline_run: PipelineRun | null;
 }
 
 export interface AudioAsset {
@@ -77,7 +104,21 @@ export interface AudioAsset {
   duration_seconds: number;
   preprocessing_mode: "none" | "light_denoise" | null;
   source_asset_id: string | null;
+  sample_id: string | null;
   created_at: string;
+}
+
+export interface SampleSelectionResult {
+  audio_asset: AudioAsset;
+  pipeline_run: PipelineRun;
+}
+
+export interface Capabilities {
+  mode: string;
+  ffmpeg: boolean;
+  sample_audio: boolean;
+  asr: string;
+  llm: string;
 }
 
 export interface ApiErrorBody {

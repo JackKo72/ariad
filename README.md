@@ -8,7 +8,11 @@
 - `tasks/01_VERTICAL_SLICE.md`: 합성 전사문 → mock 구조화/설명 → 검토·승인 → 환자 공개 (완료)
 - `tasks/02_AUDIO_PIPELINE.md` Phase A: 로컬 음성파일 업로드·검증(ffprobe)·원본 재생 (완료)
 - `tasks/02_AUDIO_PIPELINE.md` Phase B: FFmpeg 표준화(mono/16kHz/16bit) + 원본/가벼운 소음처리 비교 재생 (완료)
-- 실제 ASR/화자분리/실제 LLM 연동은 아직 없음 (Phase C 이후)
+- `tasks/02_AUDIO_PIPELINE.md` Phase C: `샘플 음성 사용`(API key 불필요, offline TTS 합성 데모) →
+  화자 역할 확인 → 구조화/환자 설명(sidecar fixture) → 승인·공개까지 전체 흐름 (완료).
+  임의 업로드 파일은 ASR provider가 없으면 `ASR_NOT_CONFIGURED`로 명확히 표시하고
+  전사문 직접 입력으로 계속 진행 가능 (manual fallback).
+- 실제 ASR/실제 LLM provider 연동은 아직 없음 (Phase D 이후, key 있어야 동작)
 
 ## Stack
 
@@ -29,21 +33,25 @@ make dev      # API :8000 + Web :3000 동시 실행 (Ctrl+C로 종료)
 
 1. 동의 확인 체크 후 새 면담 생성
 2. 입력 방법 선택:
-   - `전사문 직접 입력`: 텍스트 입력 → 제출
+   - `샘플 음성 사용`: API key 없이 바로 시작. 버튼 클릭 시 합성 진료 음성으로 즉시 화자분리까지
+     실행되고 역할 확인 화면으로 이동
    - `내 컴퓨터에서 음성파일 선택`: wav/mp3/mp4/mpeg/mpga/m4a/webm 업로드 → 원본 재생 확인 →
-     `원본 유지`/`가벼운 소음처리` 선택 후 `전처리 시작` → 표준화된 결과 재생·원본과 비교
-     (전사 연결은 Phase C 이후이므로, 지금은 확인 후 `전사문 직접 입력` 탭으로 전환해 계속 진행)
-3. 처리 시작 → mock 구조화/환자 설명 확인
-4. 필요시 내용 수정 → 승인
-5. 공개하기 → 표시된 `/p/{token}` 링크가 환자용 페이지
+     `원본 유지`/`가벼운 소음처리` 선택 후 `전처리 시작` → 표준화된 결과 재생·원본과 비교 →
+     (ASR key가 없으므로) `전사문 직접 입력` 탭으로 전환해 계속 진행
+   - `전사문 직접 입력`: 텍스트 입력 → 제출
+3. (음성 입력의 경우) 화자 A/B의 역할을 의사/환자/보호자 중에서 확인 → `역할 확인 및 계속 처리`
+4. 구조화/환자 설명 확인 (샘플은 sidecar fixture의 고정 Demo 결과)
+5. 필요시 내용 수정 → 승인
+6. 공개하기 → 표시된 `/p/{token}` 링크가 환자용 페이지
 
 ## 테스트
 
 ```bash
-make test    # pytest (unit/contract/integration, apps/api + tests/integration) + vitest (apps/web)
-make e2e     # Playwright 브라우저 E2E (API+Web 자동 기동)
-make eval    # 합성 golden set에 대해 mock pipeline grounding 검사
-make lint    # ruff (api) + eslint + tsc --noEmit (web)
+make test          # pytest (unit/contract/integration, apps/api + tests/integration) + vitest (apps/web)
+make e2e           # Playwright 브라우저 E2E (API+Web 자동 기동)
+make eval          # 합성 golden set에 대해 mock pipeline grounding 검사
+make lint          # ruff (api) + eslint + tsc --noEmit (web)
+make sample-audio  # tests/fixtures/audio/* 재생성 (offline TTS + ffmpeg, 외부 API 없음)
 ```
 
 ## 디렉터리 구조
@@ -53,17 +61,21 @@ apps/
 ├── web/                 # Next.js 클라이언트. DB/LLM을 직접 호출하지 않고 apps/api만 호출한다.
 └── api/
     ├── app/
-    │   ├── audio/         # ffprobe 검증, 서버생성 경로 기반 저장 (Phase A)
-    │   ├── domain/       # 상태 모델, 상태전이 규칙, 에러 코드
+    │   ├── audio/         # ffprobe 검증, ffmpeg 표준화/denoise, 서버생성 경로 기반 저장
+    │   ├── domain/       # 상태 모델, 상태전이 규칙, 에러 코드, DiarizedSegment/PipelineRun
     │   ├── pipeline/      # structure_encounter / generate_patient_explanation / validate_grounding
-    │   ├── providers/     # LLMProvider 경계 + MockLLMProvider (기본)
-    │   ├── repositories/  # SQLite 저장 (encounter/version/audit/audio_assets)
-    │   └── routes/        # /encounters/*, /encounters/*/audio*, /public/explanations/{token}
-    └── tests/             # unit + contract (mock 출력 vs JSON schema, ffprobe 검증)
+    │   ├── providers/     # LLMProvider·ASRProvider 경계 + Mock/Demo/Unavailable 구현체
+    │   ├── repositories/  # SQLite 저장 (encounter/version/audit/audio_assets/pipeline_runs)
+    │   └── routes/        # /encounters/*, /encounters/*/audio*, /system/capabilities,
+    │                      # /public/explanations/{token}
+    └── tests/             # unit + contract (mock 출력 vs JSON schema, ffprobe/ffmpeg 검증)
 packages/contracts/schema/ # ClinicalStructure / ExplanationDraft JSON schema
+scripts/
+└── generate_sample_audio.py  # make sample-audio가 호출하는 offline TTS 생성 스크립트
 tests/
-├── fixtures/    # 합성 전사문 (초기 3건)
-├── integration/ # API+SQLite, 접근제어, 승인 불변성
+├── fixtures/
+│   └── audio/   # sample_consultation.wav + transcript/structure/explanation sidecar (합성)
+├── integration/ # API+SQLite, 접근제어, 승인 불변성, 오디오 파이프라인
 ├── e2e/         # Playwright
 └── evals/       # make eval 스크립트
 ```
@@ -74,8 +86,8 @@ tests/
 
 ## 알려진 제한
 
-- 실제 ASR/화자분리/실제 LLM 연동 없음 (mock만 존재, Phase C/D 이후)
-- 전처리된 오디오를 전사로 연결하는 단계는 아직 없음 (Phase C)
+- 실제 ASR provider(OpenAI 등) 연동 없음 — `샘플 음성 사용`만 즉시 동작(Demo, sidecar fixture
+  기반), 임의 업로드 파일은 ASR 없이는 전사되지 않고 `ASR_NOT_CONFIGURED`로 안내됨 (Phase D 이후)
 - 실 로그인 없음 (단일 고정 clinician으로 간주, API 인증 없음)
 - 승인된 면담이 `PUBLISHED` 상태일 때는 수정이 불가하다 (먼저 `공개 취소` 후 편집).
   `APPROVED`(공개 전) 상태에서의 편집만 지원.

@@ -15,11 +15,12 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.audio import preprocess, storage, validation
-from app.domain.errors import AudioFileTooLarge, NotFoundError
-from app.domain.models import AudioAsset
+from app.domain.errors import AsrNotConfigured, AudioFileTooLarge, NotFoundError
+from app.domain.models import AudioAsset, PipelineRun, SampleSelectionResult
+from app.providers.demo_asr import SAMPLE_FIXTURES_DIR, sample_is_available
 from app.repositories.sqlite_repo import EncounterRepository
 
-from app.dependencies import get_audio_dir, get_repository
+from app.dependencies import get_asr_provider, get_audio_dir, get_repository
 
 router = APIRouter(prefix="/encounters", tags=["audio"])
 
@@ -90,6 +91,87 @@ async def upload_audio(
         duration_seconds=probe.duration_seconds,
         sha256_hash=sha256_hash,
     )
+
+
+class SampleSelectionRequest(BaseModel):
+    sample_id: str
+
+
+def _start_pipeline_run_for_asset(
+    repo: EncounterRepository, encounter_id: str, audio_asset: AudioAsset
+) -> PipelineRun:
+    """Runs ASR/diarization for one asset and advances the encounter to
+    SUBMITTED (placeholder transcript, filled in once roles are confirmed)
+    exactly like the manual-transcript path does -- one shared continuation
+    for demo, manual-upload, and (Phase D) real-provider audio alike.
+    Raises AsrNotConfigured (422) when no provider is available for this
+    asset -- see app.dependencies.get_asr_provider."""
+    asr_provider = get_asr_provider(audio_asset)
+    segments = asr_provider.transcribe(audio_asset)
+
+    mode = "demo" if audio_asset.sample_id else "manual"
+    pipeline_run = repo.create_pipeline_run(
+        encounter_id,
+        mode=mode,
+        audio_asset_id=audio_asset.id,
+        sample_id=audio_asset.sample_id,
+        segments=segments,
+    )
+    repo.submit_input(encounter_id, "")
+    return pipeline_run
+
+
+@router.post("/{encounter_id}/audio/sample", response_model=SampleSelectionResult, status_code=201)
+def select_sample_audio(
+    encounter_id: str,
+    body: SampleSelectionRequest,
+    repo: EncounterRepository = Depends(get_repository),
+) -> SampleSelectionResult:
+    """Demo mode entry point (tasks/02_AUDIO_PIPELINE.md section 3.1): copies
+    the built-in synthetic fixture into place, then runs the same
+    ASR-start continuation an arbitrary upload would (see
+    _start_pipeline_run_for_asset), so review/approve/publish afterwards is
+    one shared code path regardless of how the transcript originated."""
+    if not sample_is_available(body.sample_id):
+        raise AsrNotConfigured()
+
+    sample_wav = SAMPLE_FIXTURES_DIR / f"{body.sample_id}.wav"
+    audio_dir = get_audio_dir()
+    asset_id, path = storage.new_asset_path(audio_dir, encounter_id)
+    path.write_bytes(sample_wav.read_bytes())
+    probe = validation.probe_audio(str(path))
+
+    audio_asset = repo.create_audio_asset(
+        encounter_id,
+        kind="original",
+        storage_path=str(path),
+        original_filename=sample_wav.name,
+        mime_type=_detected_mime_type(probe),
+        size_bytes=path.stat().st_size,
+        duration_seconds=probe.duration_seconds,
+        sha256_hash=storage.sha256_of_file(path),
+        sample_id=body.sample_id,
+    )
+
+    pipeline_run = _start_pipeline_run_for_asset(repo, encounter_id, audio_asset)
+    return SampleSelectionResult(audio_asset=audio_asset, pipeline_run=pipeline_run)
+
+
+@router.post("/{encounter_id}/audio/{asset_id}/transcribe", response_model=PipelineRun, status_code=201)
+def transcribe_audio(
+    encounter_id: str,
+    asset_id: str,
+    repo: EncounterRepository = Depends(get_repository),
+) -> PipelineRun:
+    """Attempts ASR on an arbitrarily-uploaded (non-sample) asset. With no
+    real ASR provider configured this always raises AsrNotConfigured (422,
+    "ASR provider가 설정되지 않았습니다") -- see docs section 3.2: the
+    clinician sees that message and can switch to typing the transcript
+    manually instead of a blank screen."""
+    asset = repo.get_audio_asset(asset_id)
+    if asset.encounter_id != encounter_id:
+        raise NotFoundError("AudioAsset")
+    return _start_pipeline_run_for_asset(repo, encounter_id, asset)
 
 
 class PreprocessRequest(BaseModel):

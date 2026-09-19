@@ -78,10 +78,45 @@ class Encounter(BaseModel):
     updated_at: str
 
 
+class DiarizedSegment(BaseModel):
+    """One turn from ASRProvider.transcribe() (tasks/02_AUDIO_PIPELINE.md
+    section 8). `role`/`role_confidence` start unknown -- diarization only
+    clusters speakers into labels (A/B/C); a clinician assigns the clinical
+    role via PATCH /speaker-roles before structuring ever runs."""
+
+    id: str
+    speaker: str
+    role: str = "unknown"
+    role_confidence: Optional[float] = None
+    start: float
+    end: float
+    text: str
+
+
+class PipelineRun(BaseModel):
+    """Tracks one audio-derived encounter's ASR/diarization/role-assignment
+    state, orthogonal to EncounterStatus (docs/AI_PIPELINE.md staging).
+    Completing a run hands off to the existing Task 01
+    structure/explanation path -- it never replaces it."""
+
+    id: str
+    encounter_id: str
+    mode: str  # "demo" | "manual" | "provider"
+    status: str  # "needs_role_confirmation" | "completed"
+    audio_asset_id: Optional[str] = None
+    sample_id: Optional[str] = None
+    segments: list[DiarizedSegment] = Field(default_factory=list)
+    roles: dict[str, str] = Field(default_factory=dict)  # speaker label -> role
+    error_code: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+
 class EncounterDetail(BaseModel):
     encounter: Encounter
     draft_version: Optional[EncounterVersion] = None
     approved_version: Optional[EncounterVersion] = None
+    active_pipeline_run: Optional[PipelineRun] = None
 
 
 class AudioAsset(BaseModel):
@@ -100,7 +135,13 @@ class AudioAsset(BaseModel):
     duration_seconds: float
     preprocessing_mode: Optional[str] = None  # None for "original"; "none" | "light_denoise" for "processed"
     source_asset_id: Optional[str] = None  # the "original" asset a "processed" one was derived from
+    sample_id: Optional[str] = None  # non-null if this came from the built-in demo sample library
     created_at: str
+
+
+class SampleSelectionResult(BaseModel):
+    audio_asset: AudioAsset
+    pipeline_run: PipelineRun
 
 
 class PipelineResult(BaseModel):

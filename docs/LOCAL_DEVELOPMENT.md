@@ -14,7 +14,7 @@
 ## 2. Environment modes
 
 ```text
-ARIAD_MODE=mock       # 기본: 외부 API 없음, 합성 데이터만
+ARIAD_MODE=demo       # 기본: 외부 API 없음, 샘플 음성/합성 데이터만
 ARIAD_MODE=provider   # 실제 ASR/LLM sandbox 테스트
 DEBUG_ARTIFACTS=true # 로컬+합성 데이터에서만 허용
 ```

@@ -63,7 +63,29 @@ CREATE TABLE IF NOT EXISTS audio_assets (
     sha256_hash TEXT NOT NULL,
     preprocessing_mode TEXT,
     source_asset_id TEXT,
+    sample_id TEXT,
     created_at TEXT NOT NULL
+);
+
+-- tasks/02_AUDIO_PIPELINE.md Phase C. Tracks ASR/diarization/role-assignment
+-- state for an audio-derived encounter, separate from EncounterStatus.
+-- segments_json/roles_json hold DiarizedSegment[] / {speaker: role} --
+-- structured facts derived from the transcript, not the transcript prose
+-- itself, so this stays consistent with docs/DEBUGGING.md's "no
+-- transcript/explanation bodies in ancillary tables" spirit as far as a
+-- local-only, gitignored dev DB allows.
+CREATE TABLE IF NOT EXISTS pipeline_runs (
+    id TEXT PRIMARY KEY,
+    encounter_id TEXT NOT NULL REFERENCES encounters(id),
+    mode TEXT NOT NULL,
+    status TEXT NOT NULL,
+    audio_asset_id TEXT,
+    sample_id TEXT,
+    segments_json TEXT NOT NULL,
+    roles_json TEXT NOT NULL,
+    error_code TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
 );
 """
 
@@ -74,6 +96,7 @@ CREATE TABLE IF NOT EXISTS audio_assets (
 _COLUMN_MIGRATIONS: list[tuple[str, str, str]] = [
     ("audio_assets", "preprocessing_mode", "ALTER TABLE audio_assets ADD COLUMN preprocessing_mode TEXT"),
     ("audio_assets", "source_asset_id", "ALTER TABLE audio_assets ADD COLUMN source_asset_id TEXT"),
+    ("audio_assets", "sample_id", "ALTER TABLE audio_assets ADD COLUMN sample_id TEXT"),
 ]
 
 

@@ -1,0 +1,84 @@
+{
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "expected_role": "doctor",
+      "start": 0.0,
+      "end": 8.29,
+      "text": "안녕하세요. 오늘 혈압을 재보니 145에 92로 조금 높게 나왔습니다."
+    },
+    {
+      "id": "seg_002",
+      "speaker": "B",
+      "expected_role": "patient",
+      "start": 8.89,
+      "end": 13.23,
+      "text": "네, 요즘 좀 피곤하고 짜게 먹었던 것 같아요."
+    },
+    {
+      "id": "seg_003",
+      "speaker": "A",
+      "expected_role": "doctor",
+      "start": 13.83,
+      "end": 22.3,
+      "text": "그러시군요. 혈압약 리시노프릴 오 밀리그램을 하루 한 번 아침에 드시는 걸로 시작하겠습니다."
+    },
+    {
+      "id": "seg_004",
+      "speaker": "B",
+      "expected_role": "patient",
+      "start": 22.9,
+      "end": 25.45,
+      "text": "아스피린도 같이 먹어야 하나요?"
+    },
+    {
+      "id": "seg_005",
+      "speaker": "A",
+      "expected_role": "doctor",
+      "start": 26.05,
+      "end": 34.57,
+      "text": "아니요, 아스피린은 지금 시작하지 않습니다. 출혈 위험이 있어서 필요하지 않은 상황이에요."
+    },
+    {
+      "id": "seg_006",
+      "speaker": "B",
+      "expected_role": "patient",
+      "start": 35.17,
+      "end": 36.56,
+      "text": "알겠습니다."
+    },
+    {
+      "id": "seg_007",
+      "speaker": "A",
+      "expected_role": "doctor",
+      "start": 37.16,
+      "end": 43.73,
+      "text": "그리고 이 주 뒤인 시월 첫째 주에 다시 오셔서 혈압을 확인하겠습니다."
+    },
+    {
+      "id": "seg_008",
+      "speaker": "B",
+      "expected_role": "patient",
+      "start": 44.33,
+      "end": 46.21,
+      "text": "네, 알겠습니다."
+    },
+    {
+      "id": "seg_009",
+      "speaker": "A",
+      "expected_role": "doctor",
+      "start": 46.81,
+      "end": 56.52,
+      "text": "만약 갑자기 심한 두통이나 가슴 통증, 숨쉬기 어려운 증상이 생기면 바로 응급실로 가셔야 합니다."
+    },
+    {
+      "id": "seg_010",
+      "speaker": "B",
+      "expected_role": "patient",
+      "start": 57.12,
+      "end": 59.54,
+      "text": "네, 명심하겠습니다."
+    }
+  ]
+}

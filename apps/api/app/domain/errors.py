@@ -127,3 +127,13 @@ class AudioConversionFailed(AriadError):
             http_status=422,
             retryable=True,
         )
+
+
+class AsrNotConfigured(AriadError):
+    def __init__(self):
+        super().__init__(
+            code="ASR_NOT_CONFIGURED",
+            message="ASR provider가 설정되지 않았습니다. 전사문을 직접 입력해 계속 진행할 수 있습니다.",
+            http_status=422,
+            retryable=False,
+        )
