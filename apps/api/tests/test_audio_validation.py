@@ -1,5 +1,7 @@
 """Unit: ffprobe-based validation (tasks/02_AUDIO_PIPELINE.md section 12)."""
 
+import json
+
 import pytest
 
 from app.audio import validation
@@ -61,3 +63,31 @@ def test_missing_ffprobe_binary_raises_probe_failed(tmp_path, monkeypatch):
     monkeypatch.setattr(validation.shutil, "which", lambda _name: None)
     with pytest.raises(AudioProbeFailed):
         validation.probe_audio(str(tmp_path / "anything.wav"))
+
+
+def test_missing_format_duration_falls_back_to_stream_duration(monkeypatch):
+    # Some real-world M4A encoders (voice memo / messaging apps) omit the
+    # top-level format.duration even though the file plays fine -- ffprobe
+    # still reports it per-stream via duration_ts/time_base.
+    fake_stdout = json.dumps(
+        {
+            "streams": [
+                {
+                    "codec_type": "audio",
+                    "codec_name": "aac",
+                    "duration_ts": 88200,
+                    "time_base": "1/44100",
+                }
+            ],
+            "format": {"format_name": "mov,mp4,m4a,3gp,3g2,mj2"},
+        }
+    ).encode()
+
+    class FakeCompletedProcess:
+        returncode = 0
+        stdout = fake_stdout
+
+    monkeypatch.setattr(validation.subprocess, "run", lambda *a, **k: FakeCompletedProcess())
+    probe = validation.probe_audio("/fake/path/does/not/matter.m4a")
+    assert probe.duration_seconds == pytest.approx(2.0, abs=0.01)
+    validation.validate_probe_result(probe)  # should not raise

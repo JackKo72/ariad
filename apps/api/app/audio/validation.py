@@ -40,6 +40,25 @@ def ensure_ffprobe_available() -> bool:
     return shutil.which("ffprobe") is not None
 
 
+def _to_float(value: object) -> float:
+    try:
+        return float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _duration_from_ts(stream: dict) -> float:
+    duration_ts = _to_float(stream.get("duration_ts"))
+    time_base = stream.get("time_base") or ""
+    if duration_ts <= 0 or "/" not in time_base:
+        return 0.0
+    num_str, _, den_str = time_base.partition("/")
+    num, den = _to_float(num_str), _to_float(den_str)
+    if den <= 0:
+        return 0.0
+    return duration_ts * (num / den)
+
+
 def probe_audio(file_path: str) -> AudioProbeResult:
     """Runs ffprobe against the file already saved on disk."""
     if not ensure_ffprobe_available():
@@ -76,12 +95,20 @@ def probe_audio(file_path: str) -> AudioProbeResult:
         token.strip() for token in (format_info.get("format_name") or "").split(",") if token.strip()
     )
 
-    try:
-        duration_seconds = float(format_info.get("duration"))
-    except (TypeError, ValueError):
-        duration_seconds = 0.0
+    if not audio_streams:
+        raise AudioStreamMissing()
 
-    if not audio_streams or duration_seconds <= 0:
+    # format.duration is missing on some real-world M4A/fragmented-MP4
+    # encoders (voice memo / messaging apps in particular) even though the
+    # file is perfectly valid -- fall back to the audio stream's own
+    # duration, then to duration_ts/time_base, before giving up.
+    duration_seconds = _to_float(format_info.get("duration"))
+    if duration_seconds <= 0:
+        duration_seconds = _to_float(audio_streams[0].get("duration"))
+    if duration_seconds <= 0:
+        duration_seconds = _duration_from_ts(audio_streams[0])
+
+    if duration_seconds <= 0:
         raise AudioStreamMissing()
 
     return AudioProbeResult(
