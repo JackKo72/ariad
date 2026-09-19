@@ -9,6 +9,7 @@ path-traversal-style names) is rejected before it is ever treated as media.
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -19,6 +20,8 @@ from app.domain.errors import (
     AudioStreamMissing,
     AudioUnsupportedFormat,
 )
+
+logger = logging.getLogger("ariad.audio")
 
 MAX_DURATION_MINUTES = 30
 
@@ -77,15 +80,25 @@ def probe_audio(file_path: str) -> AudioProbeResult:
             capture_output=True,
             timeout=30,
         )
-    except (subprocess.TimeoutExpired, OSError) as exc:
+    except subprocess.TimeoutExpired as exc:
+        logger.warning("ffprobe timed out after 30s (file size may be unusually large)")
+        raise AudioProbeFailed() from exc
+    except OSError as exc:
+        logger.warning("ffprobe failed to start: %s", exc)
         raise AudioProbeFailed() from exc
 
     if proc.returncode != 0:
+        # ffprobe's stderr is a container/codec parse message -- never
+        # audio/transcript content -- so it is safe to log for diagnosis.
+        logger.warning(
+            "ffprobe exited %s: %s", proc.returncode, proc.stderr.decode(errors="replace")[:500]
+        )
         raise AudioProbeFailed()
 
     try:
         data = json.loads(proc.stdout)
     except json.JSONDecodeError as exc:
+        logger.warning("ffprobe produced unparseable JSON output")
         raise AudioProbeFailed() from exc
 
     streams = data.get("streams", [])
