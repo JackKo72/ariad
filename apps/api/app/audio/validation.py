@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -65,6 +66,11 @@ def _duration_from_ts(stream: dict) -> float:
 def probe_audio(file_path: str) -> AudioProbeResult:
     """Runs ffprobe against the file already saved on disk."""
     if not ensure_ffprobe_available():
+        logger.warning(
+            "ffprobe not found on PATH for this process (PATH=%s). "
+            "Install it with: sudo apt-get install -y ffmpeg",
+            os.environ.get("PATH", ""),
+        )
         raise AudioProbeFailed()
 
     try:
