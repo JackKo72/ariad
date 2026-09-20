@@ -1,4 +1,13 @@
+import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
+
+// Some managed sandboxes pre-install Chromium at this fixed path instead of
+// the versioned cache dir @playwright/test normally manages. When it's
+// present, use it directly to skip a browser download that may be blocked
+// there. On a normal machine this path doesn't exist, so Playwright falls
+// back to its own browser resolution (run `npx playwright install chromium`
+// once if you haven't already).
+const SANDBOX_CHROMIUM = "/opt/pw-browsers/chromium";
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -9,9 +18,9 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:3000",
     trace: "retain-on-failure",
-    // Use the browser pre-installed in this environment instead of the
-    // revision @playwright/test would otherwise try to download.
-    launchOptions: { executablePath: "/opt/pw-browsers/chromium" },
+    ...(existsSync(SANDBOX_CHROMIUM)
+      ? { launchOptions: { executablePath: SANDBOX_CHROMIUM } }
+      : {}),
   },
   webServer: [
     {

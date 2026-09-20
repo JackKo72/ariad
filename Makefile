@@ -29,9 +29,10 @@ dev:
 	@echo "Starting API on :8000 and web on :3000 (Ctrl+C to stop both)"
 	@( \
 	  trap 'kill 0' EXIT; \
+	  if [ -f apps/api/.env.local ]; then ENV_FILE_ARGS="--env-file apps/api/.env.local"; else ENV_FILE_ARGS=""; fi; \
 	  ARIAD_DB_PATH=./apps/api/data/ariad.db ARIAD_AUDIO_DIR=./apps/api/data/audio \
 	  ARIAD_SHERPA_MODELS_DIR=./apps/api/models \
-	    apps/api/.venv/bin/uvicorn app.main:app --app-dir apps/api --reload --port 8000 & \
+	    apps/api/.venv/bin/uvicorn app.main:app --app-dir apps/api --reload --port 8000 $$ENV_FILE_ARGS & \
 	  npm run dev --prefix apps/web -- --port 3000 & \
 	  wait \
 	)

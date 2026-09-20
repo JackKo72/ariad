@@ -90,8 +90,9 @@ tests/
 
 ## Phase D 실제 provider 사용법
 
-**텍스트 LLM (OpenAI)** — `apps/api/.env.local`에 아래만 넣으면 된다 (이미 파일이 있다고 하셨으니
-`ARIAD_MODE`/`OPENAI_API_KEY` 두 줄만 추가하면 됨):
+**텍스트 LLM (OpenAI)** — `apps/api/.env.local`에 아래만 넣으면 된다. `make dev`가
+`uvicorn --env-file apps/api/.env.local`로 이 파일을 자동으로 읽는다 (파일이 없으면 조용히
+무시되고 demo 모드로 동작 — 기존 사용자에게 영향 없음):
 
 ```dotenv
 ARIAD_MODE=provider
@@ -134,6 +135,17 @@ make test-provider-audio AUDIO=tests/fixtures/audio/sample_consultation.wav
 # 실제 provider(로컬 ASR은 무료, OpenAI 텍스트 단계는 유료 — 진행 전 y/N 확인받음)로
 # 커맨드라인에서 직접 검증. make test/make e2e에는 포함되지 않는다(비용 없음, mock으로 검증).
 ```
+
+**문제 해결**
+
+- `ModuleNotFoundError: No module named 'openai'` (또는 `sherpa_onnx`) — Phase D에서
+  `requirements.txt`에 새 의존성이 추가됐다. 기존 `.venv`를 그대로 쓰고 있다면
+  `apps/api/.venv/bin/pip install -r apps/api/requirements-dev.txt` (또는 `make setup` 재실행)로
+  다시 설치해야 한다.
+- `make e2e`에서 `browserType.launch: ... executable doesn't exist` — 로컬에 Playwright용
+  Chromium이 설치되어 있지 않은 것이다. `npx playwright install chromium`을 한 번 실행하면 된다
+  (관리형 클라우드 샌드박스에서는 미리 설치된 Chromium 경로를 자동으로 사용하므로 이 단계가
+  필요 없다).
 
 ## 알려진 제한
 
