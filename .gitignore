@@ -18,6 +18,10 @@ data/
 # Debug artifacts (local-only, synthetic data mode)
 debug_runs/
 
+# Downloaded sherpa-onnx model weights (Phase D real ASR provider, GBs --
+# never committed; each dev downloads their own, see README.md)
+apps/api/models/
+
 # Env
 .env
 .env.local

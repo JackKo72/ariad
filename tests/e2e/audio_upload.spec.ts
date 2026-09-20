@@ -27,6 +27,27 @@ test.describe("Task 02 Phase A: audio upload", () => {
     expect(response.headers()["content-type"]).toContain("audio/");
   });
 
+  test("attempting transcription without a real ASR provider shows ASR_NOT_CONFIGURED and manual fallback still works (Phase D)", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.getByTestId("consent-checkbox").check();
+    await page.getByTestId("create-encounter-button").click();
+    await expect(page).toHaveURL(/\/encounters\/.+/);
+
+    await page.getByTestId("input-method-audio").click();
+    await page.getByTestId("audio-file-input").setInputFiles(FIXTURE_WAV);
+    await expect(page.getByTestId("audio-asset-info")).toBeVisible();
+
+    await page.getByTestId("transcribe-button").click();
+    await expect(page.getByText(/ASR_NOT_CONFIGURED/)).toBeVisible();
+
+    await page.getByTestId("input-method-transcript").click();
+    await page.getByTestId("transcript-input").fill("의사: 안녕하세요.\n환자: 안녕하세요.");
+    await page.getByTestId("submit-input-button").click();
+    await expect(page.getByTestId("status-badge")).toHaveAttribute("data-status", "SUBMITTED");
+  });
+
   test("switching back to transcript input still works (Task 01 regression)", async ({ page }) => {
     await page.goto("/");
     await page.getByTestId("consent-checkbox").check();

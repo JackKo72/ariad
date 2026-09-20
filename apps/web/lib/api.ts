@@ -9,6 +9,7 @@ import type {
   Encounter,
   EncounterDetail,
   ExplanationDraft,
+  PipelineRun,
   SampleSelectionResult,
 } from "./types";
 
@@ -166,6 +167,15 @@ export function selectSampleAudio(encounterId: string, sampleId: string): Promis
   return request<SampleSelectionResult>(`/encounters/${encounterId}/audio/sample`, {
     method: "POST",
     body: JSON.stringify({ sample_id: sampleId }),
+  });
+}
+
+// Attempts real ASR on an arbitrarily-uploaded (non-sample) asset. With no
+// real provider configured this rejects with ASR_NOT_CONFIGURED (422) --
+// the caller should keep the manual-transcript tab available as a fallback.
+export function transcribeAudio(encounterId: string, assetId: string): Promise<PipelineRun> {
+  return request<PipelineRun>(`/encounters/${encounterId}/audio/${assetId}/transcribe`, {
+    method: "POST",
   });
 }
 

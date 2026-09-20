@@ -1,4 +1,4 @@
-.PHONY: doctor setup dev test e2e eval lint sample-audio
+.PHONY: doctor setup dev test e2e eval lint sample-audio test-provider-audio
 
 doctor:
 	@echo "Checking required tools..."
@@ -30,6 +30,7 @@ dev:
 	@( \
 	  trap 'kill 0' EXIT; \
 	  ARIAD_DB_PATH=./apps/api/data/ariad.db ARIAD_AUDIO_DIR=./apps/api/data/audio \
+	  ARIAD_SHERPA_MODELS_DIR=./apps/api/models \
 	    apps/api/.venv/bin/uvicorn app.main:app --app-dir apps/api --reload --port 8000 & \
 	  npm run dev --prefix apps/web -- --port 3000 & \
 	  wait \
@@ -51,3 +52,10 @@ lint:
 	apps/api/.venv/bin/ruff check apps/api scripts
 	npm run lint --prefix apps/web
 	npm run typecheck --prefix apps/web
+
+# Live smoke test against real providers -- NEVER part of `make test`/`make
+# e2e`, and may incur real OpenAI cost if OPENAI_API_KEY is set (asks for
+# confirmation before that step). Requires apps/api/.env.local with
+# ARIAD_MODE=provider and downloaded sherpa-onnx models (see README.md).
+test-provider-audio:
+	apps/api/.venv/bin/python scripts/test_provider_audio.py

@@ -194,7 +194,7 @@ export default function EncounterDetailClient({ id }: { id: string }) {
             </>
           )}
 
-          {inputMethod === "audio" && <AudioUploadPanel encounterId={id} />}
+          {inputMethod === "audio" && <AudioUploadPanel encounterId={id} onTranscribed={reload} />}
         </div>
       )}
 

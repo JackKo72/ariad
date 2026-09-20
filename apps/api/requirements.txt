@@ -5,3 +5,13 @@ httpx==0.27.2
 pytest==8.3.3
 jsonschema==4.23.0
 python-multipart==0.0.12
+
+# tasks/02_AUDIO_PIPELINE.md Phase D real-provider adapters. Both are
+# lazily imported inside the provider classes (never at module import
+# time), so ARIAD_MODE=demo never needs them loaded -- installed here
+# anyway so `make setup` gives a working Phase D environment once
+# apps/api/.env.local has a real OPENAI_API_KEY and (for ASR)
+# ARIAD_SHERPA_MODELS_DIR is populated. See README.md.
+openai==3.16.2
+sherpa-onnx==1.13.8
+numpy==2.4.6

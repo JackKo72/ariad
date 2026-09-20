@@ -12,7 +12,11 @@
   화자 역할 확인 → 구조화/환자 설명(sidecar fixture) → 승인·공개까지 전체 흐름 (완료).
   임의 업로드 파일은 ASR provider가 없으면 `ASR_NOT_CONFIGURED`로 명확히 표시하고
   전사문 직접 입력으로 계속 진행 가능 (manual fallback).
-- 실제 ASR/실제 LLM provider 연동은 아직 없음 (Phase D 이후, key 있어야 동작)
+- `tasks/02_AUDIO_PIPELINE.md` Phase D: 실제 provider 연동 (완료, 코드/mock 기반 contract test까지 —
+  아래 "Phase D 실제 provider 사용법" 참고)
+  - 텍스트 LLM: OpenAI (`structure_transcript`/`patient_explanation`, structured output)
+  - ASR: sherpa-onnx 로컬 Whisper + pyannote 화자분리 + Silero VAD (OpenAI 아님, 오프라인)
+- Phase E(실 API key로 end-to-end 실행 검증)는 아직 미실행 — 아래 참고
 
 ## Stack
 
@@ -82,7 +86,54 @@ tests/
 
 ## 환경변수
 
-`.env.example` 참고. 기본값은 모두 로컬 mock 모드로 동작하도록 되어 있다.
+`.env.example` 참고. 기본값은 모두 로컬 demo 모드(외부 API 없음)로 동작하도록 되어 있다.
+
+## Phase D 실제 provider 사용법
+
+**텍스트 LLM (OpenAI)** — `apps/api/.env.local`에 아래만 넣으면 된다 (이미 파일이 있다고 하셨으니
+`ARIAD_MODE`/`OPENAI_API_KEY` 두 줄만 추가하면 됨):
+
+```dotenv
+ARIAD_MODE=provider
+OPENAI_API_KEY=sk-...실제키...
+OPENAI_TEXT_MODEL=gpt-4o-mini   # 비워두면 기본값 gpt-4o-mini 사용
+```
+
+`apps/api/.env.local`은 `.gitignore`에 이미 포함되어 있어 git에 올라가지 않는다. 프론트엔드
+(`apps/web/.env.local`)에는 절대 key를 넣지 않는다 — `NEXT_PUBLIC_*`는 브라우저 번들에
+그대로 노출되기 때문에, 프론트엔드 코드는 key를 볼 수 있는 구조 자체가 아니다.
+
+**ASR (sherpa-onnx, 로컬)** — OpenAI가 아니라 오프라인 Whisper+화자분리+VAD 조합을 쓴다
+(임상의가 제공한 `asr_pipeline.py` 기반). 모델 파일은 이 저장소에도, pip 패키지에도 포함되어
+있지 않다 — GitHub Releases에서 직접 받아야 한다:
+
+```bash
+mkdir -p apps/api/models
+cd apps/api/models
+# https://github.com/k2-fsa/sherpa-onnx/releases 에서:
+#   sherpa-onnx-whisper-large-v3.tar.bz2       -> 압축 해제 (encoder/decoder/tokens)
+#   sherpa-onnx-pyannote-segmentation-3-0.tar.bz2 -> 압축 해제
+#   3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx -> emb.onnx로 이름 변경
+#   silero_vad.onnx
+```
+
+최종 구조는 `.env.example`의 `ARIAD_SHERPA_MODELS_DIR` 주석에 정확히 적혀 있다. 받은 뒤
+`apps/api/.env.local`에 `ARIAD_SHERPA_MODELS_DIR=./models` (기본값, apps/api 기준 상대경로)를
+추가하면 된다. `make doctor`는 ffmpeg/ffprobe/espeak-ng만 확인하며, sherpa-onnx 모델 존재
+여부는 `GET /system/capabilities`의 `asr` 필드(`"local"` = 모델 있음, `"unavailable"` = 없음)로
+확인한다.
+
+**동작 확인**
+
+```bash
+make dev
+# 브라우저에서: 내 컴퓨터에서 음성파일 선택 → 업로드 → (모델이 있으면) 전사 시도 버튼으로
+#              실제 화자분리+전사 실행. 역할 확인 → 처리 시작 시 실제 OpenAI로 구조화/설명 생성.
+
+make test-provider-audio AUDIO=tests/fixtures/audio/sample_consultation.wav
+# 실제 provider(로컬 ASR은 무료, OpenAI 텍스트 단계는 유료 — 진행 전 y/N 확인받음)로
+# 커맨드라인에서 직접 검증. make test/make e2e에는 포함되지 않는다(비용 없음, mock으로 검증).
+```
 
 ## 알려진 제한
 

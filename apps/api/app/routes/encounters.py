@@ -15,8 +15,8 @@ from app.domain.models import (
 )
 from app.pipeline.run import run_pipeline
 from app.pipeline.validation import validate_grounding
+from app.providers.base import LLMProvider
 from app.providers.demo_asr import load_demo_structure_and_explanation
-from app.providers.mock import MockLLMProvider
 from app.repositories.sqlite_repo import EncounterRepository
 
 from app.dependencies import get_llm_provider, get_repository
@@ -130,7 +130,7 @@ def set_speaker_roles(
 def process_encounter(
     encounter_id: str,
     repo: EncounterRepository = Depends(get_repository),
-    llm_provider: MockLLMProvider = Depends(get_llm_provider),
+    llm_provider: LLMProvider = Depends(get_llm_provider),
 ) -> EncounterDetail:
     active_run = repo.get_active_pipeline_run(encounter_id)
 
@@ -150,8 +150,13 @@ def process_encounter(
         else:
             result = run_pipeline(draft.transcript_text, llm_provider)
             structure, explanation = result.structure, result.explanation  # type: ignore[assignment]
-    except Exception:
-        encounter = repo.fail_processing(encounter_id, error_code="SIMPLIFICATION_PROVIDER_FAILED")
+    except Exception as exc:
+        # The transcript itself lives on encounter_versions and is untouched
+        # by fail_processing, so an LLM failure never loses it -- the
+        # clinician can retry (same button, e.g. once a key is fixed) or
+        # switch to editing the draft manually from PROCESSING_FAILED.
+        error_code = getattr(exc, "code", "SIMPLIFICATION_PROVIDER_FAILED")
+        encounter = repo.fail_processing(encounter_id, error_code=error_code)
         return _to_detail(repo, encounter)
 
     from app.pipeline.structure import PROMPT_VERSION as STRUCTURE_PROMPT_VERSION

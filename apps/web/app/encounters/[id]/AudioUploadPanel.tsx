@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { ApiError, audioStreamUrl, preprocessAudio, uploadAudio, type PreprocessingMode } from "@/lib/api";
+import {
+  ApiError,
+  audioStreamUrl,
+  preprocessAudio,
+  transcribeAudio,
+  uploadAudio,
+  type PreprocessingMode,
+} from "@/lib/api";
 import type { AudioAsset } from "@/lib/types";
 
 function formatBytes(bytes: number): string {
@@ -16,7 +23,13 @@ function formatDuration(seconds: number): string {
   return `${minutes}:${remaining.toString().padStart(2, "0")}`;
 }
 
-export default function AudioUploadPanel({ encounterId }: { encounterId: string }) {
+export default function AudioUploadPanel({
+  encounterId,
+  onTranscribed,
+}: {
+  encounterId: string;
+  onTranscribed: () => Promise<unknown>;
+}) {
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [asset, setAsset] = useState<AudioAsset | null>(null);
@@ -27,6 +40,9 @@ export default function AudioUploadPanel({ encounterId }: { encounterId: string 
   const [processedAsset, setProcessedAsset] = useState<AudioAsset | null>(null);
   const [preprocessing, setPreprocessing] = useState(false);
   const [preprocessError, setPreprocessError] = useState<string | null>(null);
+
+  const [transcribing, setTranscribing] = useState(false);
+  const [transcribeError, setTranscribeError] = useState<string | null>(null);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0];
@@ -58,6 +74,21 @@ export default function AudioUploadPanel({ encounterId }: { encounterId: string 
       setPreprocessError(err instanceof ApiError ? `[${err.code}] ${err.message}` : "전처리에 실패했습니다.");
     } finally {
       setPreprocessing(false);
+    }
+  }
+
+  async function handleTranscribe() {
+    if (!asset) return;
+    const targetAssetId = processedAsset?.id ?? asset.id;
+    setTranscribing(true);
+    setTranscribeError(null);
+    try {
+      await transcribeAudio(encounterId, targetAssetId);
+      await onTranscribed();
+    } catch (err) {
+      setTranscribeError(err instanceof ApiError ? `[${err.code}] ${err.message}` : "전사 시도에 실패했습니다.");
+    } finally {
+      setTranscribing(false);
     }
   }
 
@@ -139,11 +170,25 @@ export default function AudioUploadPanel({ encounterId }: { encounterId: string 
                 style={{ width: "100%" }}
               />
               <p className="notice-box" style={{ marginTop: 12 }}>
-                원본과 전처리 결과를 번갈아 들어보고 비교할 수 있습니다. 전사 연결은 다음 단계에서
-                제공됩니다. 지금은 &quot;전사문 직접 입력&quot; 탭으로 전환해 계속 진행할 수 있습니다.
+                원본과 전처리 결과를 번갈아 들어보고 비교할 수 있습니다.
               </p>
             </div>
           )}
+
+          <div className="actions" style={{ marginTop: 16 }}>
+            <button
+              data-testid="transcribe-button"
+              disabled={transcribing}
+              onClick={handleTranscribe}
+            >
+              {transcribing ? "전사 시도 중..." : "전사 시도"}
+            </button>
+          </div>
+          {transcribeError && <div className="error-box">{transcribeError}</div>}
+          <p className="notice-box" style={{ marginTop: 12 }}>
+            실제 ASR provider가 설정되지 않은 환경에서는 위 버튼이 오류를 표시합니다. 이 경우
+            &quot;전사문 직접 입력&quot; 탭으로 전환해 계속 진행할 수 있습니다.
+          </p>
         </div>
       )}
     </div>

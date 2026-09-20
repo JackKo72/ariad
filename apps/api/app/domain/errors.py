@@ -137,3 +137,33 @@ class AsrNotConfigured(AriadError):
             http_status=422,
             retryable=False,
         )
+
+
+class AsrProviderFailed(AriadError):
+    def __init__(self, detail: str = ""):
+        super().__init__(
+            code="ASR_PROVIDER_FAILED",
+            message=f"음성 전사에 실패했습니다. {detail}".strip(),
+            http_status=502,
+            retryable=True,
+        )
+
+
+class LlmNotConfigured(AriadError):
+    def __init__(self):
+        super().__init__(
+            code="LLM_NOT_CONFIGURED",
+            message="LLM provider가 설정되지 않았습니다.",
+            http_status=422,
+            retryable=False,
+        )
+
+
+class LlmProviderFailed(AriadError):
+    def __init__(self, detail: str = ""):
+        super().__init__(
+            code="LLM_PROVIDER_FAILED",
+            message=f"구조화/환자 설명 생성에 실패했습니다. 전사문은 보존되며 수동으로 계속 진행할 수 있습니다. {detail}".strip(),
+            http_status=502,
+            retryable=True,
+        )
