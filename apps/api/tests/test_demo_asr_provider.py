@@ -25,7 +25,7 @@ def test_sample_consultation_fixture_is_available():
 
 def test_demo_provider_reads_sidecar_transcript_for_known_sample():
     asset = AudioAsset(sample_id="sample_consultation", **FIXED_KWARGS)
-    segments = DemoASRProvider().transcribe(asset)
+    segments = DemoASRProvider().transcribe(asset, "unused")
     assert len(segments) == 10
     assert {s.speaker for s in segments} == {"A", "B"}
     assert all(s.role == "unknown" for s in segments)  # never auto-assigned
@@ -34,27 +34,27 @@ def test_demo_provider_reads_sidecar_transcript_for_known_sample():
 def test_demo_provider_is_deterministic():
     asset = AudioAsset(sample_id="sample_consultation", **FIXED_KWARGS)
     provider = DemoASRProvider()
-    first = provider.transcribe(asset)
-    second = provider.transcribe(asset)
+    first = provider.transcribe(asset, "unused")
+    second = provider.transcribe(asset, "unused")
     assert first == second
 
 
 def test_demo_provider_rejects_non_sample_asset():
     asset = AudioAsset(sample_id=None, **FIXED_KWARGS)
     with pytest.raises(AsrNotConfigured):
-        DemoASRProvider().transcribe(asset)
+        DemoASRProvider().transcribe(asset, "unused")
 
 
 def test_demo_provider_rejects_unknown_sample_id():
     asset = AudioAsset(sample_id="does_not_exist", **FIXED_KWARGS)
     with pytest.raises(AsrNotConfigured):
-        DemoASRProvider().transcribe(asset)
+        DemoASRProvider().transcribe(asset, "unused")
 
 
 def test_unavailable_provider_always_raises():
     asset = AudioAsset(sample_id=None, **FIXED_KWARGS)
     with pytest.raises(AsrNotConfigured):
-        UnavailableASRProvider().transcribe(asset)
+        UnavailableASRProvider().transcribe(asset, "unused")
 
 
 def test_provider_selection_uses_demo_for_sample_asset():

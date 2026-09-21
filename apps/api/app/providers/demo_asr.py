@@ -45,7 +45,9 @@ def load_demo_structure_and_explanation(sample_id: str) -> tuple[ClinicalStructu
 class DemoASRProvider:
     """See app.providers.asr_base.ASRProvider."""
 
-    def transcribe(self, audio_asset: AudioAsset) -> list[DiarizedSegment]:
+    def transcribe(self, audio_asset: AudioAsset, storage_path: str) -> list[DiarizedSegment]:
+        # storage_path is unused here -- demo results always come from the
+        # fixed sample_id-keyed sidecar fixture, never from the uploaded file.
         if not audio_asset.sample_id or not sample_is_available(audio_asset.sample_id):
             raise AsrNotConfigured()
 

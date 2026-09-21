@@ -14,5 +14,5 @@ from app.domain.models import AudioAsset, DiarizedSegment
 class UnavailableASRProvider:
     """See app.providers.asr_base.ASRProvider."""
 
-    def transcribe(self, audio_asset: AudioAsset) -> list[DiarizedSegment]:
+    def transcribe(self, audio_asset: AudioAsset, storage_path: str) -> list[DiarizedSegment]:
         raise AsrNotConfigured()

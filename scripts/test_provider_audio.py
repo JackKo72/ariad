@@ -66,15 +66,13 @@ def main() -> int:
         id="smoke-test",
         encounter_id="smoke-test",
         kind="original",
-        storage_path=audio_path,
         size_bytes=Path(audio_path).stat().st_size,
         duration_seconds=0.0,  # not used by the provider itself
         created_at="1970-01-01T00:00:00+00:00",
     )
-    fake_asset = fake_asset.model_copy(update={"storage_path": audio_path})
 
     try:
-        segments = SherpaOnnxASRProvider(models_dir=models_dir).transcribe(fake_asset)
+        segments = SherpaOnnxASRProvider(models_dir=models_dir).transcribe(fake_asset, audio_path)
     except AriadError as exc:
         print(f"ASR failed: [{exc.code}] {exc.message}")
         return 1

@@ -107,7 +107,8 @@ def _start_pipeline_run_for_asset(
     Raises AsrNotConfigured (422) when no provider is available for this
     asset -- see app.dependencies.get_asr_provider."""
     asr_provider = get_asr_provider(audio_asset)
-    segments = asr_provider.transcribe(audio_asset)
+    storage_path = repo.get_audio_asset_storage_path(audio_asset.id)
+    segments = asr_provider.transcribe(audio_asset, storage_path)
 
     mode = "demo" if audio_asset.sample_id else "manual"
     pipeline_run = repo.create_pipeline_run(

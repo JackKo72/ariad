@@ -118,4 +118,45 @@ def test_transcribe_raises_asr_provider_failed_when_models_missing(tmp_path):
         created_at="2026-01-01T00:00:00+00:00",
     )
     with pytest.raises(AsrProviderFailed):
-        provider.transcribe(asset)
+        provider.transcribe(asset, "/nonexistent/audio.wav")
+
+
+def test_transcribe_uses_the_given_storage_path_not_an_audio_asset_attribute(tmp_path, monkeypatch):
+    """Regression: AudioAsset (app/domain/models.py) deliberately has no
+    storage_path field -- it's server-internal, resolved only via
+    repo.get_audio_asset_storage_path() and passed in by the caller (see
+    app/routes/audio.py's _start_pipeline_run_for_asset). transcribe() must
+    use the storage_path argument, not reach into audio_asset for it."""
+    from pathlib import Path
+
+    from app.domain.errors import AsrProviderFailed
+    from app.domain.models import AudioAsset
+    from app.providers import sherpa_onnx_asr
+    from app.providers.sherpa_onnx_asr import SherpaOnnxASRProvider
+
+    (tmp_path / "sherpa-onnx-whisper-large-v3").mkdir()
+    (tmp_path / "sherpa-onnx-whisper-large-v3" / "large-v3-encoder.int8.onnx").touch()
+    (tmp_path / "sherpa-onnx-whisper-large-v3" / "large-v3-decoder.int8.onnx").touch()
+    (tmp_path / "sherpa-onnx-whisper-large-v3" / "large-v3-tokens.txt").touch()
+    (tmp_path / "sherpa-onnx-pyannote-segmentation-3-0").mkdir()
+    (tmp_path / "sherpa-onnx-pyannote-segmentation-3-0" / "model.onnx").touch()
+    (tmp_path / "emb.onnx").touch()
+    (tmp_path / "silero_vad.onnx").touch()
+
+    received: dict[str, Path] = {}
+
+    def fake_standardize_audio(input_path: Path, output_path: Path, mode: str) -> None:
+        received["input_path"] = input_path
+        raise RuntimeError("stop before real model loading -- unit test boundary")
+
+    monkeypatch.setattr(sherpa_onnx_asr, "standardize_audio", fake_standardize_audio)
+
+    provider = SherpaOnnxASRProvider(models_dir=str(tmp_path))
+    asset = AudioAsset(
+        id="a", encounter_id="e", kind="original", size_bytes=1, duration_seconds=1.0,
+        created_at="2026-01-01T00:00:00+00:00",
+    )
+    with pytest.raises(AsrProviderFailed):
+        provider.transcribe(asset, "/real/uploaded/audio.wav")
+
+    assert received["input_path"] == Path("/real/uploaded/audio.wav")

@@ -147,14 +147,14 @@ class SherpaOnnxASRProvider:
         self._models_dir = models_dir or os.environ.get("ARIAD_SHERPA_MODELS_DIR", DEFAULT_MODELS_DIR)
         self._num_speakers = num_speakers
 
-    def transcribe(self, audio_asset: AudioAsset) -> list[DiarizedSegment]:
+    def transcribe(self, audio_asset: AudioAsset, storage_path: str) -> list[DiarizedSegment]:
         if not models_available(self._models_dir):
             raise AsrProviderFailed(
                 f"모델 파일을 찾을 수 없습니다 ({self._models_dir}). README의 모델 다운로드 안내를 확인하세요."
             )
 
         try:
-            return self._transcribe(audio_asset)
+            return self._transcribe(audio_asset, storage_path)
         except AsrProviderFailed:
             raise
         except Exception as exc:  # pragma: no cover - real-model path, not exercised in CI
@@ -165,7 +165,7 @@ class SherpaOnnxASRProvider:
             logger.exception("sherpa-onnx ASR failed for audio_asset_id=%s", audio_asset.id)
             raise AsrProviderFailed(type(exc).__name__) from exc
 
-    def _transcribe(self, audio_asset: AudioAsset) -> list[DiarizedSegment]:
+    def _transcribe(self, audio_asset: AudioAsset, storage_path: str) -> list[DiarizedSegment]:
         import numpy as np
         import sherpa_onnx
 
@@ -177,7 +177,7 @@ class SherpaOnnxASRProvider:
 
         with tempfile.TemporaryDirectory() as tmp:
             wav_path = Path(tmp) / "16k.wav"
-            standardize_audio(Path(audio_asset.storage_path), wav_path, "none")
+            standardize_audio(Path(storage_path), wav_path, "none")
             with wave.open(str(wav_path)) as w:
                 sample_rate = w.getframerate()
                 frames = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float32) / 32768.0
