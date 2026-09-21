@@ -21,6 +21,7 @@ package installed (see apps/api/tests/test_sherpa_onnx_asr_provider.py).
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import wave
@@ -30,6 +31,8 @@ from typing import NamedTuple
 from app.audio.preprocess import standardize_audio
 from app.domain.errors import AsrProviderFailed
 from app.domain.models import AudioAsset, DiarizedSegment
+
+logger = logging.getLogger("ariad.audio")
 
 DEFAULT_MODELS_DIR = "./models"
 
@@ -155,6 +158,11 @@ class SherpaOnnxASRProvider:
         except AsrProviderFailed:
             raise
         except Exception as exc:  # pragma: no cover - real-model path, not exercised in CI
+            # Traceback only ever names code locations/attribute names, never
+            # audio/transcript content (docs/DEBUGGING.md allowed fields) --
+            # safe to log in full so a real-model failure is diagnosable
+            # instead of collapsing to a bare exception class name.
+            logger.exception("sherpa-onnx ASR failed for audio_asset_id=%s", audio_asset.id)
             raise AsrProviderFailed(type(exc).__name__) from exc
 
     def _transcribe(self, audio_asset: AudioAsset) -> list[DiarizedSegment]:
