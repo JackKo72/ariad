@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
@@ -22,6 +24,7 @@ from app.repositories.sqlite_repo import EncounterRepository
 from app.dependencies import get_llm_provider, get_repository
 
 router = APIRouter(prefix="/encounters", tags=["encounters"])
+logger = logging.getLogger("ariad.pipeline")
 
 _ROLE_LABELS_KO = {
     "doctor": "의사",
@@ -156,6 +159,14 @@ def process_encounter(
         # clinician can retry (same button, e.g. once a key is fixed) or
         # switch to editing the draft manually from PROCESSING_FAILED.
         error_code = getattr(exc, "code", "SIMPLIFICATION_PROVIDER_FAILED")
+        if error_code == "SIMPLIFICATION_PROVIDER_FAILED":
+            # Not one of our AriadError subclasses -- an unexpected failure
+            # (schema mismatch, SDK-internal error, etc.) collapsed to this
+            # generic code with nothing to diagnose it by. Traceback only
+            # ever names code locations/types, never transcript/explanation
+            # content (docs/DEBUGGING.md allowed fields), so it's safe to
+            # log in full here.
+            logger.exception("process_encounter failed for encounter_id=%s", encounter_id)
         encounter = repo.fail_processing(encounter_id, error_code=error_code)
         return _to_detail(repo, encounter)
 
