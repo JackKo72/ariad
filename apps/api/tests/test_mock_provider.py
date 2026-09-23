@@ -19,7 +19,7 @@ def test_structure_only_copies_transcript_text_verbatim():
     provider = MockLLMProvider()
     structure = structure_encounter(TRANSCRIPT, provider)
     for problem in structure.problems:
-        assert problem["text"] in TRANSCRIPT
+        assert problem.text in TRANSCRIPT
 
 
 def test_explanation_is_deterministic_given_same_structure():
@@ -35,8 +35,8 @@ def test_explanation_current_situation_traces_to_source_segments():
     structure = structure_encounter(TRANSCRIPT, provider)
     explanation = generate_patient_explanation(structure, provider)
     assert len(explanation.current_situation) == len(structure.problems)
-    all_source_ids = {sid for p in structure.problems for sid in p["source_segment_ids"]}
-    mapped_ids = {sid for m in explanation.source_map for sid in m["source_segment_ids"]}
+    all_source_ids = {sid for p in structure.problems for sid in p.source_segment_ids}
+    mapped_ids = {sid for m in explanation.source_map for sid in m.source_segment_ids}
     assert mapped_ids == all_source_ids
 
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -24,13 +24,53 @@ class VersionStatus(str, Enum):
     APPROVED = "approved"
 
 
+# Nested shapes mirror packages/contracts/schema/clinical_structure.schema.json
+# and explanation_draft.schema.json exactly (field names, required-ness,
+# enums). This is not just documentation -- OpenAI's structured-output
+# strict mode (app/providers/openai_llm.py) rejects a free-form
+# `dict[str, Any]` field (it collapses to an object schema with no declared
+# properties, which the API then refuses with "'required' ... including
+# every key in properties"), so every nested object needs an explicit model.
+class Problem(BaseModel):
+    text: str
+    certainty: Literal["stated", "uncertain"]
+    source_segment_ids: list[str] = Field(default_factory=list)
+
+
+class TestOrder(BaseModel):
+    name: str
+    reason: str
+    status: Literal["planned", "completed", "unknown"]
+    source_segment_ids: list[str] = Field(default_factory=list)
+
+
+class Medication(BaseModel):
+    name: str
+    dose: str
+    route: str
+    frequency: str
+    action: Literal["start", "continue", "stop", "unknown"]
+    source_segment_ids: list[str] = Field(default_factory=list)
+    needs_confirmation: bool = False
+
+
+class PlanItem(BaseModel):
+    text: str
+    source_segment_ids: list[str] = Field(default_factory=list)
+
+
+class SourceMapEntry(BaseModel):
+    field: str
+    source_segment_ids: list[str] = Field(default_factory=list)
+
+
 class ClinicalStructure(BaseModel):
-    problems: list[dict[str, Any]] = Field(default_factory=list)
-    tests: list[dict[str, Any]] = Field(default_factory=list)
-    medications: list[dict[str, Any]] = Field(default_factory=list)
-    plan: list[dict[str, Any]] = Field(default_factory=list)
-    warnings: list[dict[str, Any]] = Field(default_factory=list)
-    follow_up: list[dict[str, Any]] = Field(default_factory=list)
+    problems: list[Problem] = Field(default_factory=list)
+    tests: list[TestOrder] = Field(default_factory=list)
+    medications: list[Medication] = Field(default_factory=list)
+    plan: list[PlanItem] = Field(default_factory=list)
+    warnings: list[PlanItem] = Field(default_factory=list)
+    follow_up: list[PlanItem] = Field(default_factory=list)
     questions_or_conflicts: list[str] = Field(default_factory=list)
 
 
@@ -44,7 +84,7 @@ class ExplanationDraft(BaseModel):
     what_to_do_next: list[str] = Field(default_factory=list)
     follow_up: list[str] = Field(default_factory=list)
     items_to_confirm_with_clinician: list[str] = Field(default_factory=list)
-    source_map: list[dict[str, Any]] = Field(default_factory=list)
+    source_map: list[SourceMapEntry] = Field(default_factory=list)
 
 
 class ValidationReport(BaseModel):

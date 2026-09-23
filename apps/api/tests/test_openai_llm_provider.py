@@ -108,3 +108,20 @@ def test_non_ascii_api_key_header_error_raises_actionable_llm_provider_failed():
 
     assert exc_info.value.code == "LLM_PROVIDER_FAILED"
     assert "OPENAI_API_KEY" in exc_info.value.message
+
+
+def test_clinical_structure_and_explanation_draft_are_openai_strict_schema_compatible():
+    """Regression: a real user's ClinicalStructure/ExplanationDraft request
+    was rejected by the live API with a 400 BadRequestError ("'required' is
+    required to be supplied and to be an array including every key in
+    properties") because these models used to declare their nested items as
+    dict[str, Any]. OpenAI's strict structured-output mode collapses a free
+    -form dict to an object schema with no declared properties, which the
+    API then refuses. This doesn't need network access or a real key -- the
+    schema-generation mismatch is detectable purely client-side via the
+    SDK's own conversion, which is exactly where it should have been caught
+    before a user ever hit it live."""
+    from openai.lib._parsing._completions import type_to_response_format_param
+
+    for schema_cls in (ClinicalStructure, ExplanationDraft):
+        type_to_response_format_param(schema_cls)  # raises if incompatible
