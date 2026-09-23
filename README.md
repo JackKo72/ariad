@@ -96,7 +96,7 @@ tests/
 
 ```dotenv
 ARIAD_MODE=provider
-OPENAI_API_KEY=sk-...실제키...
+OPENAI_API_KEY=sk-REPLACE_WITH_YOUR_REAL_KEY
 OPENAI_TEXT_MODEL=gpt-4o-mini   # 비워두면 기본값 gpt-4o-mini 사용
 ```
 

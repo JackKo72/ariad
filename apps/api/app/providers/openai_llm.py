@@ -63,6 +63,15 @@ class OpenAILLMProvider:
             # the error class name (docs/DEBUGGING.md: no transcript/
             # explanation content in logs or user-facing error detail).
             raise LlmProviderFailed(type(exc).__name__) from exc
+        except UnicodeEncodeError as exc:
+            # The SDK raises this deep inside HTTP header construction (not
+            # an OpenAIError) when the API key contains non-ASCII characters
+            # -- in practice this means apps/api/.env.local still has the
+            # README's example placeholder instead of a real key.
+            raise LlmProviderFailed(
+                "OPENAI_API_KEY에 ASCII가 아닌 문자가 포함되어 있습니다. "
+                "apps/api/.env.local의 값이 예시 placeholder가 아닌 실제 발급받은 키인지 확인하세요."
+            ) from exc
 
         parsed = completion.choices[0].message.parsed
         if parsed is None:

@@ -89,3 +89,22 @@ def test_sdk_errors_map_to_llm_provider_failed_without_leaking_content(exc_facto
 
     assert exc_info.value.code == "LLM_PROVIDER_FAILED"
     assert "환자의 실제 민감정보" not in exc_info.value.message
+
+
+def test_non_ascii_api_key_header_error_raises_actionable_llm_provider_failed():
+    """Regression: a real user left the README's example placeholder
+    (containing Korean characters) in apps/api/.env.local's OPENAI_API_KEY.
+    The SDK raises UnicodeEncodeError deep inside HTTP header construction
+    (not an OpenAIError, so the OpenAIError except clause alone doesn't
+    catch it) -- this must still surface as a clear, actionable
+    LLM_PROVIDER_FAILED instead of a bare traceback."""
+    provider = _provider_with_mock_client()
+    provider._client.chat.completions.parse.side_effect = UnicodeEncodeError(
+        "ascii", "Bearer sk-...실제키...", 13, 16, "ordinal not in range(128)"
+    )
+
+    with pytest.raises(LlmProviderFailed) as exc_info:
+        provider.generate_json("structure_transcript", {"transcript_text": "..."})
+
+    assert exc_info.value.code == "LLM_PROVIDER_FAILED"
+    assert "OPENAI_API_KEY" in exc_info.value.message
