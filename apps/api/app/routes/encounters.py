@@ -159,14 +159,16 @@ def process_encounter(
         # clinician can retry (same button, e.g. once a key is fixed) or
         # switch to editing the draft manually from PROCESSING_FAILED.
         error_code = getattr(exc, "code", "SIMPLIFICATION_PROVIDER_FAILED")
-        if error_code == "SIMPLIFICATION_PROVIDER_FAILED":
-            # Not one of our AriadError subclasses -- an unexpected failure
-            # (schema mismatch, SDK-internal error, etc.) collapsed to this
-            # generic code with nothing to diagnose it by. Traceback only
-            # ever names code locations/types, never transcript/explanation
-            # content (docs/DEBUGGING.md allowed fields), so it's safe to
-            # log in full here.
-            logger.exception("process_encounter failed for encounter_id=%s", encounter_id)
+        # Encounter.error_code only ever stores the code (e.g.
+        # LLM_PROVIDER_FAILED), never the AriadError's .message detail or
+        # the wrapped SDK exception's type -- both are discarded once we're
+        # here, and the frontend only ever displays the bare code. Log
+        # unconditionally so the actual cause (OpenAIError subtype, schema
+        # mismatch, etc., chained via `raise ... from exc`) is always
+        # traceable in the server log. Traceback only ever names code
+        # locations/types, never transcript/explanation content
+        # (docs/DEBUGGING.md allowed fields), so this is safe to log in full.
+        logger.exception("process_encounter failed for encounter_id=%s", encounter_id)
         encounter = repo.fail_processing(encounter_id, error_code=error_code)
         return _to_detail(repo, encounter)
 
