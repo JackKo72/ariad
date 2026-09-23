@@ -14,6 +14,7 @@ import pytest
 
 from app.domain.errors import LlmProviderFailed
 from app.domain.models import ClinicalStructure, ExplanationDraft
+from app.observability import StageTimer
 from app.providers.openai_llm import OpenAILLMProvider
 
 
@@ -125,3 +126,46 @@ def test_clinical_structure_and_explanation_draft_are_openai_strict_schema_compa
 
     for schema_cls in (ClinicalStructure, ExplanationDraft):
         type_to_response_format_param(schema_cls)  # raises if incompatible
+
+
+def test_stage_timer_records_stage_name_model_and_token_usage():
+    """tasks/03_SPEAKER_MERGE_AND_LATENCY.md Phase 1: structure_transcript
+    maps to pipeline stage structure_llm (not the prompt_id itself), and
+    completion.usage token counts must land on the record when a
+    StageTimer is passed."""
+    provider = _provider_with_mock_client()
+    structure = ClinicalStructure(
+        problems=[{"text": "혈압 상승", "certainty": "stated", "source_segment_ids": ["seg-1"]}]
+    )
+    completion = _mock_completion(structure)
+    completion.usage = MagicMock(prompt_tokens=321, completion_tokens=87)
+    provider._client.chat.completions.parse.return_value = completion
+
+    timer = StageTimer()
+    provider.generate_json("structure_transcript", {"transcript_text": "..."}, stage_timer=timer)
+
+    assert len(timer.records) == 1
+    record = timer.records[0]
+    assert record.stage == "structure_llm"
+    assert record.status == "ok"
+    assert record.provider == "openai"
+    assert record.model == "gpt-4o-mini"
+    assert record.input_tokens == 321
+    assert record.output_tokens == 87
+
+
+def test_stage_timer_records_error_status_on_failure():
+    provider = _provider_with_mock_client()
+    provider._client.chat.completions.parse.side_effect = __import__("openai").AuthenticationError(
+        message="unauthorized", response=MagicMock(headers={}), body=None
+    )
+
+    timer = StageTimer()
+    with pytest.raises(LlmProviderFailed):
+        provider.generate_json("patient_explanation", {"structure": {}}, stage_timer=timer)
+
+    assert len(timer.records) == 1
+    record = timer.records[0]
+    assert record.stage == "explanation_llm"
+    assert record.status == "error"
+    assert record.error_code == "LLM_PROVIDER_FAILED"

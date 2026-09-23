@@ -7,12 +7,17 @@ through the existing Task 01 flow.
 
 from __future__ import annotations
 
+from typing import Optional
+
 from app.domain.errors import AsrNotConfigured
 from app.domain.models import AudioAsset, DiarizedSegment
+from app.observability import StageTimer
 
 
 class UnavailableASRProvider:
     """See app.providers.asr_base.ASRProvider."""
 
-    def transcribe(self, audio_asset: AudioAsset, storage_path: str) -> list[DiarizedSegment]:
+    def transcribe(
+        self, audio_asset: AudioAsset, storage_path: str, stage_timer: Optional[StageTimer] = None
+    ) -> list[DiarizedSegment]:
         raise AsrNotConfigured()

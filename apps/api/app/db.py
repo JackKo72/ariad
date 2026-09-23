@@ -87,6 +87,31 @@ CREATE TABLE IF NOT EXISTS pipeline_runs (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+
+-- tasks/03_SPEAKER_MERGE_AND_LATENCY.md Phase 1. One row per StageRecord
+-- (app/observability.py). Only the fields docs/DEBUGGING.md's allowlist
+-- covers -- never audio, transcript, or explanation content.
+CREATE TABLE IF NOT EXISTS stage_runs (
+    id TEXT PRIMARY KEY,
+    request_id TEXT NOT NULL,
+    encounter_id TEXT,
+    pipeline_run_id TEXT,
+    stage TEXT NOT NULL,
+    status TEXT NOT NULL,
+    duration_ms REAL NOT NULL,
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    audio_duration_seconds REAL,
+    file_size_bytes INTEGER,
+    provider TEXT,
+    model TEXT,
+    prompt_version TEXT,
+    schema_version TEXT,
+    input_tokens INTEGER,
+    output_tokens INTEGER,
+    cache_hit INTEGER,
+    error_code TEXT,
+    created_at TEXT NOT NULL
+);
 """
 
 # Columns added after the first release of a table above. SQLite has no

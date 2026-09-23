@@ -17,6 +17,9 @@
   - 텍스트 LLM: OpenAI (`structure_transcript`/`patient_explanation`, structured output)
   - ASR: sherpa-onnx 로컬 Whisper + pyannote 화자분리 + Silero VAD (OpenAI 아님, 오프라인)
 - Phase E(실 API key로 end-to-end 실행 검증)는 아직 미실행 — 아래 참고
+- `tasks/03_SPEAKER_MERGE_AND_LATENCY.md` Phase 1: pipeline stage별 latency 계측(`stage_runs` 테이블) +
+  real provider 인스턴스 캐싱(요청마다 재생성되던 문제 수정) + `make benchmark-audio` (완료).
+  Phase 2 이후(수동 화자 병합, 자동 병합 추천, 측정된 병목 제거)는 아직 미착수.
 
 ## Stack
 
@@ -134,6 +137,12 @@ make dev
 make test-provider-audio AUDIO=tests/fixtures/audio/sample_consultation.wav
 # 실제 provider(로컬 ASR은 무료, OpenAI 텍스트 단계는 유료 — 진행 전 y/N 확인받음)로
 # 커맨드라인에서 직접 검증. make test/make e2e에는 포함되지 않는다(비용 없음, mock으로 검증).
+
+make benchmark-audio AUDIO=tests/fixtures/audio/sample_consultation.wav RUNS=3
+# tasks/03_SPEAKER_MERGE_AND_LATENCY.md Phase 1 baseline. ASR을 1회 cold + RUNS회 warm
+# 실행해 stage별(asr_preprocess/asr_model_load/asr_inference) cold/warm median/min/max를
+# 표로 출력한다 (OPENAI_API_KEY가 있으면 structure_llm/explanation_llm도 이어서, y/N 확인 후).
+# 이것도 make test/make e2e에는 포함되지 않는다.
 ```
 
 **문제 해결**

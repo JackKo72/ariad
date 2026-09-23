@@ -160,3 +160,46 @@ def test_transcribe_uses_the_given_storage_path_not_an_audio_asset_attribute(tmp
         provider.transcribe(asset, "/real/uploaded/audio.wav")
 
     assert received["input_path"] == Path("/real/uploaded/audio.wav")
+
+
+def test_ensure_models_loaded_builds_the_heavy_models_only_once(tmp_path):
+    """Regression: tasks/03_SPEAKER_MERGE_AND_LATENCY.md Phase 0 found the
+    diarizer and both Whisper recognizers were rebuilt from disk on every
+    transcribe() call. _ensure_models_loaded() must be idempotent -- a
+    second call must not reconstruct anything -- for the provider-instance
+    caching in app/dependencies.py to actually deliver the latency win."""
+    import sys
+    from unittest.mock import MagicMock
+
+    from app.providers.sherpa_onnx_asr import SherpaOnnxASRProvider
+
+    (tmp_path / "sherpa-onnx-whisper-large-v3").mkdir()
+    (tmp_path / "sherpa-onnx-whisper-large-v3" / "large-v3-encoder.int8.onnx").touch()
+    (tmp_path / "sherpa-onnx-whisper-large-v3" / "large-v3-decoder.int8.onnx").touch()
+    (tmp_path / "sherpa-onnx-whisper-large-v3" / "large-v3-tokens.txt").touch()
+    (tmp_path / "sherpa-onnx-pyannote-segmentation-3-0").mkdir()
+    (tmp_path / "sherpa-onnx-pyannote-segmentation-3-0" / "model.onnx").touch()
+    (tmp_path / "emb.onnx").touch()
+    (tmp_path / "silero_vad.onnx").touch()
+
+    fake_sherpa_onnx = MagicMock()
+    original_module = sys.modules.get("sherpa_onnx")
+    sys.modules["sherpa_onnx"] = fake_sherpa_onnx
+    try:
+        provider = SherpaOnnxASRProvider(models_dir=str(tmp_path))
+        provider._ensure_models_loaded()
+        provider._ensure_models_loaded()
+        provider._ensure_models_loaded()
+    finally:
+        if original_module is not None:
+            sys.modules["sherpa_onnx"] = original_module
+        else:
+            del sys.modules["sherpa_onnx"]
+
+    assert fake_sherpa_onnx.OfflineSpeakerDiarization.call_count == 1
+    assert fake_sherpa_onnx.OfflineRecognizer.from_whisper.call_count == 2  # auto + ko, once each
+    assert fake_sherpa_onnx.VadModelConfig.call_count == 1
+    assert provider._diarizer is not None
+    assert provider._recognizer_auto is not None
+    assert provider._recognizer_ko is not None
+    assert provider._vad_config is not None

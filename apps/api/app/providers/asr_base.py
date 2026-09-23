@@ -7,10 +7,13 @@ touching domain, route, or pipeline code.
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Optional, Protocol
 
 from app.domain.models import AudioAsset, DiarizedSegment
+from app.observability import StageTimer
 
 
 class ASRProvider(Protocol):
-    def transcribe(self, audio_asset: AudioAsset, storage_path: str) -> list[DiarizedSegment]: ...
+    def transcribe(
+        self, audio_asset: AudioAsset, storage_path: str, stage_timer: Optional[StageTimer] = None
+    ) -> list[DiarizedSegment]: ...

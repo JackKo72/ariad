@@ -17,6 +17,8 @@ from pydantic import BaseModel
 from app.audio import preprocess, storage, validation
 from app.domain.errors import AsrNotConfigured, AudioFileTooLarge, NotFoundError
 from app.domain.models import AudioAsset, PipelineRun, SampleSelectionResult
+from app.ids import new_id
+from app.observability import StageTimer
 from app.providers.demo_asr import SAMPLE_FIXTURES_DIR, sample_is_available
 from app.repositories.sqlite_repo import EncounterRepository
 
@@ -60,37 +62,47 @@ async def upload_audio(
     file: UploadFile,
     repo: EncounterRepository = Depends(get_repository),
 ) -> AudioAsset:
-    chunk_size = 1024 * 1024
-    data = bytearray()
-    while True:
-        chunk = await file.read(chunk_size)
-        if not chunk:
-            break
-        data.extend(chunk)
-        if len(data) > storage.MAX_FILE_SIZE_BYTES:
-            raise AudioFileTooLarge(storage.MAX_FILE_SIZE_BYTES)
-    content = bytes(data)
+    timer = StageTimer()
+    with timer.stage("upload"):
+        chunk_size = 1024 * 1024
+        data = bytearray()
+        while True:
+            chunk = await file.read(chunk_size)
+            if not chunk:
+                break
+            data.extend(chunk)
+            if len(data) > storage.MAX_FILE_SIZE_BYTES:
+                raise AudioFileTooLarge(storage.MAX_FILE_SIZE_BYTES)
+        content = bytes(data)
 
-    audio_dir = get_audio_dir()
-    asset_id, path, sha256_hash = storage.save_upload(audio_dir, encounter_id, content)
+        audio_dir = get_audio_dir()
+        asset_id, path, sha256_hash = storage.save_upload(audio_dir, encounter_id, content)
 
-    try:
-        probe = validation.probe_audio(str(path))
-        validation.validate_probe_result(probe)
-    except Exception:
-        path.unlink(missing_ok=True)
-        raise
+        try:
+            with timer.stage("probe", file_size_bytes=len(content)):
+                probe = validation.probe_audio(str(path))
+                validation.validate_probe_result(probe)
+        except Exception:
+            path.unlink(missing_ok=True)
+            repo.record_stage_runs(
+                request_id=new_id(), encounter_id=encounter_id, pipeline_run_id=None, records=timer.records
+            )
+            raise
 
-    return repo.create_audio_asset(
-        encounter_id,
-        kind="original",
-        storage_path=str(path),
-        original_filename=file.filename,
-        mime_type=_detected_mime_type(probe),
-        size_bytes=len(content),
-        duration_seconds=probe.duration_seconds,
-        sha256_hash=sha256_hash,
+        asset = repo.create_audio_asset(
+            encounter_id,
+            kind="original",
+            storage_path=str(path),
+            original_filename=file.filename,
+            mime_type=_detected_mime_type(probe),
+            size_bytes=len(content),
+            duration_seconds=probe.duration_seconds,
+            sha256_hash=sha256_hash,
+        )
+    repo.record_stage_runs(
+        request_id=new_id(), encounter_id=encounter_id, pipeline_run_id=None, records=timer.records
     )
+    return asset
 
 
 class SampleSelectionRequest(BaseModel):
@@ -105,21 +117,39 @@ def _start_pipeline_run_for_asset(
     exactly like the manual-transcript path does -- one shared continuation
     for demo, manual-upload, and (Phase D) real-provider audio alike.
     Raises AsrNotConfigured (422) when no provider is available for this
-    asset -- see app.dependencies.get_asr_provider."""
-    asr_provider = get_asr_provider(audio_asset)
-    storage_path = repo.get_audio_asset_storage_path(audio_asset.id)
-    segments = asr_provider.transcribe(audio_asset, storage_path)
+    asset -- see app.dependencies.get_asr_provider.
 
-    mode = "demo" if audio_asset.sample_id else "manual"
-    pipeline_run = repo.create_pipeline_run(
-        encounter_id,
-        mode=mode,
-        audio_asset_id=audio_asset.id,
-        sample_id=audio_asset.sample_id,
-        segments=segments,
-    )
-    repo.submit_input(encounter_id, "")
-    return pipeline_run
+    tasks/03_SPEAKER_MERGE_AND_LATENCY.md Phase 1: wraps the whole call in a
+    StageTimer, threaded into the ASR provider so it can record its own
+    asr_preprocess/asr_model_load/asr_inference sub-stages, and persists
+    everything in one batch once the run completes (success or failure)."""
+    timer = StageTimer()
+    request_id = new_id()
+    pipeline_run: PipelineRun | None = None
+    try:
+        with timer.stage("total"):
+            asr_provider = get_asr_provider(audio_asset)
+            storage_path = repo.get_audio_asset_storage_path(audio_asset.id)
+            segments = asr_provider.transcribe(audio_asset, storage_path, stage_timer=timer)
+
+            mode = "demo" if audio_asset.sample_id else "manual"
+            with timer.stage("database_write"):
+                pipeline_run = repo.create_pipeline_run(
+                    encounter_id,
+                    mode=mode,
+                    audio_asset_id=audio_asset.id,
+                    sample_id=audio_asset.sample_id,
+                    segments=segments,
+                )
+                repo.submit_input(encounter_id, "")
+        return pipeline_run
+    finally:
+        repo.record_stage_runs(
+            request_id=request_id,
+            encounter_id=encounter_id,
+            pipeline_run_id=pipeline_run.id if pipeline_run else None,
+            records=timer.records,
+        )
 
 
 @router.post("/{encounter_id}/audio/sample", response_model=SampleSelectionResult, status_code=201)
@@ -193,10 +223,17 @@ def preprocess_audio(
 
     audio_dir = get_audio_dir()
     asset_id, output_path = storage.new_asset_path(audio_dir, encounter_id)
-    preprocess.standardize_audio(source_path, output_path, body.mode)
+
+    timer = StageTimer()
+    # Two names, matching tasks/03_SPEAKER_MERGE_AND_LATENCY.md's stage
+    # vocabulary, so a benchmark run can compare the "off" and "light"
+    # ffmpeg filter graphs' cost separately rather than averaging them.
+    stage_name = "denoise" if body.mode == "light_denoise" else "preprocess"
+    with timer.stage(stage_name, provider="ffmpeg", audio_duration_seconds=source.duration_seconds):
+        preprocess.standardize_audio(source_path, output_path, body.mode)
 
     probe = validation.probe_audio(str(output_path))
-    return repo.create_audio_asset(
+    asset = repo.create_audio_asset(
         encounter_id,
         kind="processed",
         storage_path=str(output_path),
@@ -208,6 +245,10 @@ def preprocess_audio(
         preprocessing_mode=body.mode,
         source_asset_id=body.source_asset_id,
     )
+    repo.record_stage_runs(
+        request_id=new_id(), encounter_id=encounter_id, pipeline_run_id=None, records=timer.records
+    )
+    return asset
 
 
 _RANGE_RE = re.compile(r"bytes=(\d*)-(\d*)")

@@ -24,13 +24,16 @@ from __future__ import annotations
 import logging
 import os
 import re
+import threading
 import wave
+from contextlib import nullcontext
 from pathlib import Path
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 
 from app.audio.preprocess import standardize_audio
 from app.domain.errors import AsrProviderFailed
 from app.domain.models import AudioAsset, DiarizedSegment
+from app.observability import StageTimer
 
 logger = logging.getLogger("ariad.audio")
 
@@ -141,20 +144,39 @@ def models_available(models_dir: str) -> bool:
 class SherpaOnnxASRProvider:
     """See app.providers.asr_base.ASRProvider. Constructed only when
     ARIAD_MODE=provider (app.dependencies); still checks model files itself
-    since "configured" and "models actually present" are different things."""
+    since "configured" and "models actually present" are different things.
+
+    tasks/03_SPEAKER_MERGE_AND_LATENCY.md Phase 0 found the diarizer and
+    both Whisper recognizers were being rebuilt from disk on every single
+    transcribe() call, since app.dependencies constructed a fresh provider
+    per request. dependencies.py now caches one instance for the process
+    lifetime, so the models are lazily loaded once here (see
+    _ensure_models_loaded) and reused across requests. A lock guards the
+    lazy build since FastAPI's sync routes run in a threadpool and two
+    requests could race on the very first call; concurrent *decoding* on an
+    already-warm instance is not separately guarded (see known limitation
+    in the Phase 1 report -- this is a single-clinician local tool, not a
+    concurrent multi-user service)."""
 
     def __init__(self, models_dir: str | None = None, num_speakers: int = 0):
         self._models_dir = models_dir or os.environ.get("ARIAD_SHERPA_MODELS_DIR", DEFAULT_MODELS_DIR)
         self._num_speakers = num_speakers
+        self._load_lock = threading.Lock()
+        self._diarizer = None
+        self._recognizer_auto = None
+        self._recognizer_ko = None
+        self._vad_config = None
 
-    def transcribe(self, audio_asset: AudioAsset, storage_path: str) -> list[DiarizedSegment]:
+    def transcribe(
+        self, audio_asset: AudioAsset, storage_path: str, stage_timer: Optional[StageTimer] = None
+    ) -> list[DiarizedSegment]:
         if not models_available(self._models_dir):
             raise AsrProviderFailed(
                 f"모델 파일을 찾을 수 없습니다 ({self._models_dir}). README의 모델 다운로드 안내를 확인하세요."
             )
 
         try:
-            return self._transcribe(audio_asset, storage_path)
+            return self._transcribe(audio_asset, storage_path, stage_timer)
         except AsrProviderFailed:
             raise
         except Exception as exc:  # pragma: no cover - real-model path, not exercised in CI
@@ -165,23 +187,18 @@ class SherpaOnnxASRProvider:
             logger.exception("sherpa-onnx ASR failed for audio_asset_id=%s", audio_asset.id)
             raise AsrProviderFailed(type(exc).__name__) from exc
 
-    def _transcribe(self, audio_asset: AudioAsset, storage_path: str) -> list[DiarizedSegment]:
-        import numpy as np
-        import sherpa_onnx
+    def _ensure_models_loaded(self) -> None:
+        """Builds the diarizer + both Whisper recognizers + VAD config once
+        and caches them as instance attributes. Safe to call on every
+        request: a no-op after the first successful call."""
+        if self._diarizer is not None:
+            return
+        with self._load_lock:
+            if self._diarizer is not None:  # lost the race, another thread already loaded
+                return
+            import sherpa_onnx
 
-        paths = _model_paths(self._models_dir)
-
-        # Reuse the same standardization Phase B already validated instead
-        # of a second bespoke ffmpeg invocation.
-        import tempfile
-
-        with tempfile.TemporaryDirectory() as tmp:
-            wav_path = Path(tmp) / "16k.wav"
-            standardize_audio(Path(storage_path), wav_path, "none")
-            with wave.open(str(wav_path)) as w:
-                sample_rate = w.getframerate()
-                frames = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float32) / 32768.0
-
+            paths = _model_paths(self._models_dir)
             diarization_config = sherpa_onnx.OfflineSpeakerDiarizationConfig(
                 segmentation=sherpa_onnx.OfflineSpeakerSegmentationModelConfig(
                     pyannote=sherpa_onnx.OfflineSpeakerSegmentationPyannoteModelConfig(
@@ -199,31 +216,6 @@ class SherpaOnnxASRProvider:
                 min_duration_off=0.5,
             )
             diarizer = sherpa_onnx.OfflineSpeakerDiarization(diarization_config)
-            raw_turns = [
-                DiarizationTurn(s.start, s.end, int(s.speaker))
-                for s in diarizer.process(frames).sort_by_start_time()
-            ]
-            turns = merge_diarization_turns(raw_turns)
-
-            vad_config = sherpa_onnx.VadModelConfig()
-            vad_config.silero_vad.model = str(paths["vad"])
-            vad_config.silero_vad.threshold = 0.5
-            vad_config.silero_vad.min_speech_duration = 0.15
-            vad_config.silero_vad.min_silence_duration = 0.1
-            vad_config.sample_rate = sample_rate
-
-            def speech_seconds(clip: "np.ndarray") -> float:
-                vad = sherpa_onnx.VoiceActivityDetector(vad_config, buffer_size_in_seconds=30)
-                k = 0
-                while k + 512 <= len(clip):
-                    vad.accept_waveform(clip[k : k + 512])
-                    k += 512
-                vad.flush()
-                total = 0.0
-                while not vad.empty():
-                    total += len(vad.front.samples) / sample_rate
-                    vad.pop()
-                return total
 
             def new_recognizer(language: str) -> "sherpa_onnx.OfflineRecognizer":
                 return sherpa_onnx.OfflineRecognizer.from_whisper(
@@ -238,24 +230,106 @@ class SherpaOnnxASRProvider:
             recognizer_auto = new_recognizer("")
             recognizer_ko = new_recognizer("ko")
 
-            rows = []
-            for turn in turns:
-                clip = frames[int(turn.start * sample_rate) : int(turn.end * sample_rate)]
-                sv = speech_seconds(clip)
-                stream = recognizer_auto.create_stream()
-                stream.accept_waveform(sample_rate, clip)
-                recognizer_auto.decode_stream(stream)
-                text = stream.result.text.strip()
+            vad_config = sherpa_onnx.VadModelConfig()
+            vad_config.silero_vad.model = str(paths["vad"])
+            vad_config.silero_vad.threshold = 0.5
+            vad_config.silero_vad.min_speech_duration = 0.15
+            vad_config.silero_vad.min_silence_duration = 0.1
 
-                if _NON_KOREAN_RE.search(text) or (turn.end - turn.start) < 1.2:
-                    stream_ko = recognizer_ko.create_stream()
-                    stream_ko.accept_waveform(sample_rate, clip)
-                    recognizer_ko.decode_stream(stream_ko)
-                    text = stream_ko.result.text.strip()
+            self._diarizer = diarizer
+            self._recognizer_auto = recognizer_auto
+            self._recognizer_ko = recognizer_ko
+            self._vad_config = vad_config
 
-                if is_garbage_text(text, sv):
-                    continue
-                rows.append({"start": turn.start, "end": turn.end, "speaker_index": turn.speaker_index, "text": text})
+    def _transcribe(
+        self, audio_asset: AudioAsset, storage_path: str, stage_timer: Optional[StageTimer]
+    ) -> list[DiarizedSegment]:
+        import numpy as np
+        import sherpa_onnx
+
+        # Reuse the same standardization Phase B already validated instead
+        # of a second bespoke ffmpeg invocation.
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            wav_path = Path(tmp) / "16k.wav"
+            # tasks/03_SPEAKER_MERGE_AND_LATENCY.md Phase 0 flagged this as
+            # duplicate work when the caller already preprocessed the file
+            # (routes/audio.py:preprocess_audio also runs standardize_audio)
+            # -- kept as-is for now (mode="none" is cheap: resample+remux,
+            # no filter graph) but named separately from the route-level
+            # `preprocess` stage so the benchmark can show whether it's
+            # actually worth removing.
+            with (
+                stage_timer.stage("asr_preprocess", provider="ffmpeg")
+                if stage_timer
+                else nullcontext()
+            ):
+                standardize_audio(Path(storage_path), wav_path, "none")
+            with wave.open(str(wav_path)) as w:
+                sample_rate = w.getframerate()
+                frames = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float32) / 32768.0
+
+            with (
+                stage_timer.stage("asr_model_load", provider="sherpa_onnx")
+                if stage_timer
+                else nullcontext()
+            ) as meta:
+                already_warm = self._diarizer is not None
+                self._ensure_models_loaded()
+                if meta is not None:
+                    meta["cache_hit"] = already_warm
+            self._vad_config.sample_rate = sample_rate
+
+            def speech_seconds(clip: "np.ndarray") -> float:
+                vad = sherpa_onnx.VoiceActivityDetector(self._vad_config, buffer_size_in_seconds=30)
+                k = 0
+                while k + 512 <= len(clip):
+                    vad.accept_waveform(clip[k : k + 512])
+                    k += 512
+                vad.flush()
+                total = 0.0
+                while not vad.empty():
+                    total += len(vad.front.samples) / sample_rate
+                    vad.pop()
+                return total
+
+            with (
+                stage_timer.stage("asr_inference", provider="sherpa_onnx")
+                if stage_timer
+                else nullcontext()
+            ) as meta:
+                # Diarization inference lives inside this stage (not
+                # asr_model_load) -- it's compute against already-loaded
+                # models, same as the decode loop below.
+                raw_turns = [
+                    DiarizationTurn(s.start, s.end, int(s.speaker))
+                    for s in self._diarizer.process(frames).sort_by_start_time()
+                ]
+                turns = merge_diarization_turns(raw_turns)
+
+                rows = []
+                for turn in turns:
+                    clip = frames[int(turn.start * sample_rate) : int(turn.end * sample_rate)]
+                    sv = speech_seconds(clip)
+                    stream = self._recognizer_auto.create_stream()
+                    stream.accept_waveform(sample_rate, clip)
+                    self._recognizer_auto.decode_stream(stream)
+                    text = stream.result.text.strip()
+
+                    if _NON_KOREAN_RE.search(text) or (turn.end - turn.start) < 1.2:
+                        stream_ko = self._recognizer_ko.create_stream()
+                        stream_ko.accept_waveform(sample_rate, clip)
+                        self._recognizer_ko.decode_stream(stream_ko)
+                        text = stream_ko.result.text.strip()
+
+                    if is_garbage_text(text, sv):
+                        continue
+                    rows.append(
+                        {"start": turn.start, "end": turn.end, "speaker_index": turn.speaker_index, "text": text}
+                    )
+                if meta is not None:
+                    meta["audio_duration_seconds"] = len(frames) / sample_rate
 
         merged_rows = merge_adjacent_same_speaker(rows)
         return [

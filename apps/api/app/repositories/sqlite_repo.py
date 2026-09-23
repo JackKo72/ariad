@@ -26,6 +26,7 @@ from app.domain.models import (
 )
 from app.domain.state_machine import ensure_status, ensure_transition
 from app.ids import new_id, new_public_token
+from app.observability import StageRecord
 
 
 def _row_to_encounter(row: sqlite3.Row) -> Encounter:
@@ -508,6 +509,67 @@ class EncounterRepository:
         )
         self._conn.commit()
         return self.get_pipeline_run(run.id)
+
+    # -- observability (tasks/03_SPEAKER_MERGE_AND_LATENCY.md Phase 1) -----
+
+    def record_stage_runs(
+        self,
+        *,
+        request_id: str,
+        encounter_id: Optional[str],
+        pipeline_run_id: Optional[str],
+        records: list[StageRecord],
+    ) -> None:
+        """Bulk-persists one request's StageTimer.records in a single
+        commit. No-op on an empty list so call sites don't need to guard."""
+        if not records:
+            return
+        now = self._now()
+        self._conn.executemany(
+            """INSERT INTO stage_runs
+               (id, request_id, encounter_id, pipeline_run_id, stage, status,
+                duration_ms, retry_count, audio_duration_seconds, file_size_bytes,
+                provider, model, prompt_version, schema_version,
+                input_tokens, output_tokens, cache_hit, error_code, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            [
+                (
+                    new_id(),
+                    request_id,
+                    encounter_id,
+                    pipeline_run_id,
+                    r.stage,
+                    r.status,
+                    r.duration_ms,
+                    r.retry_count,
+                    r.audio_duration_seconds,
+                    r.file_size_bytes,
+                    r.provider,
+                    r.model,
+                    r.prompt_version,
+                    r.schema_version,
+                    r.input_tokens,
+                    r.output_tokens,
+                    None if r.cache_hit is None else int(r.cache_hit),
+                    r.error_code,
+                    now,
+                )
+                for r in records
+            ],
+        )
+        self._conn.commit()
+
+    def list_stage_runs(self, *, encounter_id: Optional[str] = None) -> list[dict]:
+        """Read path for `make benchmark-audio` and manual inspection.
+        Returns plain dicts (not a domain model -- this is diagnostic data,
+        not a clinical concept)."""
+        if encounter_id is None:
+            rows = self._conn.execute("SELECT * FROM stage_runs ORDER BY created_at").fetchall()
+        else:
+            rows = self._conn.execute(
+                "SELECT * FROM stage_runs WHERE encounter_id = ? ORDER BY created_at", (encounter_id,)
+            ).fetchall()
+        return [dict(row) for row in rows]
 
     # -- audit -------------------------------------------------------------
 

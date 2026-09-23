@@ -9,7 +9,9 @@ in the transcript -- it never invents diagnoses, medications, doses, or dates
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
+
+from app.observability import StageTimer
 
 PROMPT_VERSION_STRUCTURE = "structure_transcript@0.1.0"
 PROMPT_VERSION_EXPLANATION = "patient_explanation@0.1.0"
@@ -23,7 +25,12 @@ def _segment_transcript(transcript_text: str) -> list[dict[str, str]]:
 class MockLLMProvider:
     """Local-mode LLMProvider. See app.providers.base.LLMProvider."""
 
-    def generate_json(self, prompt_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def generate_json(
+        self, prompt_id: str, payload: dict[str, Any], stage_timer: Optional[StageTimer] = None
+    ) -> dict[str, Any]:
+        # stage_timer is unused here -- in-process, no network/model, not
+        # worth instrumenting on its own (route-level timers already cover
+        # the surrounding structure_llm/explanation_llm stage duration).
         if prompt_id == "structure_transcript":
             return self._structure_transcript(payload)
         if prompt_id == "patient_explanation":

@@ -12,9 +12,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Optional
 
 from app.domain.errors import AsrNotConfigured
 from app.domain.models import AudioAsset, ClinicalStructure, DiarizedSegment, ExplanationDraft
+from app.observability import StageTimer
 
 SAMPLE_FIXTURES_DIR = Path(__file__).resolve().parents[4] / "tests" / "fixtures" / "audio"
 
@@ -45,9 +47,12 @@ def load_demo_structure_and_explanation(sample_id: str) -> tuple[ClinicalStructu
 class DemoASRProvider:
     """See app.providers.asr_base.ASRProvider."""
 
-    def transcribe(self, audio_asset: AudioAsset, storage_path: str) -> list[DiarizedSegment]:
-        # storage_path is unused here -- demo results always come from the
-        # fixed sample_id-keyed sidecar fixture, never from the uploaded file.
+    def transcribe(
+        self, audio_asset: AudioAsset, storage_path: str, stage_timer: Optional[StageTimer] = None
+    ) -> list[DiarizedSegment]:
+        # storage_path/stage_timer are unused here -- demo results always
+        # come from the fixed sample_id-keyed sidecar fixture, read from
+        # disk in effectively constant time, never from the uploaded file.
         if not audio_asset.sample_id or not sample_is_available(audio_asset.sample_id):
             raise AsrNotConfigured()
 

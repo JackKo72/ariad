@@ -1,4 +1,4 @@
-.PHONY: doctor setup dev test e2e eval lint sample-audio test-provider-audio
+.PHONY: doctor setup dev test e2e eval lint sample-audio test-provider-audio benchmark-audio
 
 doctor:
 	@echo "Checking required tools..."
@@ -60,3 +60,9 @@ lint:
 # ARIAD_MODE=provider and downloaded sherpa-onnx models (see README.md).
 test-provider-audio:
 	apps/api/.venv/bin/python scripts/test_provider_audio.py
+
+# tasks/03_SPEAKER_MERGE_AND_LATENCY.md Phase 1 baseline/benchmark. Same
+# cost/scope rules as test-provider-audio above -- opt-in only, never part
+# of `make test`/`make e2e`. Usage: make benchmark-audio AUDIO=path RUNS=3
+benchmark-audio:
+	apps/api/.venv/bin/python scripts/benchmark_audio.py

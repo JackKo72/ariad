@@ -15,6 +15,8 @@ from app.domain.models import (
     ExplanationDraft,
     PipelineRun,
 )
+from app.ids import new_id
+from app.observability import StageTimer
 from app.pipeline.run import run_pipeline
 from app.pipeline.validation import validate_grounding
 from app.providers.base import LLMProvider
@@ -144,49 +146,67 @@ def process_encounter(
             return _to_detail(repo, repo.get_encounter(encounter_id))
         repo.update_draft_transcript_text(encounter_id, _derive_transcript_text(active_run))
 
-    encounter = repo.start_processing(encounter_id)
-    draft = repo.get_version(encounter.current_draft_version_id)  # type: ignore[arg-type]
-
+    # tasks/03_SPEAKER_MERGE_AND_LATENCY.md Phase 1: one StageTimer for this
+    # request, threaded into run_pipeline so structure_llm/explanation_llm
+    # record themselves; persisted once in `finally` so a mid-pipeline
+    # failure's partial timings aren't lost.
+    timer = StageTimer()
+    request_id = new_id()
     try:
-        if active_run is not None and active_run.mode == "demo":
-            structure, explanation = load_demo_structure_and_explanation(active_run.sample_id)  # type: ignore[arg-type]
-        else:
-            result = run_pipeline(draft.transcript_text, llm_provider)
-            structure, explanation = result.structure, result.explanation  # type: ignore[assignment]
-    except Exception as exc:
-        # The transcript itself lives on encounter_versions and is untouched
-        # by fail_processing, so an LLM failure never loses it -- the
-        # clinician can retry (same button, e.g. once a key is fixed) or
-        # switch to editing the draft manually from PROCESSING_FAILED.
-        error_code = getattr(exc, "code", "SIMPLIFICATION_PROVIDER_FAILED")
-        # Encounter.error_code only ever stores the code (e.g.
-        # LLM_PROVIDER_FAILED), never the AriadError's .message detail or
-        # the wrapped SDK exception's type -- both are discarded once we're
-        # here, and the frontend only ever displays the bare code. Log
-        # unconditionally so the actual cause (OpenAIError subtype, schema
-        # mismatch, etc., chained via `raise ... from exc`) is always
-        # traceable in the server log. Traceback only ever names code
-        # locations/types, never transcript/explanation content
-        # (docs/DEBUGGING.md allowed fields), so this is safe to log in full.
-        logger.exception("process_encounter failed for encounter_id=%s", encounter_id)
-        encounter = repo.fail_processing(encounter_id, error_code=error_code)
+        with timer.stage("total"):
+            encounter = repo.start_processing(encounter_id)
+            draft = repo.get_version(encounter.current_draft_version_id)  # type: ignore[arg-type]
+
+            try:
+                if active_run is not None and active_run.mode == "demo":
+                    structure, explanation = load_demo_structure_and_explanation(active_run.sample_id)  # type: ignore[arg-type]
+                else:
+                    result = run_pipeline(draft.transcript_text, llm_provider, stage_timer=timer)
+                    structure, explanation = result.structure, result.explanation  # type: ignore[assignment]
+            except Exception as exc:
+                # The transcript itself lives on encounter_versions and is
+                # untouched by fail_processing, so an LLM failure never
+                # loses it -- the clinician can retry (same button, e.g.
+                # once a key is fixed) or switch to editing the draft
+                # manually from PROCESSING_FAILED.
+                error_code = getattr(exc, "code", "SIMPLIFICATION_PROVIDER_FAILED")
+                # Encounter.error_code only ever stores the code (e.g.
+                # LLM_PROVIDER_FAILED), never the AriadError's .message
+                # detail or the wrapped SDK exception's type -- both are
+                # discarded once we're here, and the frontend only ever
+                # displays the bare code. Log unconditionally so the actual
+                # cause (OpenAIError subtype, schema mismatch, etc.,
+                # chained via `raise ... from exc`) is always traceable in
+                # the server log. Traceback only ever names code
+                # locations/types, never transcript/explanation content
+                # (docs/DEBUGGING.md allowed fields), so this is safe to
+                # log in full.
+                logger.exception("process_encounter failed for encounter_id=%s", encounter_id)
+                encounter = repo.fail_processing(encounter_id, error_code=error_code)
+                return _to_detail(repo, encounter)
+
+            from app.pipeline.structure import PROMPT_VERSION as STRUCTURE_PROMPT_VERSION
+            from app.pipeline.explanation import PROMPT_VERSION as EXPLANATION_PROMPT_VERSION
+
+            with timer.stage("database_write"):
+                encounter = repo.complete_processing(
+                    encounter_id,
+                    structure=structure,  # type: ignore[arg-type]
+                    explanation=explanation,  # type: ignore[arg-type]
+                    prompt_version_structure=STRUCTURE_PROMPT_VERSION,
+                    prompt_version_explanation=EXPLANATION_PROMPT_VERSION,
+                )
+                if active_run is not None:
+                    repo.complete_pipeline_run(active_run.id)
+
         return _to_detail(repo, encounter)
-
-    from app.pipeline.structure import PROMPT_VERSION as STRUCTURE_PROMPT_VERSION
-    from app.pipeline.explanation import PROMPT_VERSION as EXPLANATION_PROMPT_VERSION
-
-    encounter = repo.complete_processing(
-        encounter_id,
-        structure=structure,  # type: ignore[arg-type]
-        explanation=explanation,  # type: ignore[arg-type]
-        prompt_version_structure=STRUCTURE_PROMPT_VERSION,
-        prompt_version_explanation=EXPLANATION_PROMPT_VERSION,
-    )
-
-    if active_run is not None:
-        repo.complete_pipeline_run(active_run.id)
-
-    return _to_detail(repo, encounter)
+    finally:
+        repo.record_stage_runs(
+            request_id=request_id,
+            encounter_id=encounter_id,
+            pipeline_run_id=active_run.id if active_run else None,
+            records=timer.records,
+        )
 
 
 @router.patch("/{encounter_id}/draft", response_model=EncounterDetail)

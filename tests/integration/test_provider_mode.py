@@ -10,7 +10,7 @@ from app.main import app
 
 
 class _AlwaysFailsProvider:
-    def generate_json(self, prompt_id, payload):
+    def generate_json(self, prompt_id, payload, stage_timer=None):
         raise LlmProviderFailed("simulated_failure")
 
 
