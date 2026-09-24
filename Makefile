@@ -58,11 +58,14 @@ lint:
 # e2e`, and may incur real OpenAI cost if OPENAI_API_KEY is set (asks for
 # confirmation before that step). Requires apps/api/.env.local with
 # ARIAD_MODE=provider and downloaded sherpa-onnx models (see README.md).
+# ARIAD_SHERPA_MODELS_DIR is set here (not left to .env.local) for the same
+# reason `dev` sets it: these scripts run with cwd = repo root, so the path
+# must be repo-root-relative, matching `dev`'s convention exactly.
 test-provider-audio:
-	apps/api/.venv/bin/python scripts/test_provider_audio.py
+	ARIAD_SHERPA_MODELS_DIR=./apps/api/models apps/api/.venv/bin/python scripts/test_provider_audio.py
 
 # tasks/03_SPEAKER_MERGE_AND_LATENCY.md Phase 1 baseline/benchmark. Same
 # cost/scope rules as test-provider-audio above -- opt-in only, never part
 # of `make test`/`make e2e`. Usage: make benchmark-audio AUDIO=path RUNS=3
 benchmark-audio:
-	apps/api/.venv/bin/python scripts/benchmark_audio.py
+	ARIAD_SHERPA_MODELS_DIR=./apps/api/models apps/api/.venv/bin/python scripts/benchmark_audio.py

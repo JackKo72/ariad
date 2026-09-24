@@ -121,11 +121,15 @@ cd apps/api/models
 #   silero_vad.onnx
 ```
 
-최종 구조는 `.env.example`의 `ARIAD_SHERPA_MODELS_DIR` 주석에 정확히 적혀 있다. 받은 뒤
-`apps/api/.env.local`에 `ARIAD_SHERPA_MODELS_DIR=./models` (기본값, apps/api 기준 상대경로)를
-추가하면 된다. `make doctor`는 ffmpeg/ffprobe/espeak-ng만 확인하며, sherpa-onnx 모델 존재
-여부는 `GET /system/capabilities`의 `asr` 필드(`"local"` = 모델 있음, `"unavailable"` = 없음)로
-확인한다.
+최종 구조는 `.env.example`의 `ARIAD_SHERPA_MODELS_DIR` 주석에 정확히 적혀 있다. 위 명령대로
+`apps/api/models/`에 받아두면 그걸로 끝이다 — `ARIAD_SHERPA_MODELS_DIR`은 `.env.local`에 직접
+적을 필요 없다. `make dev`/`make test-provider-audio`/`make benchmark-audio`가 각각
+`./apps/api/models`(repo root 기준 상대경로)를 스스로 넣어준다. 이 스크립트들은 항상 repo
+root를 작업 디렉터리로 실행되므로, `.env.local`에 apps/api 기준 상대경로(예: `./models`)를
+따로 적으면 오히려 잘못된 경로로 해석되어 `모델 파일을 찾을 수 없습니다` 오류가 난다 — 정말
+기본값과 다른 경로를 쓰고 싶을 때만 `.env.local`에 **절대경로**로 적어라. `make doctor`는
+ffmpeg/ffprobe/espeak-ng만 확인하며, sherpa-onnx 모델 존재 여부는 `GET /system/capabilities`의
+`asr` 필드(`"local"` = 모델 있음, `"unavailable"` = 없음)로 확인한다.
 
 **동작 확인**
 
