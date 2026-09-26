@@ -25,6 +25,7 @@ import logging
 import os
 import re
 import threading
+import time
 import wave
 from contextlib import nullcontext
 from pathlib import Path
@@ -302,11 +303,26 @@ class SherpaOnnxASRProvider:
                 # Diarization inference lives inside this stage (not
                 # asr_model_load) -- it's compute against already-loaded
                 # models, same as the decode loop below.
+                diarize_start = time.perf_counter()
                 raw_turns = [
                     DiarizationTurn(s.start, s.end, int(s.speaker))
                     for s in self._diarizer.process(frames).sort_by_start_time()
                 ]
+                diarize_ms = (time.perf_counter() - diarize_start) * 1000
                 turns = merge_diarization_turns(raw_turns)
+
+                # tasks/03_SPEAKER_MERGE_AND_LATENCY.md Phase 1 diagnostic:
+                # real benchmark data showed asr_inference dominating total
+                # latency (RTF ~2.6x on a 59.5s sample) with model loading
+                # already ruled out by asr_model_load's own numbers. This
+                # measures whether the ko-fallback decode (every short/
+                # non-Korean-looking turn gets decoded TWICE) is a
+                # meaningful share of that, before deciding whether it's
+                # worth removing/gating further -- counts and durations
+                # only, never the decoded text itself.
+                auto_decode_ms = 0.0
+                ko_decode_ms = 0.0
+                ko_fallback_count = 0
 
                 rows = []
                 for turn in turns:
@@ -314,13 +330,18 @@ class SherpaOnnxASRProvider:
                     sv = speech_seconds(clip)
                     stream = self._recognizer_auto.create_stream()
                     stream.accept_waveform(sample_rate, clip)
+                    decode_start = time.perf_counter()
                     self._recognizer_auto.decode_stream(stream)
+                    auto_decode_ms += (time.perf_counter() - decode_start) * 1000
                     text = stream.result.text.strip()
 
                     if _NON_KOREAN_RE.search(text) or (turn.end - turn.start) < 1.2:
+                        ko_fallback_count += 1
                         stream_ko = self._recognizer_ko.create_stream()
                         stream_ko.accept_waveform(sample_rate, clip)
+                        decode_start = time.perf_counter()
                         self._recognizer_ko.decode_stream(stream_ko)
+                        ko_decode_ms += (time.perf_counter() - decode_start) * 1000
                         text = stream_ko.result.text.strip()
 
                     if is_garbage_text(text, sv):
@@ -330,6 +351,15 @@ class SherpaOnnxASRProvider:
                     )
                 if meta is not None:
                     meta["audio_duration_seconds"] = len(frames) / sample_rate
+                logger.info(
+                    "asr_inference breakdown: turns=%d diarize_ms=%.1f "
+                    "auto_decode_ms=%.1f ko_fallback_count=%d ko_decode_ms=%.1f",
+                    len(turns),
+                    diarize_ms,
+                    auto_decode_ms,
+                    ko_fallback_count,
+                    ko_decode_ms,
+                )
 
         merged_rows = merge_adjacent_same_speaker(rows)
         return [
