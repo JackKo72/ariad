@@ -169,15 +169,25 @@ class SherpaOnnxASRProvider:
         self._vad_config = None
 
     def transcribe(
-        self, audio_asset: AudioAsset, storage_path: str, stage_timer: Optional[StageTimer] = None
+        self,
+        audio_asset: AudioAsset,
+        storage_path: str,
+        stage_timer: Optional[StageTimer] = None,
+        diagnostics: Optional[dict] = None,
     ) -> list[DiarizedSegment]:
+        """`diagnostics`, when passed an empty dict, is populated in place
+        with per-turn diarize/auto-decode/ko-fallback timing (see
+        scripts/diagnose_asr_stages.py) -- counts and durations only, never
+        decoded text or audio. Independent of logging configuration
+        (unlike the logger.info below, which a plain script never sees
+        without its own logging.basicConfig)."""
         if not models_available(self._models_dir):
             raise AsrProviderFailed(
                 f"모델 파일을 찾을 수 없습니다 ({self._models_dir}). README의 모델 다운로드 안내를 확인하세요."
             )
 
         try:
-            return self._transcribe(audio_asset, storage_path, stage_timer)
+            return self._transcribe(audio_asset, storage_path, stage_timer, diagnostics)
         except AsrProviderFailed:
             raise
         except Exception as exc:  # pragma: no cover - real-model path, not exercised in CI
@@ -243,7 +253,11 @@ class SherpaOnnxASRProvider:
             self._vad_config = vad_config
 
     def _transcribe(
-        self, audio_asset: AudioAsset, storage_path: str, stage_timer: Optional[StageTimer]
+        self,
+        audio_asset: AudioAsset,
+        storage_path: str,
+        stage_timer: Optional[StageTimer],
+        diagnostics: Optional[dict] = None,
     ) -> list[DiarizedSegment]:
         import numpy as np
         import sherpa_onnx
@@ -323,26 +337,43 @@ class SherpaOnnxASRProvider:
                 auto_decode_ms = 0.0
                 ko_decode_ms = 0.0
                 ko_fallback_count = 0
+                turn_diagnostics: list[dict] = []
 
                 rows = []
-                for turn in turns:
+                for i, turn in enumerate(turns):
+                    turn_duration = turn.end - turn.start
                     clip = frames[int(turn.start * sample_rate) : int(turn.end * sample_rate)]
                     sv = speech_seconds(clip)
                     stream = self._recognizer_auto.create_stream()
                     stream.accept_waveform(sample_rate, clip)
                     decode_start = time.perf_counter()
                     self._recognizer_auto.decode_stream(stream)
-                    auto_decode_ms += (time.perf_counter() - decode_start) * 1000
+                    turn_auto_ms = (time.perf_counter() - decode_start) * 1000
+                    auto_decode_ms += turn_auto_ms
                     text = stream.result.text.strip()
 
-                    if _NON_KOREAN_RE.search(text) or (turn.end - turn.start) < 1.2:
+                    turn_ko_ms: Optional[float] = None
+                    ko_fired = _NON_KOREAN_RE.search(text) or turn_duration < 1.2
+                    if ko_fired:
                         ko_fallback_count += 1
                         stream_ko = self._recognizer_ko.create_stream()
                         stream_ko.accept_waveform(sample_rate, clip)
                         decode_start = time.perf_counter()
                         self._recognizer_ko.decode_stream(stream_ko)
-                        ko_decode_ms += (time.perf_counter() - decode_start) * 1000
+                        turn_ko_ms = (time.perf_counter() - decode_start) * 1000
+                        ko_decode_ms += turn_ko_ms
                         text = stream_ko.result.text.strip()
+
+                    if diagnostics is not None:
+                        turn_diagnostics.append(
+                            {
+                                "index": i,
+                                "duration_seconds": round(turn_duration, 3),
+                                "auto_decode_ms": round(turn_auto_ms, 1),
+                                "ko_fallback": bool(ko_fired),
+                                "ko_decode_ms": round(turn_ko_ms, 1) if turn_ko_ms is not None else None,
+                            }
+                        )
 
                     if is_garbage_text(text, sv):
                         continue
@@ -360,6 +391,20 @@ class SherpaOnnxASRProvider:
                     ko_fallback_count,
                     ko_decode_ms,
                 )
+                if diagnostics is not None:
+                    diagnostics["audio_duration_seconds"] = len(frames) / sample_rate
+                    diagnostics["diarize_ms"] = round(diarize_ms, 1)
+                    diagnostics["turns"] = turn_diagnostics
+                    diagnostics["auto_call_count"] = len(turns)
+                    diagnostics["auto_total_ms"] = round(auto_decode_ms, 1)
+                    diagnostics["auto_total_input_seconds"] = round(
+                        sum(t["duration_seconds"] for t in turn_diagnostics), 3
+                    )
+                    diagnostics["ko_call_count"] = ko_fallback_count
+                    diagnostics["ko_total_ms"] = round(ko_decode_ms, 1)
+                    diagnostics["ko_total_input_seconds"] = round(
+                        sum(t["duration_seconds"] for t in turn_diagnostics if t["ko_fallback"]), 3
+                    )
 
         merged_rows = merge_adjacent_same_speaker(rows)
         return [

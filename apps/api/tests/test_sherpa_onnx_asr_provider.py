@@ -203,3 +203,85 @@ def test_ensure_models_loaded_builds_the_heavy_models_only_once(tmp_path):
     assert provider._recognizer_auto is not None
     assert provider._recognizer_ko is not None
     assert provider._vad_config is not None
+
+
+def test_diagnostics_dict_captures_per_turn_ko_fallback_breakdown(tmp_path):
+    """Regression for the diagnose_asr_stages.py capability: a real
+    benchmark run showed asr_inference dominating total ASR latency with
+    model-load caching already ruled out as the cause. This locks in that
+    transcribe(..., diagnostics={}) reports per-turn duration/auto_decode_ms
+    /ko_fallback/ko_decode_ms plus aggregates, using models_dir/turn models
+    already warmed (bypassing real model loading) -- no real sherpa-onnx
+    weights needed, and never any decoded text in the diagnostics dict."""
+    import sys
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    from app.domain.models import AudioAsset
+    from app.providers.sherpa_onnx_asr import SherpaOnnxASRProvider
+    from tests.audio_fixtures import make_silence_wav
+
+    (tmp_path / "sherpa-onnx-whisper-large-v3").mkdir()
+    (tmp_path / "sherpa-onnx-whisper-large-v3" / "large-v3-encoder.int8.onnx").touch()
+    (tmp_path / "sherpa-onnx-whisper-large-v3" / "large-v3-decoder.int8.onnx").touch()
+    (tmp_path / "sherpa-onnx-whisper-large-v3" / "large-v3-tokens.txt").touch()
+    (tmp_path / "sherpa-onnx-pyannote-segmentation-3-0").mkdir()
+    (tmp_path / "sherpa-onnx-pyannote-segmentation-3-0" / "model.onnx").touch()
+    (tmp_path / "emb.onnx").touch()
+    (tmp_path / "silero_vad.onnx").touch()
+
+    wav_path = make_silence_wav(tmp_path / "sample.wav", duration_seconds=3.0)
+
+    provider = SherpaOnnxASRProvider(models_dir=str(tmp_path))
+    # Pre-warm with fakes so _ensure_models_loaded()'s early-return skips
+    # real model construction entirely -- only VoiceActivityDetector (built
+    # fresh per turn inside speech_seconds()) needs the fake sherpa_onnx
+    # module injected below.
+    fake_stream = MagicMock()
+    fake_stream.result.text = "안녕하세요"
+    provider._diarizer = MagicMock()
+    provider._diarizer.process.return_value.sort_by_start_time.return_value = [
+        SimpleNamespace(start=0.0, end=2.0, speaker=0),  # 2.0s -> no ko fallback (duration >= 1.2, Korean text)
+        SimpleNamespace(start=2.0, end=2.5, speaker=1),  # 0.5s -> ko fallback (duration < 1.2)
+    ]
+    provider._recognizer_auto = MagicMock()
+    provider._recognizer_auto.create_stream.return_value = fake_stream
+    provider._recognizer_ko = MagicMock()
+    provider._recognizer_ko.create_stream.return_value = fake_stream
+    provider._vad_config = MagicMock()
+
+    fake_sherpa_onnx = MagicMock()
+    fake_vad = MagicMock()
+    fake_vad.empty.return_value = True  # speech_seconds() returns 0.0 immediately
+    fake_sherpa_onnx.VoiceActivityDetector.return_value = fake_vad
+    original_module = sys.modules.get("sherpa_onnx")
+    sys.modules["sherpa_onnx"] = fake_sherpa_onnx
+    try:
+        asset = AudioAsset(
+            id="a", encounter_id="e", kind="original", size_bytes=1, duration_seconds=3.0,
+            created_at="2026-01-01T00:00:00+00:00",
+        )
+        diagnostics: dict = {}
+        provider.transcribe(asset, str(wav_path), diagnostics=diagnostics)
+    finally:
+        if original_module is not None:
+            sys.modules["sherpa_onnx"] = original_module
+        else:
+            del sys.modules["sherpa_onnx"]
+
+    assert diagnostics["auto_call_count"] == 2
+    assert diagnostics["ko_call_count"] == 1
+    assert len(diagnostics["turns"]) == 2
+    assert diagnostics["turns"][0]["ko_fallback"] is False
+    assert diagnostics["turns"][0]["ko_decode_ms"] is None
+    assert diagnostics["turns"][1]["ko_fallback"] is True
+    assert diagnostics["turns"][1]["ko_decode_ms"] is not None
+    assert diagnostics["turns"][0]["duration_seconds"] == pytest.approx(2.0, abs=0.01)
+    assert diagnostics["turns"][1]["duration_seconds"] == pytest.approx(0.5, abs=0.01)
+    assert "diarize_ms" in diagnostics
+    assert "audio_duration_seconds" in diagnostics
+
+    # No decoded text anywhere in the diagnostics dict.
+    import json
+
+    assert "안녕하세요" not in json.dumps(diagnostics, ensure_ascii=False)

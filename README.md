@@ -147,6 +147,11 @@ make benchmark-audio AUDIO=tests/fixtures/audio/sample_consultation.wav RUNS=3
 # 실행해 stage별(asr_preprocess/asr_model_load/asr_inference) cold/warm median/min/max를
 # 표로 출력한다 (OPENAI_API_KEY가 있으면 structure_llm/explanation_llm도 이어서, y/N 확인 후).
 # 이것도 make test/make e2e에는 포함되지 않는다.
+
+make diagnose-asr AUDIO=tests/fixtures/audio/sample_consultation.wav
+# asr_inference 내부를 더 잘게 쪼갠다 (Phase 1 후속): diarization 시간, recognizer_auto/
+# recognizer_ko 각각의 호출 횟수·누적 시간·입력 오디오 길이, turn별 세부 표, RTF를 출력한다.
+# 녹음 내용/전사문은 출력하지 않는다. cold 1회(모델 warm-up) + warm 1회 실행, 무료(로컬 ASR만).
 ```
 
 **문제 해결**

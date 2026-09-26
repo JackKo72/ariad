@@ -1,4 +1,4 @@
-.PHONY: doctor setup dev test e2e eval lint sample-audio test-provider-audio benchmark-audio
+.PHONY: doctor setup dev test e2e eval lint sample-audio test-provider-audio benchmark-audio diagnose-asr
 
 doctor:
 	@echo "Checking required tools..."
@@ -69,3 +69,9 @@ test-provider-audio:
 # of `make test`/`make e2e`. Usage: make benchmark-audio AUDIO=path RUNS=3
 benchmark-audio:
 	ARIAD_SHERPA_MODELS_DIR=./apps/api/models apps/api/.venv/bin/python scripts/benchmark_audio.py
+
+# Per-turn diarize/auto-decode/ko-fallback breakdown on one warm ASR run,
+# separate from benchmark-audio above. Free (local ASR only). Usage:
+# make diagnose-asr AUDIO=path
+diagnose-asr:
+	ARIAD_SHERPA_MODELS_DIR=./apps/api/models apps/api/.venv/bin/python scripts/diagnose_asr_stages.py
