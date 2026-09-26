@@ -1,4 +1,4 @@
-.PHONY: doctor setup dev test e2e eval lint sample-audio test-provider-audio benchmark-audio diagnose-asr
+.PHONY: doctor setup dev test e2e eval lint sample-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy
 
 doctor:
 	@echo "Checking required tools..."
@@ -75,3 +75,11 @@ benchmark-audio:
 # make diagnose-asr AUDIO=path
 diagnose-asr:
 	ARIAD_SHERPA_MODELS_DIR=./apps/api/models apps/api/.venv/bin/python scripts/diagnose_asr_stages.py
+
+# tasks/03_SPEAKER_MERGE_AND_LATENCY.md item 4: compares ko_mode candidates
+# (default: auto_then_ko,ko_only) on sample_consultation's ground truth --
+# medication name/dose, negation, date, speaker assignment -- not just RTF.
+# Same cost/scope rules as the commands above: opt-in, free, never part of
+# `make test`/`make e2e`. Usage: make compare-asr-accuracy [KO_MODES=...]
+compare-asr-accuracy:
+	ARIAD_SHERPA_MODELS_DIR=./apps/api/models apps/api/.venv/bin/python scripts/compare_asr_accuracy.py

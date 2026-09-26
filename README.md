@@ -169,6 +169,16 @@ ARIAD_SHERPA_NUM_THREADS=4 make diagnose-asr AUDIO=tests/fixtures/audio/sample_c
 특정 thread 수가 실제로 더 빠르면서 정확도 저하가 없다고 확인된 경우에만 기본값을 바꿀
 것 — 추측만으로 기본 경로를 바꾸지 않는다.
 
+make compare-asr-accuracy
+# tasks/03_SPEAKER_MERGE_AND_LATENCY.md item 4: 속도(RTF)만으로 ko_mode를 채택하지
+# 않기 위한 정확도 비교. sample_consultation 기존 ground truth(약명 리시노프릴, 용량
+# 5mg, 부정 표현 "아스피린 미투여", 날짜 "시월 첫째 주", 화자 A=doctor/B=patient)를
+# 기준으로 auto_then_ko/ko_only 각각의 RTF + 화자분리 일치율 + 임상 anchor pass/fail +
+# 세그먼트별 expected/predicted 텍스트를 나란히 출력한다. 비교 대상은 KO_MODES=a,b로
+# 바꿀 수 있다(기본값: auto_then_ko,ko_only). 합성 fixture만 사용, 무료(로컬 ASR만),
+# make test/make e2e에는 포함되지 않는다. 두 지표(RTF, 정확도) 모두 기존과 같거나
+# 나은 경우에만 후보를 기본값으로 승격할 것.
+
 **문제 해결**
 
 - `ModuleNotFoundError: No module named 'openai'` (또는 `sherpa_onnx`) — Phase D에서
