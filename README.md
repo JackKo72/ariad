@@ -152,7 +152,22 @@ make diagnose-asr AUDIO=tests/fixtures/audio/sample_consultation.wav
 # asr_inference 내부를 더 잘게 쪼갠다 (Phase 1 후속): diarization 시간, recognizer_auto/
 # recognizer_ko 각각의 호출 횟수·누적 시간·입력 오디오 길이, turn별 세부 표, RTF를 출력한다.
 # 녹음 내용/전사문은 출력하지 않는다. cold 1회(모델 warm-up) + warm 1회 실행, 무료(로컬 ASR만).
+
+# baseline(auto→ko 이중 디코딩, 기존 기본값)과 후보안(ko 단일 패스) 비교:
+ARIAD_ASR_KO_MODE=auto_then_ko make diagnose-asr AUDIO=tests/fixtures/audio/sample_consultation.wav
+ARIAD_ASR_KO_MODE=ko_only      make diagnose-asr AUDIO=tests/fixtures/audio/sample_consultation.wav
+# 두 실행의 RTF/inference_ms를 그대로 비교하면 된다. auto_then_ko가 기본값(env var 생략 시 동일).
+
+# 스레드 수 비교(CPU 코어가 적거나 많은 환경에서 diarize/decode에 영향이 있는지 확인):
+ARIAD_SHERPA_NUM_THREADS=2 make diagnose-asr AUDIO=tests/fixtures/audio/sample_consultation.wav
+ARIAD_SHERPA_NUM_THREADS=4 make diagnose-asr AUDIO=tests/fixtures/audio/sample_consultation.wav
+# 생략 시 os.cpu_count() 기본값을 그대로 쓴다(동작 변경 없음).
 ```
+
+`ARIAD_ASR_KO_MODE`/`ARIAD_SHERPA_NUM_THREADS`는 진단/실측용 opt-in 플래그다. 둘 다
+생략하면 이전과 동일하게 동작한다(`auto_then_ko`, `os.cpu_count()`). 실측 결과 `ko_only`나
+특정 thread 수가 실제로 더 빠르면서 정확도 저하가 없다고 확인된 경우에만 기본값을 바꿀
+것 — 추측만으로 기본 경로를 바꾸지 않는다.
 
 **문제 해결**
 

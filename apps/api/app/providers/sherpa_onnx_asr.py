@@ -159,9 +159,36 @@ class SherpaOnnxASRProvider:
     in the Phase 1 report -- this is a single-clinician local tool, not a
     concurrent multi-user service)."""
 
-    def __init__(self, models_dir: str | None = None, num_speakers: int = 0):
+    #: tasks/03_SPEAKER_MERGE_AND_LATENCY.md Phase 1 follow-up: candidate
+    #: fixes for the real benchmark finding that asr_inference (not model
+    #: loading) dominates ASR latency. Gated behind ARIAD_ASR_KO_MODE so a
+    #: user can A/B them with `make diagnose-asr` before either becomes the
+    #: default -- "auto_then_ko" (current behavior, unchanged) always
+    #: decodes with the auto-language recognizer first, then re-decodes
+    #: with the Korean-forced one for short (<1.2s) or non-Korean-looking
+    #: turns; "ko_only" skips the auto pass entirely and always decodes
+    #: once with the Korean-forced recognizer, testing whether the double
+    #: decode is actually costing meaningful time.
+    _KO_MODES = ("auto_then_ko", "ko_only")
+
+    def __init__(
+        self,
+        models_dir: str | None = None,
+        num_speakers: int = 0,
+        num_threads: int | None = None,
+        ko_mode: str | None = None,
+    ):
         self._models_dir = models_dir or os.environ.get("ARIAD_SHERPA_MODELS_DIR", DEFAULT_MODELS_DIR)
         self._num_speakers = num_speakers
+        # Configurable so a user can test whether thread oversubscription
+        # (os.cpu_count() on a machine where that overcounts usable cores)
+        # is itself contributing to slow decode, without editing code.
+        self._num_threads = num_threads or int(os.environ.get("ARIAD_SHERPA_NUM_THREADS", "0")) or (
+            os.cpu_count() or 2
+        )
+        self._ko_mode = ko_mode or os.environ.get("ARIAD_ASR_KO_MODE", "auto_then_ko")
+        if self._ko_mode not in self._KO_MODES:
+            raise ValueError(f"ko_mode must be one of {self._KO_MODES}, got {self._ko_mode!r}")
         self._load_lock = threading.Lock()
         self._diarizer = None
         self._recognizer_auto = None
@@ -233,7 +260,7 @@ class SherpaOnnxASRProvider:
                     encoder=str(paths["whisper_encoder"]),
                     decoder=str(paths["whisper_decoder"]),
                     tokens=str(paths["whisper_tokens"]),
-                    num_threads=os.cpu_count() or 2,
+                    num_threads=self._num_threads,
                     language=language,
                     task="transcribe",
                 )
@@ -344,25 +371,42 @@ class SherpaOnnxASRProvider:
                     turn_duration = turn.end - turn.start
                     clip = frames[int(turn.start * sample_rate) : int(turn.end * sample_rate)]
                     sv = speech_seconds(clip)
-                    stream = self._recognizer_auto.create_stream()
-                    stream.accept_waveform(sample_rate, clip)
-                    decode_start = time.perf_counter()
-                    self._recognizer_auto.decode_stream(stream)
-                    turn_auto_ms = (time.perf_counter() - decode_start) * 1000
-                    auto_decode_ms += turn_auto_ms
-                    text = stream.result.text.strip()
 
-                    turn_ko_ms: Optional[float] = None
-                    ko_fired = _NON_KOREAN_RE.search(text) or turn_duration < 1.2
-                    if ko_fired:
-                        ko_fallback_count += 1
+                    if self._ko_mode == "ko_only":
+                        # Candidate fix A/B'd against "auto_then_ko" via
+                        # ARIAD_ASR_KO_MODE -- skips the auto-language pass
+                        # entirely and always decodes once with the
+                        # Korean-forced recognizer.
+                        turn_auto_ms = 0.0
                         stream_ko = self._recognizer_ko.create_stream()
                         stream_ko.accept_waveform(sample_rate, clip)
                         decode_start = time.perf_counter()
                         self._recognizer_ko.decode_stream(stream_ko)
-                        turn_ko_ms = (time.perf_counter() - decode_start) * 1000
+                        turn_ko_ms: Optional[float] = (time.perf_counter() - decode_start) * 1000
                         ko_decode_ms += turn_ko_ms
+                        ko_fired = True
+                        ko_fallback_count += 1
                         text = stream_ko.result.text.strip()
+                    else:
+                        stream = self._recognizer_auto.create_stream()
+                        stream.accept_waveform(sample_rate, clip)
+                        decode_start = time.perf_counter()
+                        self._recognizer_auto.decode_stream(stream)
+                        turn_auto_ms = (time.perf_counter() - decode_start) * 1000
+                        auto_decode_ms += turn_auto_ms
+                        text = stream.result.text.strip()
+
+                        turn_ko_ms = None
+                        ko_fired = _NON_KOREAN_RE.search(text) or turn_duration < 1.2
+                        if ko_fired:
+                            ko_fallback_count += 1
+                            stream_ko = self._recognizer_ko.create_stream()
+                            stream_ko.accept_waveform(sample_rate, clip)
+                            decode_start = time.perf_counter()
+                            self._recognizer_ko.decode_stream(stream_ko)
+                            turn_ko_ms = (time.perf_counter() - decode_start) * 1000
+                            ko_decode_ms += turn_ko_ms
+                            text = stream_ko.result.text.strip()
 
                     if diagnostics is not None:
                         turn_diagnostics.append(

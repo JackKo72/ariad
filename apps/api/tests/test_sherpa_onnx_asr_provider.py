@@ -2,6 +2,8 @@
 (tasks/02_AUDIO_PIPELINE.md section 8). No sherpa_onnx import needed --
 these functions never touch a model."""
 
+import os
+
 import pytest
 
 from app.providers.sherpa_onnx_asr import (
@@ -285,3 +287,96 @@ def test_diagnostics_dict_captures_per_turn_ko_fallback_breakdown(tmp_path):
     import json
 
     assert "안녕하세요" not in json.dumps(diagnostics, ensure_ascii=False)
+
+
+def test_invalid_ko_mode_raises_value_error():
+    from app.providers.sherpa_onnx_asr import SherpaOnnxASRProvider
+
+    with pytest.raises(ValueError):
+        SherpaOnnxASRProvider(ko_mode="not_a_real_mode")
+
+
+def test_num_threads_defaults_to_cpu_count_and_can_be_overridden(monkeypatch):
+    from app.providers.sherpa_onnx_asr import SherpaOnnxASRProvider
+
+    monkeypatch.delenv("ARIAD_SHERPA_NUM_THREADS", raising=False)
+    default_provider = SherpaOnnxASRProvider()
+    assert default_provider._num_threads == (os.cpu_count() or 2)
+
+    monkeypatch.setenv("ARIAD_SHERPA_NUM_THREADS", "3")
+    env_provider = SherpaOnnxASRProvider()
+    assert env_provider._num_threads == 3
+
+    explicit_provider = SherpaOnnxASRProvider(num_threads=7)
+    assert explicit_provider._num_threads == 7
+
+
+def test_ko_only_mode_skips_the_auto_pass_and_always_uses_ko(tmp_path):
+    """Regression for the ko_only A/B candidate: with ARIAD_ASR_KO_MODE
+    (or ko_mode=) set to "ko_only", every turn must be decoded exactly once
+    via recognizer_ko, never recognizer_auto, regardless of turn duration
+    or text -- this is what scripts/diagnose_asr_stages.py + make
+    benchmark-audio compare against the default "auto_then_ko" to test
+    whether the double decode is actually costing meaningful time."""
+    import sys
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    from app.domain.models import AudioAsset
+    from app.providers.sherpa_onnx_asr import SherpaOnnxASRProvider
+    from tests.audio_fixtures import make_silence_wav
+
+    (tmp_path / "sherpa-onnx-whisper-large-v3").mkdir()
+    (tmp_path / "sherpa-onnx-whisper-large-v3" / "large-v3-encoder.int8.onnx").touch()
+    (tmp_path / "sherpa-onnx-whisper-large-v3" / "large-v3-decoder.int8.onnx").touch()
+    (tmp_path / "sherpa-onnx-whisper-large-v3" / "large-v3-tokens.txt").touch()
+    (tmp_path / "sherpa-onnx-pyannote-segmentation-3-0").mkdir()
+    (tmp_path / "sherpa-onnx-pyannote-segmentation-3-0" / "model.onnx").touch()
+    (tmp_path / "emb.onnx").touch()
+    (tmp_path / "silero_vad.onnx").touch()
+
+    wav_path = make_silence_wav(tmp_path / "sample.wav", duration_seconds=3.0)
+
+    provider = SherpaOnnxASRProvider(models_dir=str(tmp_path), ko_mode="ko_only")
+    fake_stream = MagicMock()
+    fake_stream.result.text = "안녕하세요"
+    provider._diarizer = MagicMock()
+    # Both turns are >=1.2s and Korean-looking -- under "auto_then_ko" this
+    # would never trigger ko fallback for either; under "ko_only" both must
+    # still go straight to recognizer_ko.
+    provider._diarizer.process.return_value.sort_by_start_time.return_value = [
+        SimpleNamespace(start=0.0, end=2.0, speaker=0),
+        SimpleNamespace(start=2.0, end=3.0, speaker=1),
+    ]
+    provider._recognizer_auto = MagicMock()
+    provider._recognizer_auto.create_stream.return_value = fake_stream
+    provider._recognizer_ko = MagicMock()
+    provider._recognizer_ko.create_stream.return_value = fake_stream
+    provider._vad_config = MagicMock()
+
+    fake_sherpa_onnx = MagicMock()
+    fake_vad = MagicMock()
+    fake_vad.empty.return_value = True
+    fake_sherpa_onnx.VoiceActivityDetector.return_value = fake_vad
+    original_module = sys.modules.get("sherpa_onnx")
+    sys.modules["sherpa_onnx"] = fake_sherpa_onnx
+    try:
+        asset = AudioAsset(
+            id="a", encounter_id="e", kind="original", size_bytes=1, duration_seconds=3.0,
+            created_at="2026-01-01T00:00:00+00:00",
+        )
+        diagnostics: dict = {}
+        provider.transcribe(asset, str(wav_path), diagnostics=diagnostics)
+    finally:
+        if original_module is not None:
+            sys.modules["sherpa_onnx"] = original_module
+        else:
+            del sys.modules["sherpa_onnx"]
+
+    assert provider._recognizer_auto.create_stream.call_count == 0
+    assert provider._recognizer_ko.create_stream.call_count == 2
+    assert diagnostics["auto_call_count"] == 2  # turn count, not auto-recognizer calls
+    assert diagnostics["auto_total_ms"] == 0.0
+    assert diagnostics["ko_call_count"] == 2
+    assert all(t["ko_fallback"] is True for t in diagnostics["turns"])
+    assert all(t["auto_decode_ms"] == 0.0 for t in diagnostics["turns"])
