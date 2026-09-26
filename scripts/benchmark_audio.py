@@ -24,6 +24,7 @@ patient content를 출력하지 않는다").
 
 from __future__ import annotations
 
+import logging
 import os
 import statistics
 import sys
@@ -32,6 +33,12 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "apps" / "api"))
+
+# Plain script, not run under uvicorn -- without this, logger.info() calls
+# in app.providers.sherpa_onnx_asr (the asr_inference breakdown diagnostic)
+# are silently dropped, since a logger with no configured handler only
+# emits WARNING+ by default.
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
 def _load_env_local() -> None:
