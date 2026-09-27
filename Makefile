@@ -1,4 +1,4 @@
-.PHONY: doctor setup dev test e2e eval lint sample-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy
+.PHONY: doctor setup dev test e2e eval lint sample-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines
 
 doctor:
 	@echo "Checking required tools..."
@@ -84,3 +84,19 @@ diagnose-asr:
 # `make test`/`make e2e`. Usage: make compare-asr-accuracy [KO_MODES=...]
 compare-asr-accuracy:
 	ARIAD_SHERPA_MODELS_DIR=./apps/api/models apps/api/.venv/bin/python scripts/compare_asr_accuracy.py
+
+# tasks/05_ASR_HARDWARE_SPEEDUP.md: CPU/GPU/model-quantization/faster-whisper
+# capability report. No real audio or models needed -- seconds, always safe
+# to run. Usage: make detect-asr-hardware
+detect-asr-hardware:
+	apps/api/.venv/bin/python scripts/detect_asr_hardware.py
+
+# tasks/05_ASR_HARDWARE_SPEEDUP.md: fair same-machine comparison of ASR
+# engine/provider candidates (sherpa-onnx Whisper cpu/cuda, sherpa-onnx
+# SenseVoice cpu/cuda, faster-whisper cpu-int8/cuda-fp16), with concurrent
+# GPU/CPU utilization sampling. Skips whatever isn't installed/available on
+# this machine, with a clear reason. Opt-in, free (no OpenAI call), never
+# part of `make test`/`make e2e`. Usage:
+# make compare-asr-engines AUDIO=path [ENGINES=sherpa_whisper_cpu,...]
+compare-asr-engines:
+	ARIAD_SHERPA_MODELS_DIR=./apps/api/models apps/api/.venv/bin/python scripts/compare_asr_engines.py

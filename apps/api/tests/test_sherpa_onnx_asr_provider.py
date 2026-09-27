@@ -286,6 +286,11 @@ def test_diagnostics_dict_captures_per_turn_ko_fallback_breakdown(tmp_path):
     assert diagnostics["turns"][1]["duration_seconds"] == pytest.approx(0.5, abs=0.01)
     assert "diarize_ms" in diagnostics
     assert "audio_duration_seconds" in diagnostics
+    # tasks/05_ASR_HARDWARE_SPEEDUP.md item 1: VAD and post-processing used
+    # to be invisible (no stage, no diagnostics field) -- must be reported
+    # now, even though this fake VAD returns instantly.
+    assert isinstance(diagnostics["vad_ms"], float)
+    assert isinstance(diagnostics["postprocess_ms"], float)
 
     # No decoded text anywhere in the diagnostics dict.
     import json
@@ -320,6 +325,72 @@ def test_ko_mode_defaults_to_ko_only(monkeypatch):
 
     explicit_provider = SherpaOnnxASRProvider(ko_mode="auto_then_ko")
     assert explicit_provider._ko_mode == "auto_then_ko"
+
+
+def test_invalid_provider_raises_value_error():
+    from app.providers.sherpa_onnx_asr import SherpaOnnxASRProvider
+
+    with pytest.raises(ValueError):
+        SherpaOnnxASRProvider(provider="tpu")
+
+
+def test_provider_defaults_to_cpu_and_can_be_overridden(monkeypatch):
+    """tasks/05_ASR_HARDWARE_SPEEDUP.md: opt-in onnxruntime execution
+    provider flag, mirroring num_threads/ko_mode. Default unchanged (cpu)
+    -- whether "cuda" actually accelerates anything on a given machine is
+    for scripts/compare_asr_engines.py to measure, not assumed here."""
+    from app.providers.sherpa_onnx_asr import SherpaOnnxASRProvider
+
+    monkeypatch.delenv("ARIAD_SHERPA_PROVIDER", raising=False)
+    default_provider = SherpaOnnxASRProvider()
+    assert default_provider._provider == "cpu"
+
+    monkeypatch.setenv("ARIAD_SHERPA_PROVIDER", "cuda")
+    env_provider = SherpaOnnxASRProvider()
+    assert env_provider._provider == "cuda"
+
+    explicit_provider = SherpaOnnxASRProvider(provider="coreml")
+    assert explicit_provider._provider == "coreml"
+
+
+def test_provider_is_threaded_into_recognizer_vad_and_embedding_config(tmp_path):
+    """Regression: a provider flag that's accepted by __init__ but never
+    actually passed to from_whisper()/VadModelConfig/
+    SpeakerEmbeddingExtractorConfig would silently no-op on a real GPU
+    machine -- this pins that it reaches all three."""
+    import sys
+    from unittest.mock import MagicMock
+
+    from app.providers.sherpa_onnx_asr import SherpaOnnxASRProvider
+
+    (tmp_path / "sherpa-onnx-whisper-large-v3").mkdir()
+    (tmp_path / "sherpa-onnx-whisper-large-v3" / "large-v3-encoder.int8.onnx").touch()
+    (tmp_path / "sherpa-onnx-whisper-large-v3" / "large-v3-decoder.int8.onnx").touch()
+    (tmp_path / "sherpa-onnx-whisper-large-v3" / "large-v3-tokens.txt").touch()
+    (tmp_path / "sherpa-onnx-pyannote-segmentation-3-0").mkdir()
+    (tmp_path / "sherpa-onnx-pyannote-segmentation-3-0" / "model.onnx").touch()
+    (tmp_path / "emb.onnx").touch()
+    (tmp_path / "silero_vad.onnx").touch()
+
+    fake_sherpa_onnx = MagicMock()
+    fake_vad_config = MagicMock()
+    fake_sherpa_onnx.VadModelConfig.return_value = fake_vad_config
+    original_module = sys.modules.get("sherpa_onnx")
+    sys.modules["sherpa_onnx"] = fake_sherpa_onnx
+    try:
+        provider = SherpaOnnxASRProvider(models_dir=str(tmp_path), provider="cuda")
+        provider._ensure_models_loaded()
+    finally:
+        if original_module is not None:
+            sys.modules["sherpa_onnx"] = original_module
+        else:
+            del sys.modules["sherpa_onnx"]
+
+    for call in fake_sherpa_onnx.OfflineRecognizer.from_whisper.call_args_list:
+        assert call.kwargs["provider"] == "cuda"
+    embedding_call = fake_sherpa_onnx.SpeakerEmbeddingExtractorConfig.call_args
+    assert embedding_call.kwargs["provider"] == "cuda"
+    assert fake_vad_config.provider == "cuda"
 
 
 def test_num_threads_defaults_to_cpu_count_and_can_be_overridden(monkeypatch):

@@ -101,15 +101,25 @@ def main() -> int:
         return 1
 
     audio_duration = diagnostics.get("audio_duration_seconds", 0.0)
+    # tasks/05_ASR_HARDWARE_SPEEDUP.md item 1: vad_ms/postprocess_ms used to
+    # be invisible (no stage, no diagnostics field) -- now included so the
+    # RTF/breakdown accounts for the whole warm asr_inference+postprocess
+    # wall time, not just diarize+decode.
+    vad_ms = diagnostics.get("vad_ms", 0.0)
+    postprocess_ms = diagnostics.get("postprocess_ms", 0.0)
     inference_ms = (
         diagnostics.get("diarize_ms", 0.0)
+        + vad_ms
         + diagnostics.get("auto_total_ms", 0.0)
         + diagnostics.get("ko_total_ms", 0.0)
+        + postprocess_ms
     )
     rtf = (inference_ms / 1000) / audio_duration if audio_duration else float("nan")
 
-    print(f"\naudio_duration_seconds: {audio_duration:.2f}")
+    print(f"\nprovider={provider._provider} ko_mode={provider._ko_mode} num_threads={provider._num_threads}")
+    print(f"audio_duration_seconds: {audio_duration:.2f}")
     print(f"diarize_ms: {diagnostics.get('diarize_ms', 0.0):.1f}")
+    print(f"vad_ms: {vad_ms:.1f}")
     print(
         f"auto:       {diagnostics.get('auto_call_count', 0)} call(s), "
         f"{diagnostics.get('auto_total_ms', 0.0):.1f}ms total, "
@@ -120,7 +130,8 @@ def main() -> int:
         f"{diagnostics.get('ko_total_ms', 0.0):.1f}ms total, "
         f"{diagnostics.get('ko_total_input_seconds', 0.0):.2f}s input audio"
     )
-    print(f"inference_ms (diarize+auto+ko): {inference_ms:.1f}")
+    print(f"postprocess_ms (merge_adjacent_same_speaker): {postprocess_ms:.1f}")
+    print(f"inference_ms (diarize+vad+auto+ko+postprocess): {inference_ms:.1f}")
     print(f"RTF (inference / audio duration): {rtf:.2f}x")
     print(f"segments returned: {len(segments)}")
 

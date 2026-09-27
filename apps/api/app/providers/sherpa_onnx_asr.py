@@ -182,12 +182,27 @@ class SherpaOnnxASRProvider:
     #: this Korean-only clinical use case.
     _KO_MODES = ("auto_then_ko", "ko_only")
 
+    #: tasks/05_ASR_HARDWARE_SPEEDUP.md: sherpa-onnx 1.13.8's from_whisper()/
+    #: VadModelConfig/SpeakerEmbeddingExtractorConfig all accept an
+    #: onnxruntime execution provider string ("cpu" | "cuda" | "coreml").
+    #: Opt-in only via ARIAD_SHERPA_PROVIDER, default unchanged ("cpu") --
+    #: whether "cuda" actually accelerates anything (vs. erroring, or
+    #: silently falling back to CPU inside onnxruntime) depends entirely on
+    #: whether the installed sherpa-onnx-core wheel was built with CUDA
+    #: execution provider support, which the standard PyPI wheel typically
+    #: is not -- see scripts/detect_asr_hardware.py, which checks this
+    #: without needing real audio, and scripts/compare_asr_engines.py, which
+    #: verifies actual GPU utilization during a real decode rather than
+    #: trusting that model construction merely succeeded.
+    _PROVIDERS = ("cpu", "cuda", "coreml")
+
     def __init__(
         self,
         models_dir: str | None = None,
         num_speakers: int = 0,
         num_threads: int | None = None,
         ko_mode: str | None = None,
+        provider: str | None = None,
     ):
         self._models_dir = models_dir or os.environ.get("ARIAD_SHERPA_MODELS_DIR", DEFAULT_MODELS_DIR)
         self._num_speakers = num_speakers
@@ -200,6 +215,9 @@ class SherpaOnnxASRProvider:
         self._ko_mode = ko_mode or os.environ.get("ARIAD_ASR_KO_MODE", "ko_only")
         if self._ko_mode not in self._KO_MODES:
             raise ValueError(f"ko_mode must be one of {self._KO_MODES}, got {self._ko_mode!r}")
+        self._provider = provider or os.environ.get("ARIAD_SHERPA_PROVIDER", "cpu")
+        if self._provider not in self._PROVIDERS:
+            raise ValueError(f"provider must be one of {self._PROVIDERS}, got {self._provider!r}")
         self._load_lock = threading.Lock()
         self._diarizer = None
         self._recognizer_auto = None
@@ -255,7 +273,7 @@ class SherpaOnnxASRProvider:
                     )
                 ),
                 embedding=sherpa_onnx.SpeakerEmbeddingExtractorConfig(
-                    model=str(paths["embedding"]), num_threads=2
+                    model=str(paths["embedding"]), num_threads=2, provider=self._provider
                 ),
                 clustering=sherpa_onnx.FastClusteringConfig(
                     num_clusters=self._num_speakers if self._num_speakers > 0 else -1,
@@ -274,6 +292,7 @@ class SherpaOnnxASRProvider:
                     num_threads=self._num_threads,
                     language=language,
                     task="transcribe",
+                    provider=self._provider,
                 )
 
             recognizer_auto = new_recognizer("")
@@ -284,6 +303,7 @@ class SherpaOnnxASRProvider:
             vad_config.silero_vad.threshold = 0.5
             vad_config.silero_vad.min_speech_duration = 0.15
             vad_config.silero_vad.min_silence_duration = 0.1
+            vad_config.provider = self._provider
 
             self._diarizer = diarizer
             self._recognizer_auto = recognizer_auto
@@ -375,13 +395,16 @@ class SherpaOnnxASRProvider:
                 auto_decode_ms = 0.0
                 ko_decode_ms = 0.0
                 ko_fallback_count = 0
+                vad_ms = 0.0
                 turn_diagnostics: list[dict] = []
 
                 rows = []
                 for i, turn in enumerate(turns):
                     turn_duration = turn.end - turn.start
                     clip = frames[int(turn.start * sample_rate) : int(turn.end * sample_rate)]
+                    vad_start = time.perf_counter()
                     sv = speech_seconds(clip)
+                    vad_ms += (time.perf_counter() - vad_start) * 1000
 
                     if self._ko_mode == "ko_only":
                         # Candidate fix A/B'd against "auto_then_ko" via
@@ -438,10 +461,11 @@ class SherpaOnnxASRProvider:
                 if meta is not None:
                     meta["audio_duration_seconds"] = len(frames) / sample_rate
                 logger.info(
-                    "asr_inference breakdown: turns=%d diarize_ms=%.1f "
+                    "asr_inference breakdown: turns=%d diarize_ms=%.1f vad_ms=%.1f "
                     "auto_decode_ms=%.1f ko_fallback_count=%d ko_decode_ms=%.1f",
                     len(turns),
                     diarize_ms,
+                    vad_ms,
                     auto_decode_ms,
                     ko_fallback_count,
                     ko_decode_ms,
@@ -449,6 +473,7 @@ class SherpaOnnxASRProvider:
                 if diagnostics is not None:
                     diagnostics["audio_duration_seconds"] = len(frames) / sample_rate
                     diagnostics["diarize_ms"] = round(diarize_ms, 1)
+                    diagnostics["vad_ms"] = round(vad_ms, 1)
                     diagnostics["turns"] = turn_diagnostics
                     diagnostics["auto_call_count"] = len(turns)
                     diagnostics["auto_total_ms"] = round(auto_decode_ms, 1)
@@ -461,7 +486,20 @@ class SherpaOnnxASRProvider:
                         sum(t["duration_seconds"] for t in turn_diagnostics if t["ko_fallback"]), 3
                     )
 
-        merged_rows = merge_adjacent_same_speaker(rows)
+            # tasks/05_ASR_HARDWARE_SPEEDUP.md item 1: previously untimed --
+            # lived after asr_inference's own stage context closed, so its
+            # cost (usually small, but real on very long/chatty recordings)
+            # was invisible to both stage_runs and the diagnostics dict.
+            with (
+                stage_timer.stage("asr_postprocess", provider="none")
+                if stage_timer
+                else nullcontext()
+            ):
+                postprocess_start = time.perf_counter()
+                merged_rows = merge_adjacent_same_speaker(rows)
+                postprocess_ms = (time.perf_counter() - postprocess_start) * 1000
+            if diagnostics is not None:
+                diagnostics["postprocess_ms"] = round(postprocess_ms, 1)
         return [
             DiarizedSegment(
                 id=f"seg_{i + 1:03d}",

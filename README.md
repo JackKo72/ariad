@@ -198,6 +198,51 @@ RTF·정확도 두 지표 모두 `ko_only`가 확인된 개선이므로(속도�
 `ARIAD_SHERPA_NUM_THREADS`는 여전히 opt-in 진단용 플래그로 남아 있다 — 스레드 수가
 실측으로 유의미한 차이를 보인다는 근거는 아직 없어 기본값(`os.cpu_count()`)을 유지한다.
 
+## ASR 하드웨어/엔진 실측 (tasks/05_ASR_HARDWARE_SPEEDUP.md)
+
+실제 6분 녹음이 14분 걸린 문제(목표: 10분 녹음 → 60초 이내, RTF ≤ 0.1)를 진단하고
+GPU/모델 후보를 비교하기 위한 도구. **이 저장소의 개발 환경에는 GPU가 없고 실제
+녹음 파일/모델도 없어 실측을 대신 실행해 줄 수 없다 — 아래 명령을 사용자 PC에서
+직접 실행해야 한다.**
+
+```bash
+make detect-asr-hardware
+# CPU 모델/물리 코어/RAM, GPU 제조사/모델/VRAM/드라이버(nvidia-smi/rocm-smi, 없으면
+# 없다고 명시), sherpa-onnx의 provider(cpu/cuda/coreml) 지원 여부, faster-whisper
+# 설치 여부, 모델 파일 양자화(int8) 여부, num_threads 해석값을 출력한다. 실제 오디오/
+# 모델 불필요, 수 초 내 실행, 항상 안전.
+
+make diagnose-asr AUDIO=path/to/recording.wav
+# 이제 diarize_ms/vad_ms(신규)/auto/ko/postprocess_ms(신규)를 모두 분리해서 보여준다
+# (이전에는 VAD와 후처리 시간이 어디에도 측정되지 않고 있었다). provider/ko_mode/
+# num_threads 현재 설정도 함께 출력한다.
+
+ARIAD_SHERPA_PROVIDER=cuda make diagnose-asr AUDIO=path/to/recording.wav
+# GPU 경로 시도(opt-in, 기본값은 여전히 cpu). sherpa-onnx의 from_whisper()는 provider=
+# "cuda"를 구조적으로 받아들이지만, 실제로 CUDA execution provider가 빌드에 포함돼
+# 있는지는 별개 문제다 -- 아래 compare-asr-engines가 "생성 성공"과 "실제 GPU 사용"을
+# 구분해서 알려준다.
+
+make compare-asr-engines AUDIO=path/to/recording.wav
+# 같은 파일에 대해 여러 엔진/provider 후보를 순서대로 실행하고 비교한다:
+#   sherpa_whisper_cpu / sherpa_whisper_cuda (기존 엔진, provider만 바꿈)
+#   sherpa_sensevoice_cpu / sherpa_sensevoice_cuda (sherpa-onnx 기본 지원, 별도
+#     SenseVoice 모델 다운로드 후 ARIAD_SENSEVOICE_MODEL/ARIAD_SENSEVOICE_TOKENS 설정 필요)
+#   faster_whisper_cpu_int8 / faster_whisper_cuda_fp16 (선택 설치:
+#     apps/api/.venv/bin/pip install faster-whisper, FASTER_WHISPER_MODEL로 모델 크기 지정)
+# 각 후보의 warm decode 시간과 RTF뿐 아니라, decode 도중 별도 스레드로 샘플링한
+# GPU 사용률/VRAM/CPU 사용률(평균·최대)을 함께 출력한다 -- GPU가 "구성상 인식"됐다는
+# 것과 "실제로 그 위에서 연산이 돌았다"는 것을 구분하기 위함이다. 설치/모델이 없는
+# 후보는 조용히 빠지지 않고 이유와 함께 SKIPPED로 표시된다. ENGINES=a,b로 특정
+# 후보만 골라 실행할 수 있다.
+```
+
+**측정 순서 제안** (tasks/05 item 4): `sample_consultation.wav`(59.5s, 이미 있음) →
+기존 6분 녹음 → 가능하면 ~10분 녹음. 한 번에 하나의 ASR 시험만 실행할 것(CPU/GPU
+점유가 겹치면 서로의 숫자를 왜곡한다). 이 환경에는 실제 6분/10분 녹음이 없으므로
+그 실측치는 사용자가 직접 채워야 한다 — 녹음/전사 결과 자체는 저장소에 커밋하지
+말 것(합성 데이터만 커밋).
+
 **문제 해결**
 
 - `ModuleNotFoundError: No module named 'openai'` (또는 `sherpa_onnx`) — Phase D에서
