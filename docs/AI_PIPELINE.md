@@ -13,6 +13,7 @@
 | ASR | timestamp가 있는 한국어 전사 | `TranscriptSegment[]` | 의학용어·수치·고유명사 오류 |
 | Diarization | Speaker A/B/C 구간 분리 | `SpeakerTurn[]` | 겹침, 짧은 발화, 잡음 |
 | Role assignment | speaker를 doctor/patient/guardian/unknown으로 매핑 | `RoleAssignment` | role 확신 부족 |
+| Clinical enrichment | 구어체 대화를 약물/증상/진찰/진단/계획 후보로 정리 (원문 보존, tasks/04_CLINICAL_ENRICHMENT.md) | `ClinicalEnrichment` | 근거 없는 확정, 질문의 소견화 |
 | Structure | 원문에 있는 임상사실만 JSON으로 추출 | `ClinicalStructure` | 누락, 잘못된 slot |
 | Simplification | 구조화 사실을 쉬운 한국어로 변환 | `ExplanationDraft` | 환각, 의미 약화, 위험 누락 |
 | Validation | schema, 수치/약물, 근거, 금지표현 검사 | `ValidationReport` | unsupported claim |

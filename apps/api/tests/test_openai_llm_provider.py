@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.domain.errors import LlmProviderFailed
-from app.domain.models import ClinicalStructure, ExplanationDraft
+from app.domain.models import ClinicalEnrichment, ClinicalStructure, ExplanationDraft
 from app.observability import StageTimer
 from app.providers.openai_llm import OpenAILLMProvider
 
@@ -124,8 +124,28 @@ def test_clinical_structure_and_explanation_draft_are_openai_strict_schema_compa
     before a user ever hit it live."""
     from openai.lib._parsing._completions import type_to_response_format_param
 
-    for schema_cls in (ClinicalStructure, ExplanationDraft):
+    for schema_cls in (ClinicalStructure, ExplanationDraft, ClinicalEnrichment):
         type_to_response_format_param(schema_cls)  # raises if incompatible
+
+
+def test_clinical_enrichment_maps_to_clinical_enrichment_llm_stage():
+    """tasks/04_CLINICAL_ENRICHMENT.md: prompt_id clinical_enrichment must
+    map to its own stage name (clinical_enrichment_llm), distinct from
+    structure_llm/explanation_llm, so its latency is measured separately."""
+    provider = _provider_with_mock_client()
+    enrichment = ClinicalEnrichment()
+    completion = _mock_completion(enrichment)
+    completion.usage = MagicMock(prompt_tokens=111, completion_tokens=22)
+    provider._client.chat.completions.parse.return_value = completion
+
+    timer = StageTimer()
+    result = provider.generate_json("clinical_enrichment", {"segments": []}, stage_timer=timer)
+
+    assert result == enrichment.model_dump()
+    call_kwargs = provider._client.chat.completions.parse.call_args.kwargs
+    assert call_kwargs["response_format"] is ClinicalEnrichment
+    assert len(timer.records) == 1
+    assert timer.records[0].stage == "clinical_enrichment_llm"
 
 
 def test_stage_timer_records_stage_name_model_and_token_usage():

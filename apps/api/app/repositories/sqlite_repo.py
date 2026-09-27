@@ -15,6 +15,7 @@ from app.clock import utc_now_iso
 from app.domain.errors import ApprovalStaleVersion, NotFoundError, PublishNotApproved
 from app.domain.models import (
     AudioAsset,
+    ClinicalEnrichment,
     ClinicalStructure,
     DiarizedSegment,
     Encounter,
@@ -52,8 +53,14 @@ def _row_to_version(row: sqlite3.Row) -> EncounterVersion:
         transcript_text=row["transcript_text"],
         structure=ClinicalStructure.model_validate(json.loads(row["structure_json"])),
         explanation=ExplanationDraft.model_validate(json.loads(row["explanation_json"])),
+        enrichment=(
+            ClinicalEnrichment.model_validate(json.loads(row["enrichment_json"]))
+            if row["enrichment_json"]
+            else None
+        ),
         prompt_version_structure=row["prompt_version_structure"],
         prompt_version_explanation=row["prompt_version_explanation"],
+        prompt_version_enrichment=row["prompt_version_enrichment"],
         created_at=row["created_at"],
         approved_at=row["approved_at"],
     )
@@ -150,9 +157,10 @@ class EncounterRepository:
         self._conn.execute(
             """INSERT INTO encounter_versions
                (id, encounter_id, version_number, status, transcript_text,
-                structure_json, explanation_json, prompt_version_structure,
-                prompt_version_explanation, created_at, approved_at)
-               VALUES (?, ?, 1, 'draft', ?, ?, ?, NULL, NULL, ?, NULL)""",
+                structure_json, explanation_json, enrichment_json,
+                prompt_version_structure, prompt_version_explanation,
+                prompt_version_enrichment, created_at, approved_at)
+               VALUES (?, ?, 1, 'draft', ?, ?, ?, NULL, NULL, NULL, NULL, ?, NULL)""",
             (version_id, encounter_id, transcript_text, empty_structure, empty_explanation, now),
         )
         self._conn.execute(
@@ -191,20 +199,25 @@ class EncounterRepository:
         explanation: ExplanationDraft,
         prompt_version_structure: str,
         prompt_version_explanation: str,
+        enrichment: Optional[ClinicalEnrichment] = None,
+        prompt_version_enrichment: Optional[str] = None,
     ) -> Encounter:
         encounter = self.get_encounter(encounter_id)
         ensure_status(encounter.status, {EncounterStatus.PROCESSING}, "complete_processing")
         now = self._now()
         self._conn.execute(
             """UPDATE encounter_versions
-               SET structure_json = ?, explanation_json = ?,
-                   prompt_version_structure = ?, prompt_version_explanation = ?
+               SET structure_json = ?, explanation_json = ?, enrichment_json = ?,
+                   prompt_version_structure = ?, prompt_version_explanation = ?,
+                   prompt_version_enrichment = ?
                WHERE id = ?""",
             (
                 structure.model_dump_json(),
                 explanation.model_dump_json(),
+                enrichment.model_dump_json() if enrichment is not None else None,
                 prompt_version_structure,
                 prompt_version_explanation,
+                prompt_version_enrichment,
                 encounter.current_draft_version_id,
             ),
         )
@@ -258,9 +271,10 @@ class EncounterRepository:
             self._conn.execute(
                 """INSERT INTO encounter_versions
                    (id, encounter_id, version_number, status, transcript_text,
-                    structure_json, explanation_json, prompt_version_structure,
-                    prompt_version_explanation, created_at, approved_at)
-                   VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, NULL)""",
+                    structure_json, explanation_json, enrichment_json,
+                    prompt_version_structure, prompt_version_explanation,
+                    prompt_version_enrichment, created_at, approved_at)
+                   VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, NULL)""",
                 (
                     new_version_id,
                     encounter_id,
@@ -268,8 +282,13 @@ class EncounterRepository:
                     approved.transcript_text,
                     structure.model_dump_json(),
                     explanation.model_dump_json(),
+                    # Same original transcript/segments as the approved version
+                    # -- carry the enrichment over rather than losing it, since
+                    # this stage isn't re-run on a structure/explanation edit.
+                    approved.enrichment.model_dump_json() if approved.enrichment is not None else None,
                     approved.prompt_version_structure,
                     approved.prompt_version_explanation,
+                    approved.prompt_version_enrichment,
                     now,
                 ),
             )

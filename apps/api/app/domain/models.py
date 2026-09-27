@@ -100,8 +100,13 @@ class EncounterVersion(BaseModel):
     transcript_text: str
     structure: ClinicalStructure
     explanation: ExplanationDraft
+    # None for manual text-only encounters/demo mode (no segment-level
+    # speaker/time metadata to anchor findings to) -- additive field, never
+    # required, so it never breaks existing API consumers.
+    enrichment: Optional[ClinicalEnrichment] = None
     prompt_version_structure: Optional[str] = None
     prompt_version_explanation: Optional[str] = None
+    prompt_version_enrichment: Optional[str] = None
     created_at: str
     approved_at: Optional[str] = None
 
@@ -116,6 +121,139 @@ class Encounter(BaseModel):
     approved_version_id: Optional[str] = None
     created_at: str
     updated_at: str
+
+
+class NormalizedCandidate(BaseModel):
+    """One normalization guess for an ambiguous raw utterance (e.g. a
+    medication name or dose). Never collapse ambiguity into one value --
+    tasks/04_CLINICAL_ENRICHMENT.md: a clinician picks among candidates,
+    the model never silently picks for them."""
+
+    value: str
+    confidence: Literal["high", "medium", "low"] = "low"
+
+
+class SourceSpan(BaseModel):
+    """Links one enrichment finding back to the exact transcript segment
+    and verbatim quote it came from (never edited/paraphrased) plus who
+    said it and, if the segment carries times, when."""
+
+    segment_id: str
+    quote: str
+    speaker: str
+    role: str = "unknown"
+    start: Optional[float] = None
+    end: Optional[float] = None
+
+
+# affirmed: stated as true. negated: explicitly denied/negative.
+# question: asked, not yet answered/confirmed. uncertain: hedged ("아마",
+# "잘 모르겠어요") or the model itself isn't sure which of the above applies.
+Polarity = Literal["affirmed", "negated", "question", "uncertain"]
+
+
+class MedicationFinding(BaseModel):
+    id: str
+    raw_text: str  # verbatim as spoken -- never overwritten by a normalized guess
+    name_candidates: list[NormalizedCandidate] = Field(default_factory=list)
+    ingredient_or_brand: Literal["ingredient", "brand", "unknown"] = "unknown"
+    dose_candidates: list[NormalizedCandidate] = Field(default_factory=list)
+    route: Optional[str] = None
+    frequency: Optional[str] = None
+    timing: Optional[str] = None  # e.g. "아침", "식후" -- when taken, not how often
+    action: Literal["start", "continue", "stop", "change", "unknown"] = "unknown"
+    polarity: Polarity = "uncertain"
+    rationale: str = ""
+    needs_review: bool = True
+    source_spans: list[SourceSpan] = Field(default_factory=list)
+
+
+class SymptomFinding(BaseModel):
+    id: str
+    raw_text: str
+    # Keeps a doctor's question ("다리를 끄나요?") structurally distinct from
+    # the patient's own statement -- a question alone must never become an
+    # affirmed symptom (see enrichment_validation.py).
+    reported_by: Literal["patient", "guardian", "doctor_question", "doctor_observation"]
+    polarity: Polarity = "uncertain"
+    normalized_candidates: list[NormalizedCandidate] = Field(default_factory=list)
+    rationale: str = ""
+    needs_review: bool = True
+    source_spans: list[SourceSpan] = Field(default_factory=list)
+
+
+class ExamFinding(BaseModel):
+    id: str
+    raw_text: str
+    kind: Literal["order", "observation"]  # 검사 지시 vs 실제 관찰 결과
+    test_name_candidates: list[NormalizedCandidate] = Field(default_factory=list)
+    score_computable: bool = False
+    # Only ever populated when a score/grade actually appears verbatim in a
+    # source_span quote -- "다리 들어보세요" alone must never produce an
+    # mRS/NIHSS/MRC score (enrichment_validation.py enforces this).
+    score_candidates: list[NormalizedCandidate] = Field(default_factory=list)
+    rationale: str = ""
+    needs_review: bool = True
+    source_spans: list[SourceSpan] = Field(default_factory=list)
+
+
+class DiagnosisFinding(BaseModel):
+    id: str
+    raw_text: str
+    # Only what the doctor actually stated -- a model-noticed pattern the
+    # doctor never named goes to FollowUpQuestionSuggestion instead, never
+    # here (see ClinicalEnrichment.follow_up_questions).
+    kind: Literal["confirmed", "doctor_differential"]
+    polarity: Polarity = "uncertain"
+    normalized_candidates: list[NormalizedCandidate] = Field(default_factory=list)
+    rationale: str = ""
+    needs_review: bool = True
+    source_spans: list[SourceSpan] = Field(default_factory=list)
+
+
+class FollowUpQuestionSuggestion(BaseModel):
+    """A question the model thinks the clinician should ask -- never a
+    diagnosis. E.g. specific nocturnal behavior is mentioned but the doctor
+    never said "RBD": this holds the suggestion to ask more, not a
+    diagnosis field. Structurally separate from DiagnosisFinding so it
+    cannot be confused with one downstream."""
+
+    id: str
+    trigger_text: str  # what in the transcript prompted the suggestion
+    suggested_question: str
+    rationale: str = ""
+    needs_review: bool = True
+    source_spans: list[SourceSpan] = Field(default_factory=list)
+
+
+class PlanFinding(BaseModel):
+    id: str
+    raw_text: str
+    kind: Literal["directive", "discussion"]  # 실제 지시 vs 단순 논의
+    polarity: Polarity = "uncertain"
+    rationale: str = ""
+    needs_review: bool = True
+    source_spans: list[SourceSpan] = Field(default_factory=list)
+
+
+class ClinicalEnrichment(BaseModel):
+    """tasks/04_CLINICAL_ENRICHMENT.md: sits between the ASR transcript and
+    structure_llm (app/pipeline/enrichment.py), turning colloquial dialogue
+    into clinician-reviewable candidates linked back to source text. Never
+    replaces transcript_text/ClinicalStructure -- purely additive, and only
+    populated when segment-level speaker/time metadata exists (audio-derived
+    PipelineRuns; None for manual text-only encounters)."""
+
+    medications: list[MedicationFinding] = Field(default_factory=list)
+    symptoms: list[SymptomFinding] = Field(default_factory=list)
+    exam: list[ExamFinding] = Field(default_factory=list)
+    diagnoses: list[DiagnosisFinding] = Field(default_factory=list)
+    follow_up_questions: list[FollowUpQuestionSuggestion] = Field(default_factory=list)
+    plan: list[PlanFinding] = Field(default_factory=list)
+    # Filled in by enrichment_validation.py after the LLM call, never by the
+    # LLM itself -- one string per mechanically-caught safety violation
+    # (ungrounded quote, ungrounded score, question-only diagnosis, etc.).
+    validator_violations: list[str] = Field(default_factory=list)
 
 
 class DiarizedSegment(BaseModel):

@@ -24,6 +24,10 @@
   실제 원인임을 실측(속도 + 정확도)으로 확인하고 `ko_mode` 기본값을 `ko_only`로 전환(완료, 아래
   "ASR ko_mode 기본값 전환" 참고). Phase 2 이후(수동 화자 병합, 자동 병합 추천)는 아직 미착수 —
   실측 중 발견된 화자분리 한계는 "알려진 제한" 참고.
+- `tasks/04_CLINICAL_ENRICHMENT.md`: ASR 전사문과 structure_llm 사이에 "임상 의미 정리" 단계 추가
+  (완료, 아래 "임상 의미 정리 (clinical enrichment)" 참고). 원문 보존 + 근거 연결 + 4가지 금지
+  패턴(근거 없는 점수/진단, 질문의 소견화, 부정 반전) 회피를 기계적 validator로 강제. 실제 OpenAI
+  품질 측정은 이 환경에 API key가 없어 미실행 — `--real` 플래그로 사용자가 직접 실행 필요.
 
 ## Stack
 
@@ -60,7 +64,7 @@ make dev      # API :8000 + Web :3000 동시 실행 (Ctrl+C로 종료)
 ```bash
 make test          # pytest (unit/contract/integration, apps/api + tests/integration) + vitest (apps/web)
 make e2e           # Playwright 브라우저 E2E (API+Web 자동 기동)
-make eval          # 합성 golden set에 대해 mock pipeline grounding 검사
+make eval          # 합성 golden set grounding 검사 + clinical enrichment 안전성/추출 평가
 make lint          # ruff (api) + eslint + tsc --noEmit (web)
 make sample-audio  # tests/fixtures/audio/* 재생성 (offline TTS + ffmpeg, 외부 API 없음)
 ```
@@ -205,6 +209,40 @@ RTF·정확도 두 지표 모두 `ko_only`가 확인된 개선이므로(속도�
   (관리형 클라우드 샌드박스에서는 미리 설치된 Chromium 경로를 자동으로 사용하므로 이 단계가
   필요 없다).
 
+## 임상 의미 정리 (clinical enrichment)
+
+`tasks/04_CLINICAL_ENRICHMENT.md`: ASR 전사문(`PipelineRun.segments`, 화자 role 확인
+후)과 기존 `structure_llm` 사이에 추가된 단계다. 원본 전사문/`ClinicalStructure`는
+전혀 건드리지 않고, `EncounterVersion.enrichment`(nullable, additive)에 약물/증상/
+진찰/진단/계획 후보를 각각 원문 구절(`source_spans`)에 연결해 별도로 저장한다.
+세그먼트 단위 화자/시각 정보가 없는 수동 텍스트 입력이나 demo 모드에서는 `null`이다.
+
+```bash
+apps/api/.venv/bin/python scripts/eval_clinical_enrichment.py
+# sample_consultation(59.5s)과 clinical_dialogue_3min(합성, ~155s, 3화자, 오디오 없음
+# 텍스트 전용 fixture) 양쪽에 대해 mock provider로 안전성(4가지 금지 패턴 회피)과 실제
+# 항목 추출 커버리지를 함께 출력한다. 무료, make test/make e2e에는 포함되지 않지만
+# make eval에는 포함됨(golden set grounding 검사 다음에 자동 실행).
+
+apps/api/.venv/bin/python scripts/eval_clinical_enrichment.py --real
+# OPENAI_API_KEY가 있으면 실제 LLM으로 같은 평가를 실행한다(비용 발생, y/N 확인 후).
+# 이 개발 환경에는 API key가 없어 이 스크립트를 만든 사람이 직접 실행해 본 적은 없다 —
+# 실제 추출 품질은 사용자가 이 명령으로 직접 확인해야 한다.
+```
+
+**mock provider의 알려진 한계**: 기본 `ARIAD_MODE=mock`의 `MockLLMProvider._clinical_
+enrichment`는 규칙(정규식) 기반이라 안전성(금지 패턴 회피)은 구조적으로 보장하지만
+커버리지는 제한적이다 — 예를 들어 "아스피린은... 중단했고..." 같은 표현은 "약"이라는
+글자가 없어 의약품으로 인식되지 않는다(위 eval 결과의 FAIL 항목 참고). 실제 LLM(OpenAI)
+을 쓰면 이런 경우도 잡아낼 가능성이 높지만, 그 품질은 이 환경에서 실측하지 못했다.
+
+**item 7(3~10분 대화 → 1분 미만 정리) 실측 여부**: enrichment 단계 자체는 mock 기준
+1ms 미만이라 무시할 수 있는 수준이지만, 목표는 전체 파이프라인(ASR+enrichment+구조화+
+설명)을 가리키는 것으로 이해했고, 지배적 비용은 실제 LLM 응답 시간일 것으로 예상된다.
+이 환경에서는 실제로 측정하지 못했다 — `--real` 실행 후 `stage_runs` 테이블의
+`clinical_enrichment_llm`/`structure_llm`/`explanation_llm` 행 duration_ms 합으로
+직접 확인해야 한다.
+
 ## 알려진 제한
 
 - 실제 ASR provider(OpenAI 등) 연동 없음 — `샘플 음성 사용`만 즉시 동작(Demo, sidecar fixture
@@ -215,6 +253,10 @@ RTF·정확도 두 지표 모두 `ko_only`가 확인된 개선이므로(속도�
 - CORS는 로컬 개발 origin(`http://localhost:3000`)만 허용하도록 고정되어 있다.
 - `ffmpeg`/`ffprobe`가 시스템에 설치되어 있어야 오디오 업로드가 동작한다
   (`make doctor`로 확인, 없으면 `sudo apt-get install -y ffmpeg`).
+- **clinical enrichment 결과를 검토/수정하는 프론트엔드 UI가 없다** — `EncounterVersion.
+  enrichment`는 API 응답(JSON)에는 포함되지만, 지금은 `apps/web`에서 화면에 표시하거나
+  의료진이 후보를 선택/수정하는 인터랙션이 없다. 의도적으로 이번 범위 밖으로 뒀다
+  (tasks/04_CLINICAL_ENRICHMENT.md는 백엔드 단계 설계·구현까지만 요청됨) — 후속 작업.
 - **화자분리(diarization)가 `sample_consultation.wav` 합성 fixture에서 두 화자를 구분하지
   못함** — `make diagnose-asr`/`make compare-asr-accuracy` 실측 중 발견: ko_mode와 무관하게
   59.54초 전체가 diarizer의 최종 병합 후 단일 화자 라벨 1개 segment로만 반환됨(원본 diarization은

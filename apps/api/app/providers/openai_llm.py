@@ -18,9 +18,13 @@ from pathlib import Path
 from typing import Any, Optional
 
 from app.domain.errors import LlmProviderFailed
-from app.domain.models import ClinicalStructure, ExplanationDraft
+from app.domain.models import ClinicalEnrichment, ClinicalStructure, ExplanationDraft
 from app.observability import StageTimer
-from app.providers.mock import PROMPT_VERSION_EXPLANATION, PROMPT_VERSION_STRUCTURE
+from app.providers.mock import (
+    PROMPT_VERSION_ENRICHMENT,
+    PROMPT_VERSION_EXPLANATION,
+    PROMPT_VERSION_STRUCTURE,
+)
 
 PROMPTS_DIR = Path(__file__).resolve().parents[4] / "prompts"
 
@@ -31,6 +35,7 @@ PROMPTS_DIR = Path(__file__).resolve().parents[4] / "prompts"
 _CALL_SPEC = {
     "structure_transcript": ("structure_llm", ClinicalStructure, PROMPT_VERSION_STRUCTURE),
     "patient_explanation": ("explanation_llm", ExplanationDraft, PROMPT_VERSION_EXPLANATION),
+    "clinical_enrichment": ("clinical_enrichment_llm", ClinicalEnrichment, PROMPT_VERSION_ENRICHMENT),
 }
 
 

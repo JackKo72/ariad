@@ -33,8 +33,12 @@ CREATE TABLE IF NOT EXISTS encounter_versions (
     transcript_text TEXT NOT NULL,
     structure_json TEXT NOT NULL,
     explanation_json TEXT NOT NULL,
+    -- tasks/04_CLINICAL_ENRICHMENT.md. NULL for manual text-only encounters
+    -- and demo mode (no segment-level speaker/time metadata to enrich).
+    enrichment_json TEXT,
     prompt_version_structure TEXT,
     prompt_version_explanation TEXT,
+    prompt_version_enrichment TEXT,
     created_at TEXT NOT NULL,
     approved_at TEXT
 );
@@ -122,6 +126,12 @@ _COLUMN_MIGRATIONS: list[tuple[str, str, str]] = [
     ("audio_assets", "preprocessing_mode", "ALTER TABLE audio_assets ADD COLUMN preprocessing_mode TEXT"),
     ("audio_assets", "source_asset_id", "ALTER TABLE audio_assets ADD COLUMN source_asset_id TEXT"),
     ("audio_assets", "sample_id", "ALTER TABLE audio_assets ADD COLUMN sample_id TEXT"),
+    ("encounter_versions", "enrichment_json", "ALTER TABLE encounter_versions ADD COLUMN enrichment_json TEXT"),
+    (
+        "encounter_versions",
+        "prompt_version_enrichment",
+        "ALTER TABLE encounter_versions ADD COLUMN prompt_version_enrichment TEXT",
+    ),
 ]
 
 

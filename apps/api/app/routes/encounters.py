@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import logging
+from typing import Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.domain.errors import NotFoundError, ValidationUnsupportedClaim
 from app.domain.models import (
+    ClinicalEnrichment,
     ClinicalStructure,
     Encounter,
     EncounterDetail,
@@ -17,6 +19,7 @@ from app.domain.models import (
 )
 from app.ids import new_id
 from app.observability import StageTimer
+from app.pipeline.enrichment import enrich_clinical_findings
 from app.pipeline.run import run_pipeline
 from app.pipeline.validation import validate_grounding
 from app.providers.base import LLMProvider
@@ -157,10 +160,18 @@ def process_encounter(
             encounter = repo.start_processing(encounter_id)
             draft = repo.get_version(encounter.current_draft_version_id)  # type: ignore[arg-type]
 
+            enrichment: Optional[ClinicalEnrichment] = None
             try:
                 if active_run is not None and active_run.mode == "demo":
                     structure, explanation = load_demo_structure_and_explanation(active_run.sample_id)  # type: ignore[arg-type]
                 else:
+                    # tasks/04_CLINICAL_ENRICHMENT.md: only meaningful with
+                    # real segment-level speaker/time metadata -- manual
+                    # text-only encounters (no active_run) skip it, and
+                    # transcript_text/structure_encounter are untouched
+                    # either way (purely additive stage).
+                    if active_run is not None and active_run.segments:
+                        enrichment = enrich_clinical_findings(active_run.segments, llm_provider, stage_timer=timer)
                     result = run_pipeline(draft.transcript_text, llm_provider, stage_timer=timer)
                     structure, explanation = result.structure, result.explanation  # type: ignore[assignment]
             except Exception as exc:
@@ -187,6 +198,7 @@ def process_encounter(
 
             from app.pipeline.structure import PROMPT_VERSION as STRUCTURE_PROMPT_VERSION
             from app.pipeline.explanation import PROMPT_VERSION as EXPLANATION_PROMPT_VERSION
+            from app.pipeline.enrichment import PROMPT_VERSION as ENRICHMENT_PROMPT_VERSION
 
             with timer.stage("database_write"):
                 encounter = repo.complete_processing(
@@ -195,6 +207,8 @@ def process_encounter(
                     explanation=explanation,  # type: ignore[arg-type]
                     prompt_version_structure=STRUCTURE_PROMPT_VERSION,
                     prompt_version_explanation=EXPLANATION_PROMPT_VERSION,
+                    enrichment=enrichment,
+                    prompt_version_enrichment=ENRICHMENT_PROMPT_VERSION if enrichment is not None else None,
                 )
                 if active_run is not None:
                     repo.complete_pipeline_run(active_run.id)
