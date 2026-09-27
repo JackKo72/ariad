@@ -214,7 +214,11 @@ def test_diagnostics_dict_captures_per_turn_ko_fallback_breakdown(tmp_path):
     transcribe(..., diagnostics={}) reports per-turn duration/auto_decode_ms
     /ko_fallback/ko_decode_ms plus aggregates, using models_dir/turn models
     already warmed (bypassing real model loading) -- no real sherpa-onnx
-    weights needed, and never any decoded text in the diagnostics dict."""
+    weights needed, and never any decoded text in the diagnostics dict.
+
+    Pins ko_mode="auto_then_ko" explicitly: this test is specifically about
+    that mode's auto-pass-then-conditional-ko-fallback behavior, which is no
+    longer the default (see test_ko_mode_defaults_to_ko_only below)."""
     import sys
     from types import SimpleNamespace
     from unittest.mock import MagicMock
@@ -234,7 +238,7 @@ def test_diagnostics_dict_captures_per_turn_ko_fallback_breakdown(tmp_path):
 
     wav_path = make_silence_wav(tmp_path / "sample.wav", duration_seconds=3.0)
 
-    provider = SherpaOnnxASRProvider(models_dir=str(tmp_path))
+    provider = SherpaOnnxASRProvider(models_dir=str(tmp_path), ko_mode="auto_then_ko")
     # Pre-warm with fakes so _ensure_models_loaded()'s early-return skips
     # real model construction entirely -- only VoiceActivityDetector (built
     # fresh per turn inside speech_seconds()) needs the fake sherpa_onnx
@@ -296,6 +300,28 @@ def test_invalid_ko_mode_raises_value_error():
         SherpaOnnxASRProvider(ko_mode="not_a_real_mode")
 
 
+def test_ko_mode_defaults_to_ko_only(monkeypatch):
+    """Real hardware measurement (make diagnose-asr + make
+    compare-asr-accuracy on sample_consultation.wav) confirmed ko_only beats
+    auto_then_ko on both RTF (~2x faster) and accuracy (auto_then_ko's
+    auto-pass mis-detected the language and produced fully garbled,
+    non-Korean hallucinated text) -- see the _KO_MODES comment on
+    SherpaOnnxASRProvider. ko_only is therefore now the default;
+    auto_then_ko remains selectable via ARIAD_ASR_KO_MODE for reference."""
+    from app.providers.sherpa_onnx_asr import SherpaOnnxASRProvider
+
+    monkeypatch.delenv("ARIAD_ASR_KO_MODE", raising=False)
+    default_provider = SherpaOnnxASRProvider()
+    assert default_provider._ko_mode == "ko_only"
+
+    monkeypatch.setenv("ARIAD_ASR_KO_MODE", "auto_then_ko")
+    env_provider = SherpaOnnxASRProvider()
+    assert env_provider._ko_mode == "auto_then_ko"
+
+    explicit_provider = SherpaOnnxASRProvider(ko_mode="auto_then_ko")
+    assert explicit_provider._ko_mode == "auto_then_ko"
+
+
 def test_num_threads_defaults_to_cpu_count_and_can_be_overridden(monkeypatch):
     from app.providers.sherpa_onnx_asr import SherpaOnnxASRProvider
 
@@ -312,12 +338,12 @@ def test_num_threads_defaults_to_cpu_count_and_can_be_overridden(monkeypatch):
 
 
 def test_ko_only_mode_skips_the_auto_pass_and_always_uses_ko(tmp_path):
-    """Regression for the ko_only A/B candidate: with ARIAD_ASR_KO_MODE
-    (or ko_mode=) set to "ko_only", every turn must be decoded exactly once
-    via recognizer_ko, never recognizer_auto, regardless of turn duration
-    or text -- this is what scripts/diagnose_asr_stages.py + make
-    benchmark-audio compare against the default "auto_then_ko" to test
-    whether the double decode is actually costing meaningful time."""
+    """ko_only (the default -- see test_ko_mode_defaults_to_ko_only below,
+    and the _KO_MODES comment on SherpaOnnxASRProvider for the real
+    measurement that made it the default): every turn must be decoded
+    exactly once via recognizer_ko, never recognizer_auto, regardless of
+    turn duration or text. "auto_then_ko" stays available via
+    ARIAD_ASR_KO_MODE for reference (see the other ko_mode test above)."""
     import sys
     from types import SimpleNamespace
     from unittest.mock import MagicMock

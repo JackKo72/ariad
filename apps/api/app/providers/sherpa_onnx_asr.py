@@ -159,16 +159,27 @@ class SherpaOnnxASRProvider:
     in the Phase 1 report -- this is a single-clinician local tool, not a
     concurrent multi-user service)."""
 
-    #: tasks/03_SPEAKER_MERGE_AND_LATENCY.md Phase 1 follow-up: candidate
-    #: fixes for the real benchmark finding that asr_inference (not model
-    #: loading) dominates ASR latency. Gated behind ARIAD_ASR_KO_MODE so a
-    #: user can A/B them with `make diagnose-asr` before either becomes the
-    #: default -- "auto_then_ko" (current behavior, unchanged) always
-    #: decodes with the auto-language recognizer first, then re-decodes
-    #: with the Korean-forced one for short (<1.2s) or non-Korean-looking
-    #: turns; "ko_only" skips the auto pass entirely and always decodes
-    #: once with the Korean-forced recognizer, testing whether the double
-    #: decode is actually costing meaningful time.
+    #: tasks/03_SPEAKER_MERGE_AND_LATENCY.md Phase 1 follow-up. Real
+    #: hardware measurement on sample_consultation.wav (`make diagnose-asr`
+    #: + `make compare-asr-accuracy`, both ko_modes on the same file) showed
+    #: "auto_then_ko" is strictly worse on both axes it was meant to trade
+    #: off: ~2x slower (RTF 2.64-2.69x vs 1.27-1.35x) AND less accurate --
+    #: its auto-language pass mis-detected the spoken language and decoded
+    #: fully garbled Latin-phonetic hallucination for every turn (0/4
+    #: clinical-anchor checks passed, e.g. "리시노프릴" decoded as
+    #: "Chiorapiacrisino"), while its own non-Korean-script fallback
+    #: heuristic (_NON_KOREAN_RE) never fired because Latin-script gibberish
+    #: doesn't match it (that regex is deliberately scoped to catch known
+    #: hallucination scripts/phrases, not romanized nonsense -- see
+    #: is_garbage_text's "Thank you for watching" test case -- so it is left
+    #: alone here rather than widened speculatively). "ko_only" (default
+    #: below) skips the auto pass entirely and always decodes once with the
+    #: Korean-forced recognizer: half the decode time, and legible Korean
+    #: text (1/4 anchor checks passed; the rest were genuine ASR recognition
+    #: misses, e.g. "오 밀리그램" -> "오오 밀크 레", not mode-selection
+    #: failures). "auto_then_ko" stays selectable via ARIAD_ASR_KO_MODE for
+    #: reference/multi-language scenarios, but is no longer recommended for
+    #: this Korean-only clinical use case.
     _KO_MODES = ("auto_then_ko", "ko_only")
 
     def __init__(
@@ -186,7 +197,7 @@ class SherpaOnnxASRProvider:
         self._num_threads = num_threads or int(os.environ.get("ARIAD_SHERPA_NUM_THREADS", "0")) or (
             os.cpu_count() or 2
         )
-        self._ko_mode = ko_mode or os.environ.get("ARIAD_ASR_KO_MODE", "auto_then_ko")
+        self._ko_mode = ko_mode or os.environ.get("ARIAD_ASR_KO_MODE", "ko_only")
         if self._ko_mode not in self._KO_MODES:
             raise ValueError(f"ko_mode must be one of {self._KO_MODES}, got {self._ko_mode!r}")
         self._load_lock = threading.Lock()

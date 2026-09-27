@@ -19,7 +19,11 @@
 - Phase E(실 API key로 end-to-end 실행 검증)는 아직 미실행 — 아래 참고
 - `tasks/03_SPEAKER_MERGE_AND_LATENCY.md` Phase 1: pipeline stage별 latency 계측(`stage_runs` 테이블) +
   real provider 인스턴스 캐싱(요청마다 재생성되던 문제 수정) + `make benchmark-audio` (완료).
-  Phase 2 이후(수동 화자 병합, 자동 병합 추천, 측정된 병목 제거)는 아직 미착수.
+  실측 결과 모델 재로딩은 병목이 아니었고 `asr_inference` 자체가 RTF ~2.6x로 거의 전부를 차지함이
+  확인됨 → `make diagnose-asr`/`make compare-asr-accuracy`로 원인 분해 후, "auto→ko 이중 디코딩"이
+  실제 원인임을 실측(속도 + 정확도)으로 확인하고 `ko_mode` 기본값을 `ko_only`로 전환(완료, 아래
+  "ASR ko_mode 기본값 전환" 참고). Phase 2 이후(수동 화자 병합, 자동 병합 추천)는 아직 미착수 —
+  실측 중 발견된 화자분리 한계는 "알려진 제한" 참고.
 
 ## Stack
 
@@ -153,21 +157,15 @@ make diagnose-asr AUDIO=tests/fixtures/audio/sample_consultation.wav
 # recognizer_ko 각각의 호출 횟수·누적 시간·입력 오디오 길이, turn별 세부 표, RTF를 출력한다.
 # 녹음 내용/전사문은 출력하지 않는다. cold 1회(모델 warm-up) + warm 1회 실행, 무료(로컬 ASR만).
 
-# baseline(auto→ko 이중 디코딩, 기존 기본값)과 후보안(ko 단일 패스) 비교:
+# ko_mode 비교 (아래 실측 결과에 따라 ko_only가 기본값):
 ARIAD_ASR_KO_MODE=auto_then_ko make diagnose-asr AUDIO=tests/fixtures/audio/sample_consultation.wav
 ARIAD_ASR_KO_MODE=ko_only      make diagnose-asr AUDIO=tests/fixtures/audio/sample_consultation.wav
-# 두 실행의 RTF/inference_ms를 그대로 비교하면 된다. auto_then_ko가 기본값(env var 생략 시 동일).
+# env var 생략 시 ko_only(기본값)와 동일하게 동작한다.
 
 # 스레드 수 비교(CPU 코어가 적거나 많은 환경에서 diarize/decode에 영향이 있는지 확인):
 ARIAD_SHERPA_NUM_THREADS=2 make diagnose-asr AUDIO=tests/fixtures/audio/sample_consultation.wav
 ARIAD_SHERPA_NUM_THREADS=4 make diagnose-asr AUDIO=tests/fixtures/audio/sample_consultation.wav
-# 생략 시 os.cpu_count() 기본값을 그대로 쓴다(동작 변경 없음).
-```
-
-`ARIAD_ASR_KO_MODE`/`ARIAD_SHERPA_NUM_THREADS`는 진단/실측용 opt-in 플래그다. 둘 다
-생략하면 이전과 동일하게 동작한다(`auto_then_ko`, `os.cpu_count()`). 실측 결과 `ko_only`나
-특정 thread 수가 실제로 더 빠르면서 정확도 저하가 없다고 확인된 경우에만 기본값을 바꿀
-것 — 추측만으로 기본 경로를 바꾸지 않는다.
+# 생략 시 os.cpu_count() 기본값을 그대로 쓴다(동작 변경 없음, 실측 근거 없어 기본값 유지).
 
 make compare-asr-accuracy
 # tasks/03_SPEAKER_MERGE_AND_LATENCY.md item 4: 속도(RTF)만으로 ko_mode를 채택하지
@@ -176,8 +174,25 @@ make compare-asr-accuracy
 # 기준으로 auto_then_ko/ko_only 각각의 RTF + 화자분리 일치율 + 임상 anchor pass/fail +
 # 세그먼트별 expected/predicted 텍스트를 나란히 출력한다. 비교 대상은 KO_MODES=a,b로
 # 바꿀 수 있다(기본값: auto_then_ko,ko_only). 합성 fixture만 사용, 무료(로컬 ASR만),
-# make test/make e2e에는 포함되지 않는다. 두 지표(RTF, 정확도) 모두 기존과 같거나
-# 나은 경우에만 후보를 기본값으로 승격할 것.
+# make test/make e2e에는 포함되지 않는다.
+```
+
+**ko_mode 기본값 전환 (실측 완료, 2026-09-27)**: 사용자가 실제 하드웨어에서
+`sample_consultation.wav`(59.54s)로 `make diagnose-asr`와 `make compare-asr-accuracy`를
+모두 실행해 확보한 실측 결과:
+
+| ko_mode      | RTF        | 정확도 (임상 anchor 4개 중) | 비고 |
+|--------------|------------|------------------------------|------|
+| auto_then_ko | 2.64–2.69x | 0/4 pass                     | auto 인식기가 언어를 잘못 판별해 완전히 깨진 로마자 표기 환각(hallucination) 텍스트 생성. 자체 비-한국어 판별 fallback도 로마자 환각은 못 걸러냄 |
+| ko_only      | 1.27–1.35x | 1/4 pass                     | 읽을 수 있는 한국어로 정상 디코딩(나머지 3개 실패는 mode 문제가 아니라 순수 ASR 인식 오류, 예: "오 밀리그램"→"오오 밀크 레") |
+
+RTF·정확도 두 지표 모두 `ko_only`가 확인된 개선이므로(속도만으로 채택하지 않는다는
+원칙 충족) **`ko_only`를 기본값으로 전환했다** (`ARIAD_ASR_KO_MODE` 생략 시 `ko_only`).
+`auto_then_ko`는 다국어 시나리오 참고용으로 env var를 통해 여전히 선택 가능하지만,
+이 한국어 전용 임상 대화 사용 사례에는 더 이상 권장하지 않는다.
+
+`ARIAD_SHERPA_NUM_THREADS`는 여전히 opt-in 진단용 플래그로 남아 있다 — 스레드 수가
+실측으로 유의미한 차이를 보인다는 근거는 아직 없어 기본값(`os.cpu_count()`)을 유지한다.
 
 **문제 해결**
 
@@ -200,3 +215,13 @@ make compare-asr-accuracy
 - CORS는 로컬 개발 origin(`http://localhost:3000`)만 허용하도록 고정되어 있다.
 - `ffmpeg`/`ffprobe`가 시스템에 설치되어 있어야 오디오 업로드가 동작한다
   (`make doctor`로 확인, 없으면 `sudo apt-get install -y ffmpeg`).
+- **화자분리(diarization)가 `sample_consultation.wav` 합성 fixture에서 두 화자를 구분하지
+  못함** — `make diagnose-asr`/`make compare-asr-accuracy` 실측 중 발견: ko_mode와 무관하게
+  59.54초 전체가 diarizer의 최종 병합 후 단일 화자 라벨 1개 segment로만 반환됨(원본 diarization은
+  3개 turn을 만들었지만 전부 같은 speaker_index로 판별되어 `merge_adjacent_same_speaker`가 하나로
+  합침). 두 화자 모두 같은 TTS 엔진/보이스로 합성된 `scripts/generate_sample_audio.py` fixture의
+  음향 특성이 pyannote 임베딩 기준으로 구분하기에 너무 유사하기 때문일 가능성이 높다 — 실제 두
+  사람의 음성이 섞인 오디오에서도 같은 문제가 재현되는지는 미확인. `tasks/03_SPEAKER_MERGE_AND_LATENCY.md`
+  Phase 2(수동 화자 병합/재배정 UI)의 전제조건이므로, Phase 2 착수 전에 실제(또는 최소한 서로 다른
+  보이스로 합성한) 다화자 샘플로 diarization 자체를 별도 검증할 필요가 있다. 이번 task 03 범위(ASR
+  지연 최적화)에서는 원인 분석만 하고 수정하지 않았다 — ko_mode 선택과 무관한 별개 결함이기 때문.
