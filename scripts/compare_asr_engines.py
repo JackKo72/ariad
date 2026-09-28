@@ -155,6 +155,36 @@ def _read_wav_duration_seconds(path: Path) -> float:
         return w.getnframes() / w.getframerate()
 
 
+def _audio_duration_seconds(path: Path) -> float:
+    """Format-agnostic duration via ffprobe -- wave.open() only handles WAV
+    and crashes on m4a/mp3/etc (regression: a real m4a clinical recording
+    crashed the faster-whisper candidate here). Reuses the same ffprobe
+    validation module.py already depends on."""
+    from app.audio.validation import probe_audio
+
+    return probe_audio(str(path)).duration_seconds
+
+
+def _load_pcm_via_ffmpeg(audio_path: Path) -> tuple[object, int, float]:
+    """Converts any ffprobe-supported input to 16-bit PCM the same way
+    SherpaOnnxASRProvider._transcribe() does, for candidates (SenseVoice)
+    that need raw waveform samples rather than a file path faster-whisper's
+    own decoder can read directly."""
+    import tempfile
+
+    import numpy as np
+
+    from app.audio.preprocess import standardize_audio
+
+    with tempfile.TemporaryDirectory() as tmp:
+        wav_path = Path(tmp) / "16k.wav"
+        standardize_audio(audio_path, wav_path, "none")
+        with wave.open(str(wav_path)) as w:
+            sample_rate = w.getframerate()
+            frames = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float32) / 32768.0
+    return frames, sample_rate, len(frames) / sample_rate
+
+
 def _run_sherpa_whisper(audio_path: Path, provider: str, ko_mode: str) -> dict:
     from app.domain.errors import AriadError
     from app.domain.models import AudioAsset
@@ -190,7 +220,7 @@ def _run_sherpa_whisper(audio_path: Path, provider: str, ko_mode: str) -> dict:
             return {"skipped": True, "reason": f"warm run failed: [{exc.code}] {exc.message}"}
         warm_decode_ms = (time.perf_counter() - decode_start) * 1000
 
-    audio_duration = diagnostics.get("audio_duration_seconds") or _read_wav_duration_seconds(audio_path)
+    audio_duration = diagnostics.get("audio_duration_seconds") or _audio_duration_seconds(audio_path)
     return {
         "skipped": False,
         # model_load_ms here is "cold run total" (load + one decode), since
@@ -233,12 +263,7 @@ def _run_sherpa_sensevoice(audio_path: Path, provider: str) -> dict:
     except Exception as exc:
         return {"skipped": True, "reason": f"from_sense_voice() failed: {type(exc).__name__}: {exc}"}
 
-    import numpy as np
-
-    with wave.open(str(audio_path)) as w:
-        sample_rate = w.getframerate()
-        frames = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float32) / 32768.0
-    audio_duration = len(frames) / sample_rate
+    frames, sample_rate, audio_duration = _load_pcm_via_ffmpeg(audio_path)
 
     with UtilizationSampler() as sampler:
         decode_start = time.perf_counter()
@@ -274,7 +299,11 @@ def _run_faster_whisper(audio_path: Path, model_size: str, device: str, compute_
     except Exception as exc:
         return {"skipped": True, "reason": f"WhisperModel() construction failed: {type(exc).__name__}: {exc}"}
 
-    audio_duration = _read_wav_duration_seconds(audio_path)
+    # ffprobe-based -- faster-whisper decodes m4a/mp3/etc directly via its
+    # own backend, but wave.open() (WAV-only) crashed computing duration for
+    # RTF here on a real m4a clinical recording. Regression covered by
+    # test_compare_asr_engines.py.
+    audio_duration = _audio_duration_seconds(audio_path)
 
     # Cold decode first (first-use cost, e.g. CUDA context/kernel warmup on
     # top of the CTranslate2 model already being loaded), discarded.

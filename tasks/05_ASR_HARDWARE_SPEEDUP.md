@@ -94,3 +94,49 @@ beam/batch size 변경, 2단계(빠른 1차 + 중요 구간만 재인식) 방식
   faster-whisper/SenseVoice 실제 설치 후 정확도 비교, 최종 비교표의 숫자 채우기,
   3가지 결론의 실측 기반 확정. 사용자가 `scripts/detect_asr_hardware.py` +
   `scripts/compare_asr_engines.py`를 실행해 결과를 전달하면 이어서 채운다.
+
+## 사용자 PC 실측 결과 (진행 중, 2026-09-28)
+
+**하드웨어**: AMD Ryzen 5 7500F(6 physical core/12 logical), RAM 31.1GB, NVIDIA
+GeForce RTX 4060 Ti(VRAM 8GB, driver 595.84). PyPI sherpa-onnx 1.13.8 wheel은
+초기 상태에서 CUDA 미지원으로 확인됨(`Please compile with -DSHERPA_ONNX_ENABLE_GPU=ON
+... Fallback to cpu!`) — 이후 `pip install faster-whisper`가 설치한 CUDA 런타임
+공유 라이브러리(cuDNN/cuBLAS 등, 미확정이지만 유력한 원인)로 인해 sherpa-onnx의
+`provider="cuda"`가 실제로 동작하기 시작한 것으로 보임(경고 사라짐, VRAM
+749MB→5.7GB, RTF 대폭 개선 — 재확인됨).
+
+**6분 실제 녹음(csw_evt.m4a, 384.73s, ko_only, num_threads=12) — sherpa-onnx CPU**:
+- diarize_ms 65,234.9 / vad_ms 1,495.7 / ko 디코딩(29회) 795,772.8 / postprocess_ms 0.0
+- 총 inference 862,503.4ms, **RTF 2.24x**, 이중 디코딩 없음(ko_only) — 순수 디코딩
+  연산량 자체가 병목, 중복 계산 아님
+
+**20초 클립(ariad_asr_20s.wav) — 엔진/provider 비교**:
+
+| 후보 | RTF | warm decode | GPU 사용률(평균/최대) | VRAM peak | 비고 |
+|---|---|---|---|---|---|
+| sherpa_whisper_cpu | 2.358 | 47.2s | 8%/40%(배경 노이즈) | 749MB | 화자분리 포함 |
+| sherpa_whisper_cuda | 0.43–0.46 | 8.7–9.2s | 33%/43% | 5703MB | 화자분리 포함, GPU 실사용 확인(경고 없음) |
+| faster_whisper_cpu_int8(small) | 0.085 | 1.7s | 10%/29% | 819MB | **화자분리 미포함(ASR만)** |
+| faster_whisper_cuda_fp16(small) | 0.020 | 0.41s | 84%/84% | 1536MB | **화자분리 미포함(ASR만)** |
+
+diarize_ms(20초 클립): cpu 2105ms(RTF 0.105) / cuda 2604–2617ms(RTF ~0.13) —
+diarization의 embedding 단계만 provider 적용 가능하고 segmentation 단계는
+sherpa-onnx API상 provider 설정 지점이 없어(`OfflineSpeakerSegmentationPyannoteModelConfig`
+에 provider 속성 없음 확인됨) GPU로 옮겨도 크게 개선되지 않음 — 오히려 약간 느려짐
+(디스패치 오버헤드 추정).
+
+**핵심 발견 (item 5-1 병목 결론에 반영)**: 화자분리 자체가 RTF 0.10~0.17을
+차지한다 — ASR 디코딩을 아무리 빠르게 해도(faster-whisper+CUDA로 RTF 0.02까지
+가능) 화자분리를 그대로 두면 전체 파이프라인 RTF는 0.15~0.19 수준이 되어
+목표(≤0.1)를 못 채운다. **ASR 엔진 교체만으로는 목표 달성 불가 — 화자분리
+자체의 재설계/가속이 필요하다.**
+
+**버그 수정**: `scripts/compare_asr_engines.py`의 faster-whisper/SenseVoice
+후보가 오디오 길이 계산에 `wave.open()`(WAV 전용)을 써서 실제 m4a 녹음에서
+크래시함(`wave.Error: file does not start with RIFF id`) — ffprobe 기반
+`_audio_duration_seconds()`/ffmpeg 기반 `_load_pcm_via_ffmpeg()`로 교체,
+회귀 테스트 추가(`apps/api/tests/test_compare_asr_engines_audio_loading.py`,
+합성 wav를 테스트 시점에 m4a로 transcode해 검증, 새 바이너리 fixture 커밋 없음).
+
+**다음**: 6분 실제 파일로 faster_whisper_cuda_fp16 재측정(20초는 워밍업 효과로
+과대평가됐을 수 있음, 버그 수정 후 가능), 화자분리 자체의 GPU/경량화 대안 조사.
