@@ -235,6 +235,14 @@ make compare-asr-engines AUDIO=path/to/recording.wav
 # 것과 "실제로 그 위에서 연산이 돌았다"는 것을 구분하기 위함이다. 설치/모델이 없는
 # 후보는 조용히 빠지지 않고 이유와 함께 SKIPPED로 표시된다. ENGINES=a,b로 특정
 # 후보만 골라 실행할 수 있다.
+
+make check-faster-whisper-accuracy
+# 속도(RTF)만으로 엔진을 채택하지 않기 위한 정확도 비교. sample_consultation.wav
+# 기존 ground truth(약명/용량/부정/날짜, make compare-asr-accuracy와 동일 anchor)로
+# faster-whisper의 한국어 임상 전사 품질을 확인한다. 합성 fixture만 사용(실제 녹음
+# 내용은 출력하지 않음, 애초에 이 스크립트는 실제 녹음을 받지도 않는다).
+# apps/api/.venv/bin/pip install faster-whisper 필요. FASTER_WHISPER_MODEL로
+# 모델 크기(기본 small) 조정 가능 -- large-v3/turbo 등도 시험해볼 것.
 ```
 
 **측정 순서 제안** (tasks/05 item 4): `sample_consultation.wav`(59.5s, 이미 있음) →

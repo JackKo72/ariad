@@ -1,4 +1,4 @@
-.PHONY: doctor setup dev test e2e eval lint sample-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines
+.PHONY: doctor setup dev test e2e eval lint sample-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy
 
 doctor:
 	@echo "Checking required tools..."
@@ -100,3 +100,12 @@ detect-asr-hardware:
 # make compare-asr-engines AUDIO=path [ENGINES=sherpa_whisper_cpu,...]
 compare-asr-engines:
 	ARIAD_SHERPA_MODELS_DIR=./apps/api/models apps/api/.venv/bin/python scripts/compare_asr_engines.py
+
+# tasks/05_ASR_HARDWARE_SPEEDUP.md: speed alone must not decide the ASR
+# engine. Runs faster-whisper against sample_consultation.wav's existing
+# ground truth (medication name/dose/negation/date) and compares against
+# `make compare-asr-accuracy`'s sherpa-onnx numbers on the same anchors.
+# Requires faster-whisper (pip install faster-whisper). Synthetic fixture
+# only, opt-in, never part of `make test`/`make e2e`.
+check-faster-whisper-accuracy:
+	apps/api/.venv/bin/python scripts/check_faster_whisper_accuracy.py

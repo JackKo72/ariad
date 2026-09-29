@@ -138,5 +138,44 @@ sherpa-onnx API상 provider 설정 지점이 없어(`OfflineSpeakerSegmentationP
 회귀 테스트 추가(`apps/api/tests/test_compare_asr_engines_audio_loading.py`,
 합성 wav를 테스트 시점에 m4a로 transcode해 검증, 새 바이너리 fixture 커밋 없음).
 
-**다음**: 6분 실제 파일로 faster_whisper_cuda_fp16 재측정(20초는 워밍업 효과로
-과대평가됐을 수 있음, 버그 수정 후 가능), 화자분리 자체의 GPU/경량화 대안 조사.
+**6분 실제 녹음(csw_evt.m4a) — faster_whisper_cuda_fp16(small), 버그 수정 후 재측정**:
+- warm_decode_ms 10,196.6, **RTF 0.027**, segments 73, gpu_util 76.5%/95%(평균/최대,
+  실제 GPU 포화 확인), cpu_util 15.7%/35.9%, VRAM 1,844MB. 20초 클립 결과(0.020)가
+  워밍업 착시가 아니었음을 확인 — 6분 전체에서도 유지됨.
+
+**6분 실제 녹음 — diarize_ms, provider=cuda (segmentation/embedding 전체에 cuda 강제)**:
+- diarize_ms **79,821.1**(RTF 0.208) — CPU(65,234.9, RTF 0.170) **대비 22% 더 느림**
+- vad_ms **6,038.1** — CPU(1,495.7) 대비 4배 느림
+- sherpa 자체 ko 디코딩은 113,775.9ms(RTF 0.30)로 CPU(795,772.8, RTF 2.09) 대비
+  7배 빨라짐 — decode 자체는 GPU가 확실히 도움되지만 diarization/VAD는 20초 클립과
+  동일하게 **GPU가 오히려 손해**임이 6분 전체 데이터로도 확정됨.
+
+**병목 결론 (실측 확정)**: 현재 최선 조합(ASR=faster-whisper CUDA, 화자분리=sherpa
+CPU, GPU는 diarization/VAD에는 끄는 것)의 합산 추정 RTF:
+
+```
+RTF ≈ 0.027(ASR, 실측) + 0.170(화자분리 CPU, 실측) + 0.004(VAD, 무시 가능) ≈ 0.20
+```
+
+10분(600초) 환산: **약 120초(2분)**. 기존 14분 대비 크게 개선됐으나 목표(60초,
+RTF≤0.1)의 약 2배. 이 추정치는 두 실측값의 산술 합이며, 두 엔진을 실제로 하나의
+파이프라인으로 합쳐서 끝까지 실행해본 결과는 아직 아니다(ASR과 화자분리를 순차가
+아니라 병렬로 실행하면 wall time이 max(0.027, 0.170)≈0.17까지 줄 가능성 있음 —
+미검증, 다음 조사 대상).
+
+**정확도는 아직 미확인**: 위 속도 수치는 전부 faster-whisper `small` 모델 기준이며,
+한국어 임상 전사 정확도(약명/용량/부정 표현 등)는 전혀 검증되지 않았다. 실제 녹음
+내용은 볼 수도, 요청할 수도 없어(개인정보 규칙) `scripts/check_faster_whisper_
+accuracy.py`(신규, `make check-faster-whisper-accuracy`)를 만들어 기존 합성
+ground truth(sample_consultation.wav)로 검증하도록 했다 — 아직 사용자가 실행 전.
+
+**버그 수정**: `scripts/compare_asr_engines.py`의 faster-whisper/SenseVoice
+후보가 오디오 길이 계산에 `wave.open()`(WAV 전용)을 써서 실제 m4a 녹음에서
+크래시함(`wave.Error: file does not start with RIFF id`) — ffprobe 기반
+`_audio_duration_seconds()`/ffmpeg 기반 `_load_pcm_via_ffmpeg()`로 교체,
+회귀 테스트 추가(`apps/api/tests/test_compare_asr_engines_audio_loading.py`,
+합성 wav를 테스트 시점에 m4a로 transcode해 검증, 새 바이너리 fixture 커밋 없음).
+
+**다음**: `make check-faster-whisper-accuracy`로 정확도 확인(속도만으로 채택 금지
+원칙), 화자분리 자체의 GPU/경량화 대안 조사(PyTorch 기반 pyannote.audio 등 —
+미확정, 공개 자료 기반 가설일 뿐 이 PC 실측 아님), ASR·화자분리 병렬 실행 검토.
