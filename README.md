@@ -243,6 +243,16 @@ make check-faster-whisper-accuracy
 # 내용은 출력하지 않음, 애초에 이 스크립트는 실제 녹음을 받지도 않는다).
 # apps/api/.venv/bin/pip install faster-whisper 필요. FASTER_WHISPER_MODEL로
 # 모델 크기(기본 small) 조정 가능 -- large-v3/turbo 등도 시험해볼 것.
+
+make parallel-asr-diarization AUDIO=path/to/recording.wav
+# ASR(faster-whisper, GPU)과 화자분리(sherpa-onnx, CPU)를 순차 실행과 동시 실행
+# (threading.Barrier로 같은 순간에 시작)으로 둘 다 돌려 비교한다. 각 작업의
+# 시작/종료 시각을 공유 기준점 대비로 출력해 실제로 겹쳤는지 직접 확인할 수 있고,
+# 겹침이 적으면("GIL에 막혀 직렬화된 것으로 보임") 스레드 대신 별도 프로세스가
+# 필요하다고 명시한다 -- 병렬화가 당연히 될 거라 가정하지 않는다. GPU/CPU
+# 사용률도 동시 실행 구간에서 샘플링한다. FASTER_WHISPER_MODEL(기본 large-v3)/
+# ARIAD_SHERPA_PROVIDER(기본 cpu, 화자분리에는 변경 비권장 — 이미 GPU가 더
+# 느림을 확인함)로 조정 가능.
 ```
 
 **측정 순서 제안** (tasks/05 item 4): `sample_consultation.wav`(59.5s, 이미 있음) →

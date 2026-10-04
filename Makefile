@@ -1,4 +1,4 @@
-.PHONY: doctor setup dev test e2e eval lint sample-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy
+.PHONY: doctor setup dev test e2e eval lint sample-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization
 
 doctor:
 	@echo "Checking required tools..."
@@ -109,3 +109,12 @@ compare-asr-engines:
 # only, opt-in, never part of `make test`/`make e2e`.
 check-faster-whisper-accuracy:
 	apps/api/.venv/bin/python scripts/check_faster_whisper_accuracy.py
+
+# tasks/05_ASR_HARDWARE_SPEEDUP.md conclusion 2's untested hypothesis:
+# running ASR (faster-whisper, GPU) and diarization (sherpa-onnx, CPU)
+# concurrently instead of sequentially should get wall time closer to
+# max(asr, diarize) instead of their sum. Actually tries it (threading)
+# and reports whether real overlap happens, rather than assuming it does.
+# Requires faster-whisper. Usage: make parallel-asr-diarization AUDIO=path
+parallel-asr-diarization:
+	ARIAD_SHERPA_MODELS_DIR=./apps/api/models apps/api/.venv/bin/python scripts/parallel_asr_diarization.py
