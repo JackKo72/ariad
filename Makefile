@@ -1,4 +1,4 @@
-.PHONY: doctor setup dev test e2e eval lint sample-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization parallel-asr-diarization-mp
+.PHONY: doctor setup dev test e2e eval lint sample-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization parallel-asr-diarization-mp compare-diarization-engines
 
 doctor:
 	@echo "Checking required tools..."
@@ -126,3 +126,14 @@ parallel-asr-diarization:
 # make parallel-asr-diarization-mp AUDIO=path
 parallel-asr-diarization-mp:
 	ARIAD_SHERPA_MODELS_DIR=./apps/api/models apps/api/.venv/bin/python scripts/parallel_asr_diarization_mp.py
+
+# tasks/05_ASR_HARDWARE_SPEEDUP.md Path C: compares the sherpa-onnx
+# diarization baseline (already measured as NOT accelerated by
+# provider=cuda) against pyannote.audio (PyTorch-based -- may get real CUDA
+# support). Requires pyannote.audio + a HuggingFace token with the gated
+# models' license accepted -- see scripts/compare_diarization_engines.py's
+# own docstring for exact steps. Opt-in, free (no OpenAI call), never part
+# of `make test`/`make e2e`. Usage:
+# make compare-diarization-engines AUDIO=path [ENGINES=sherpa_cpu,...]
+compare-diarization-engines:
+	ARIAD_SHERPA_MODELS_DIR=./apps/api/models apps/api/.venv/bin/python scripts/compare_diarization_engines.py

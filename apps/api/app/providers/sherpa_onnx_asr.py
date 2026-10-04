@@ -142,6 +142,65 @@ def models_available(models_dir: str) -> bool:
     return all(path.exists() for path in _model_paths(models_dir).values())
 
 
+def build_diarizer(models_dir: str, provider: str = "cpu", num_speakers: int = 0):
+    """Builds one sherpa-onnx speaker-diarization instance. Extracted out of
+    SherpaOnnxASRProvider._ensure_models_loaded (tasks/05_ASR_HARDWARE_SPEEDUP.md
+    Path B) so app.providers.parallel_asr's diarization worker process can
+    build the exact same config without duplicating it."""
+    import sherpa_onnx
+
+    paths = _model_paths(models_dir)
+    config = sherpa_onnx.OfflineSpeakerDiarizationConfig(
+        segmentation=sherpa_onnx.OfflineSpeakerSegmentationModelConfig(
+            pyannote=sherpa_onnx.OfflineSpeakerSegmentationPyannoteModelConfig(model=str(paths["segmentation"]))
+        ),
+        embedding=sherpa_onnx.SpeakerEmbeddingExtractorConfig(model=str(paths["embedding"]), num_threads=2, provider=provider),
+        clustering=sherpa_onnx.FastClusteringConfig(
+            num_clusters=num_speakers if num_speakers > 0 else -1,
+            threshold=0.6 if num_speakers <= 0 else 0.5,
+        ),
+        min_duration_on=0.3,
+        min_duration_off=0.5,
+    )
+    return sherpa_onnx.OfflineSpeakerDiarization(config)
+
+
+def build_vad_config(models_dir: str, provider: str = "cpu"):
+    """Builds one sherpa-onnx VAD config (sample_rate must still be set by
+    the caller once the real audio's sample rate is known). Same extraction
+    rationale as build_diarizer above."""
+    import sherpa_onnx
+
+    paths = _model_paths(models_dir)
+    vad_config = sherpa_onnx.VadModelConfig()
+    vad_config.silero_vad.model = str(paths["vad"])
+    vad_config.silero_vad.threshold = 0.5
+    vad_config.silero_vad.min_speech_duration = 0.15
+    vad_config.silero_vad.min_silence_duration = 0.1
+    vad_config.provider = provider
+    return vad_config
+
+
+def compute_speech_seconds(clip, sample_rate: int, vad_config) -> float:
+    """VAD-based speech-duration estimate for one clip (used before
+    is_garbage_text). Extracted so app.providers.parallel_asr can apply the
+    same hallucination/silence filter to its merged (not per-turn-decoded)
+    rows."""
+    import sherpa_onnx
+
+    vad = sherpa_onnx.VoiceActivityDetector(vad_config, buffer_size_in_seconds=30)
+    k = 0
+    while k + 512 <= len(clip):
+        vad.accept_waveform(clip[k : k + 512])
+        k += 512
+    vad.flush()
+    total = 0.0
+    while not vad.empty():
+        total += len(vad.front.samples) / sample_rate
+        vad.pop()
+    return total
+
+
 class SherpaOnnxASRProvider:
     """See app.providers.asr_base.ASRProvider. Constructed only when
     ARIAD_MODE=provider (app.dependencies); still checks model files itself
@@ -266,23 +325,7 @@ class SherpaOnnxASRProvider:
             import sherpa_onnx
 
             paths = _model_paths(self._models_dir)
-            diarization_config = sherpa_onnx.OfflineSpeakerDiarizationConfig(
-                segmentation=sherpa_onnx.OfflineSpeakerSegmentationModelConfig(
-                    pyannote=sherpa_onnx.OfflineSpeakerSegmentationPyannoteModelConfig(
-                        model=str(paths["segmentation"])
-                    )
-                ),
-                embedding=sherpa_onnx.SpeakerEmbeddingExtractorConfig(
-                    model=str(paths["embedding"]), num_threads=2, provider=self._provider
-                ),
-                clustering=sherpa_onnx.FastClusteringConfig(
-                    num_clusters=self._num_speakers if self._num_speakers > 0 else -1,
-                    threshold=0.6 if self._num_speakers <= 0 else 0.5,
-                ),
-                min_duration_on=0.3,
-                min_duration_off=0.5,
-            )
-            diarizer = sherpa_onnx.OfflineSpeakerDiarization(diarization_config)
+            diarizer = build_diarizer(self._models_dir, self._provider, self._num_speakers)
 
             def new_recognizer(language: str) -> "sherpa_onnx.OfflineRecognizer":
                 return sherpa_onnx.OfflineRecognizer.from_whisper(
@@ -298,12 +341,7 @@ class SherpaOnnxASRProvider:
             recognizer_auto = new_recognizer("")
             recognizer_ko = new_recognizer("ko")
 
-            vad_config = sherpa_onnx.VadModelConfig()
-            vad_config.silero_vad.model = str(paths["vad"])
-            vad_config.silero_vad.threshold = 0.5
-            vad_config.silero_vad.min_speech_duration = 0.15
-            vad_config.silero_vad.min_silence_duration = 0.1
-            vad_config.provider = self._provider
+            vad_config = build_vad_config(self._models_dir, self._provider)
 
             self._diarizer = diarizer
             self._recognizer_auto = recognizer_auto
@@ -318,7 +356,6 @@ class SherpaOnnxASRProvider:
         diagnostics: Optional[dict] = None,
     ) -> list[DiarizedSegment]:
         import numpy as np
-        import sherpa_onnx
 
         # Reuse the same standardization Phase B already validated instead
         # of a second bespoke ffmpeg invocation.
@@ -355,17 +392,7 @@ class SherpaOnnxASRProvider:
             self._vad_config.sample_rate = sample_rate
 
             def speech_seconds(clip: "np.ndarray") -> float:
-                vad = sherpa_onnx.VoiceActivityDetector(self._vad_config, buffer_size_in_seconds=30)
-                k = 0
-                while k + 512 <= len(clip):
-                    vad.accept_waveform(clip[k : k + 512])
-                    k += 512
-                vad.flush()
-                total = 0.0
-                while not vad.empty():
-                    total += len(vad.front.samples) / sample_rate
-                    vad.pop()
-                return total
+                return compute_speech_seconds(clip, sample_rate, self._vad_config)
 
             with (
                 stage_timer.stage("asr_inference", provider="sherpa_onnx")

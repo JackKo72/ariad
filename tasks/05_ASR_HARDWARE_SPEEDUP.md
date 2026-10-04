@@ -341,3 +341,84 @@ RTF~0.17(~100초)까지 줄 가능성이 있으나 **아직 구현/실측되지 
 제품 요구사항으로 지켜야 하면 C까지 가야 하고, 그 전에 diarization 가속
 가능성을 먼저 실측으로 확인해야 한다. **모든 단계에서 부정 표현 보존 문제는
 별개로 하류 검증이 필요하다(이미 확인됨).**
+
+## 경로 B 실제 파이프라인 구현 완료
+
+사용자가 "1과 2 둘다 필요해"로 경로 B 구현과 경로 C 조사를 함께 요청했다.
+경로 B는 더 이상 실험 스크립트 수준이 아니다 — 실제 ASRProvider로 구현됨:
+
+- `apps/api/app/providers/parallel_asr.py`: `ParallelASRProvider`.
+  `scripts/parallel_asr_diarization_mp.py`가 실측 확인한 설계(별도 OS
+  프로세스, `multiprocessing.get_context("spawn")`)를 그대로 따르되, 매
+  `transcribe()` 호출마다 프로세스를 새로 띄우지 않고 **영속(persistent)
+  worker process 2개**(diarization=CPU, ASR=faster-whisper CUDA)를 첫
+  호출에서 지연 시작해 프로세스 수명 동안 유지한다 — 모델 재로드 비용을
+  매 요청마다 치르지 않기 위함(`SherpaOnnxASRProvider._ensure_models_loaded`와
+  같은 캐싱 철학, 모델 인스턴스 대신 전체 프로세스를 캐싱한다는 점만 다름).
+  job/result는 `multiprocessing.Queue`로 전달 — frame 배열(diarization) ·
+  오디오 경로(ASR)만 오가고, 디코딩된 텍스트/음성 내용은 큐를 거치지 않음
+  (화자분리 결과의 구간/인덱스, ASR 결과의 구간/텍스트만 왕복 — 기존
+  provider들과 동일한 "counts/durations만 로그, 본문은 안 남김" 원칙 유지).
+- 새 `merge_turns_with_asr_segments()` (순수 함수, sherpa_onnx/faster_whisper
+  import 없이 단위 테스트 가능): faster-whisper 자신의 세그먼트 경계(화자
+  정보 없음)와 sherpa-onnx의 diarization turn(텍스트 없음)을 시간 겹침으로
+  정렬한다. 겹치는 turn이 없는 세그먼트(diarization이 놓친 구간)는 가장
+  가까운 turn에 배정해 텍스트를 조용히 버리지 않는다.
+- `build_diarizer()`/`build_vad_config()`/`compute_speech_seconds()`를
+  `sherpa_onnx_asr.py`에서 모듈 레벨 함수로 추출해 `SherpaOnnxASRProvider`와
+  `ParallelASRProvider`가 diarization/VAD 설정 코드를 중복 없이 공유 —
+  같은 `is_garbage_text`/`merge_adjacent_same_speaker` 후처리도 그대로
+  재사용해 두 경로의 필터링 동작이 어긋나지 않게 했다.
+- `app/dependencies.py`: `ARIAD_ASR_ENGINE` 플래그(기본 `sherpa` — 기존
+  `SherpaOnnxASRProvider`, 변경 없음 / `parallel_fw_cuda` — 새
+  `ParallelASRProvider`)로 연결. 기존 provider 캐싱 패턴(설정이 바뀔 때만
+  재생성)을 그대로 따름.
+- faster-whisper는 `requirements.txt`에 추가하지 않았다 — 이미 다른
+  스크립트들(`scripts/compare_asr_engines.py` 등)이 따르던 "무겁고 opt-in인
+  의존성은 지연 import + 설치 안내 에러"관례를 그대로 따른 것이다. 설치돼
+  있지 않으면 `ParallelASRProvider.transcribe()`가 `ASR_PROVIDER_FAILED`로
+  명확히 안내한다(테스트로 커버 — 이 샌드박스에 실제로 faster-whisper가 없어
+  mock이 아닌 진짜 ImportError 경로를 검증함).
+- 테스트: `apps/api/tests/test_parallel_asr_provider.py`(순수 merge 함수
+  7케이스 + construction/env override + 모델없음/faster-whisper없음 에러
+  경로, 총 14개), `test_provider_caching.py`에 엔진 전환 시 재생성 테스트
+  추가. 전체 190개 통과, ruff 통과.
+- **아직 이 환경에서 실측하지 못한 것**: 이 샌드박스에는 GPU도 sherpa-onnx
+  모델 파일도 faster-whisper도 없다 — `ParallelASRProvider`가 실제로 켜졌을
+  때도 `scripts/parallel_asr_diarization_mp.py`가 측정한 1.44x와 같은
+  speedup이 나오는지는 사용자가 실제 하드웨어에서 `ARIAD_ASR_ENGINE=
+  parallel_fw_cuda`로 전사를 실행해 `stage_runs`의 `asr_model_load`/
+  `asr_inference` duration과 `make diagnose-asr` 류 진단으로 직접 확인해야
+  한다. 단위 테스트는 로직(merge 정확성, 에러 경로, 설정 분기)만 검증하고,
+  실제 프로세스 두 개가 진짜로 동시에 도는지는 검증하지 않는다(그 검증은
+  사용자 하드웨어에서만 가능).
+- **기본값은 바뀌지 않았다** — 여전히 `ARIAD_ASR_ENGINE` 생략 시 기존
+  `SherpaOnnxASRProvider`(순차)가 쓰인다. large-v3의 부정 표현 누락 문제가
+  해결되기 전에는 기본값 전환을 제안하지 않는다.
+
+## 경로 C: diarization 가속 조사 (도구만 준비, 미실측)
+
+`scripts/compare_diarization_engines.py`를 새로 만들었다 — sherpa-onnx CPU
+베이스라인(이미 CUDA가 더 느림을 확인함) 대 `pyannote.audio`(PyTorch 기반,
+sherpa-onnx의 C++ diarization이 원래 포팅된 원본 구현)를 같은 측정 방식
+(cold load/warm decode 분리, decode 중 GPU/CPU 사용률 샘플링, RTF)으로
+비교하는 `compare-asr-engines.py`류 도구다.
+
+**왜 미실측인가**: 이 샌드박스에는 GPU가 없고, `pyannote.audio`도 설치돼
+있지 않다. 더 근본적으로, `pyannote/speaker-diarization-3.1`은 HuggingFace
+Hub에서 **gated 모델**이다 — 토큰 발급 계정이 huggingface.co에서 해당
+모델과 `pyannote/segmentation-3.0`의 라이선스에 동의해야 `Pipeline.
+from_pretrained()`가 성공한다. 이 중 어느 것도 이 환경에서 충족시킬 수
+없으므로(계정 동의는 사람이 huggingface.co에서 직접 해야 하는 행위),
+숫자를 추정하지 않고 도구만 전달한다.
+
+**사용자가 직접 실행할 것**: `apps/api/.venv/bin/pip install pyannote.audio`
+설치, huggingface.co에서 두 gated 모델 각각 동의, 토큰 발급 후
+`HUGGINGFACE_TOKEN` 설정, `make compare-diarization-engines
+AUDIO=<6분 녹음>`. 결과 표의 `pyannote_cuda` 행이 `sherpa_cpu`(현재 RTF
+0.169)보다 유의미하게(예: RTF<0.1) 낮게 나오면 경로 C가 실제로 유효하다는
+뜻이고, 그 경우 diarization 엔진 교체(또는 `ParallelASRProvider`의
+diarization worker를 pyannote.audio로 바꾸는 추가 구현)를 고려할 근거가
+생긴다. GPU로 옮기는 데는 성공했지만 `gpu_util%`가 낮게 나오면(스크립트가
+명시적으로 경고함) sherpa-onnx의 provider=cuda fallback과 같은 함정 —
+"성공"과 "가속"을 혼동하지 않도록 할 것.

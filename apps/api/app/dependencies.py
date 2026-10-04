@@ -37,7 +37,7 @@ _real_llm_provider: LLMProvider | None = None
 _real_llm_provider_config: tuple[str, str] | None = None
 
 _real_asr_provider: ASRProvider | None = None
-_real_asr_provider_models_dir: str | None = None
+_real_asr_provider_config: tuple[str, str] | None = None
 
 
 def get_db_path() -> str:
@@ -82,15 +82,32 @@ def get_asr_provider(audio_asset: AudioAsset) -> ASRProvider:
     if audio_asset.sample_id:
         return _demo_asr_provider
 
-    global _real_asr_provider, _real_asr_provider_models_dir
+    global _real_asr_provider, _real_asr_provider_config
     if _provider_mode_active():
-        from app.providers.sherpa_onnx_asr import SherpaOnnxASRProvider, models_available
+        from app.providers.sherpa_onnx_asr import models_available
 
         models_dir = os.environ.get("ARIAD_SHERPA_MODELS_DIR", "./models")
         if models_available(models_dir):
-            if _real_asr_provider is None or _real_asr_provider_models_dir != models_dir:
-                _real_asr_provider = SherpaOnnxASRProvider(models_dir=models_dir)
-                _real_asr_provider_models_dir = models_dir
+            # tasks/05_ASR_HARDWARE_SPEEDUP.md Path B: opt-in only, default
+            # unchanged ("sherpa" -> SherpaOnnxASRProvider, the diarize+ASR
+            # sequential path). "parallel_fw_cuda" runs diarization and
+            # faster-whisper ASR in separate worker processes (validated
+            # 1.44x real speedup) -- not promoted to default because
+            # faster-whisper large-v3 was separately measured to drop a real
+            # negation marker that the default engine preserves (see
+            # app.providers.parallel_asr's module docstring).
+            engine = os.environ.get("ARIAD_ASR_ENGINE", "sherpa")
+            config = (models_dir, engine)
+            if _real_asr_provider is None or _real_asr_provider_config != config:
+                if engine == "parallel_fw_cuda":
+                    from app.providers.parallel_asr import ParallelASRProvider
+
+                    _real_asr_provider = ParallelASRProvider(models_dir=models_dir)
+                else:
+                    from app.providers.sherpa_onnx_asr import SherpaOnnxASRProvider
+
+                    _real_asr_provider = SherpaOnnxASRProvider(models_dir=models_dir)
+                _real_asr_provider_config = config
             return _real_asr_provider
 
     return _unavailable_asr_provider

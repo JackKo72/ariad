@@ -64,7 +64,7 @@ def test_get_asr_provider_returns_the_same_instance_across_calls(monkeypatch, tm
     (tmp_path / "silero_vad.onnx").touch()
 
     monkeypatch.setattr(deps, "_real_asr_provider", None)
-    monkeypatch.setattr(deps, "_real_asr_provider_models_dir", None)
+    monkeypatch.setattr(deps, "_real_asr_provider_config", None)
     monkeypatch.setenv("ARIAD_MODE", "provider")
     monkeypatch.setenv("ARIAD_SHERPA_MODELS_DIR", str(tmp_path))
 
@@ -88,10 +88,44 @@ def test_get_asr_provider_still_uses_demo_for_sample_assets_when_cache_is_warm(m
     (tmp_path / "silero_vad.onnx").touch()
 
     monkeypatch.setattr(deps, "_real_asr_provider", None)
-    monkeypatch.setattr(deps, "_real_asr_provider_models_dir", None)
+    monkeypatch.setattr(deps, "_real_asr_provider_config", None)
     monkeypatch.setenv("ARIAD_MODE", "provider")
     monkeypatch.setenv("ARIAD_SHERPA_MODELS_DIR", str(tmp_path))
 
     deps.get_asr_provider(AudioAsset(**_FIXED_KWARGS))  # warm the real-provider cache
     sample_asset = AudioAsset(**{**_FIXED_KWARGS, "sample_id": "sample_consultation"})
     assert deps.get_asr_provider(sample_asset) is deps._demo_asr_provider
+
+
+def test_get_asr_provider_switches_engine_via_env_flag(monkeypatch, tmp_path):
+    """tasks/05_ASR_HARDWARE_SPEEDUP.md Path B: ARIAD_ASR_ENGINE is opt-in
+    only -- default must stay SherpaOnnxASRProvider, and setting the flag
+    must rebuild (not reuse) the cached instance."""
+    (tmp_path / "sherpa-onnx-whisper-large-v3").mkdir()
+    (tmp_path / "sherpa-onnx-whisper-large-v3" / "large-v3-encoder.int8.onnx").touch()
+    (tmp_path / "sherpa-onnx-whisper-large-v3" / "large-v3-decoder.int8.onnx").touch()
+    (tmp_path / "sherpa-onnx-whisper-large-v3" / "large-v3-tokens.txt").touch()
+    (tmp_path / "sherpa-onnx-pyannote-segmentation-3-0").mkdir()
+    (tmp_path / "sherpa-onnx-pyannote-segmentation-3-0" / "model.onnx").touch()
+    (tmp_path / "emb.onnx").touch()
+    (tmp_path / "silero_vad.onnx").touch()
+
+    monkeypatch.setattr(deps, "_real_asr_provider", None)
+    monkeypatch.setattr(deps, "_real_asr_provider_config", None)
+    monkeypatch.setenv("ARIAD_MODE", "provider")
+    monkeypatch.setenv("ARIAD_SHERPA_MODELS_DIR", str(tmp_path))
+    monkeypatch.delenv("ARIAD_ASR_ENGINE", raising=False)
+
+    from app.providers.parallel_asr import ParallelASRProvider
+    from app.providers.sherpa_onnx_asr import SherpaOnnxASRProvider
+
+    asset = AudioAsset(**_FIXED_KWARGS)
+    default_provider = deps.get_asr_provider(asset)
+    assert isinstance(default_provider, SherpaOnnxASRProvider)
+
+    monkeypatch.setenv("ARIAD_ASR_ENGINE", "parallel_fw_cuda")
+    parallel_provider = deps.get_asr_provider(asset)
+    assert isinstance(parallel_provider, ParallelASRProvider)
+    assert parallel_provider is not default_provider
+
+    assert deps.get_asr_provider(asset) is parallel_provider

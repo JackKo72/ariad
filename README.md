@@ -265,7 +265,41 @@ make parallel-asr-diarization-mp AUDIO=path/to/recording.wav
 # "spawn" 방식을 명시적으로 쓴다. 같은 run 안에서 단일 프로세스 순차 베이스라인도
 # 함께 측정해 직접 비교한다(베이스라인 모델은 VRAM 확보를 위해 자식 프로세스
 # 시작 전에 명시적으로 해제).
+#
+# 실측 결과(2026-10-04, 6분 실제 파일): speedup 1.44x(RTF 0.243 -> 0.169) --
+# 별도 프로세스에서는 실제로 효과가 있었다(스레드는 1.00x). diarize/asr 둘 다
+# 단독 실행과 거의 같은 속도로 동시에 끝남(오버헤드 1% 내외) -- GIL이 스레드
+# 버전의 원인이었다는 가설이 그대로 확인됨. 10분 환산 ~101초(목표 60초의 1.7배).
+
+make compare-diarization-engines AUDIO=path/to/recording.wav
+# tasks/05 Path C: diarization 자체 가속 조사. sherpa-onnx CPU 베이스라인
+# (CUDA는 이미 더 느림을 확인함) 대 pyannote.audio(PyTorch 기반, sherpa-onnx의
+# C++ diarization이 원래 포팅된 원본 구현 -- 진짜 CUDA 가속을 받을 수 있다는
+# "가설", 이 환경에서 실측된 적은 없음)를 비교한다. pyannote.audio 설치
+# (`pip install pyannote.audio`) + HuggingFace 토큰(HUGGINGFACE_TOKEN 또는
+# HF_TOKEN) + pyannote/speaker-diarization-3.1·pyannote/segmentation-3.0 각각의
+# gated 라이선스 동의가 필요하다 -- huggingface.co에서 로그인 후 두 모델
+# 페이지에서 "Agree and access" 후 Settings > Access Tokens에서 토큰 발급.
+# 미설치/미동의/GPU 없음은 각각 다른 이유로 SKIPPED 처리되어 출력된다
+# (fabricate하지 않음). ENGINES=sherpa_cpu,pyannote_cuda 등으로 후보 선택 가능.
 ```
+
+**경로 B 실제 파이프라인 적용 (`ARIAD_ASR_ENGINE`, opt-in)**: 위 `make
+parallel-asr-diarization-mp`로 실측 확인된 프로세스 기반 병렬 실행이
+`app/providers/parallel_asr.py`(`ParallelASRProvider`)로 실제 파이프라인에
+들어갔다. 기본값은 변경되지 않았다 — `ARIAD_SHERPA_MODELS_DIR`가 가리키는
+sherpa-onnx 모델 + `ARIAD_ASR_ENGINE`(기본 `sherpa`)를 그대로 두면 기존
+`SherpaOnnxASRProvider`(순차 실행)가 그대로 쓰인다. `ARIAD_ASR_ENGINE=
+parallel_fw_cuda`로 명시적으로 켜야 diarization(sherpa-onnx, CPU)과
+ASR(faster-whisper large-v3, CUDA)이 별도 프로세스로 동시에 돈다
+(`apps/api/.venv/bin/pip install faster-whisper` 필요 -- 설치돼 있지 않으면
+전사 시도 시 `ASR_PROVIDER_FAILED`로 명확히 안내됨, 조용히 다른 엔진으로
+넘어가지 않음). **아직 기본값으로 올리지 않은 이유**: `make
+check-faster-whisper-accuracy FASTER_WHISPER_MODEL=large-v3`로 실측했을 때
+large-v3가 실제 부정 표현("시작하지 않습니다" -> "시작하기란 습니다")을
+누락하는 사례가 확인됐다 -- 속도 개선과 별개로 임상 안전성 하류 검증
+(`apps/api/app/pipeline/enrichment_validation.py`의 부정 가드 강화 등)이
+선행돼야 기본값 전환을 고려할 수 있다.
 
 **측정 순서 제안** (tasks/05 item 4): `sample_consultation.wav`(59.5s, 이미 있음) →
 기존 6분 녹음 → 가능하면 ~10분 녹음. 한 번에 하나의 ASR 시험만 실행할 것(CPU/GPU
