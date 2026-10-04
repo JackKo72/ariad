@@ -137,10 +137,46 @@ def _diarize_worker_loop(models_dir: str, provider: str, num_speakers: int, job_
             result_queue.put({"job_id": job_id, "ok": False, "error": f"{type(exc).__name__}: {exc}"})
 
 
+def _ensure_cuda_libs_on_path() -> None:
+    """faster-whisper/CTranslate2 dlopen's libcublas.so.12 (and libcudnn) by
+    itself when a CUDA model is constructed; on Linux it finds them only if
+    LD_LIBRARY_PATH already names their directory. A real run confirmed this
+    worker process doesn't always inherit that: `make compare-asr-engines`
+    (plain script, user's interactive shell) got real CUDA execution, but
+    this same faster-whisper call made from a worker process spawned by the
+    app running under `make dev` (uvicorn --reload, itself a multiprocessing
+    child) failed with "Library libcublas.so.12 is not found or cannot be
+    loaded" -- i.e. this worker's LD_LIBRARY_PATH didn't carry whatever the
+    interactive shell had exported. Rather than depend on that inheritance,
+    resolve the same directories directly from the installed
+    nvidia-cublas-cu12/nvidia-cudnn-cu12 pip packages (what faster-whisper's
+    own docs point users to put in LD_LIBRARY_PATH by hand) and add them
+    here, in-process, before CTranslate2 is ever imported. A no-op if those
+    packages aren't installed (e.g. a CPU-only or no-GPU environment)."""
+    import importlib.util
+
+    lib_dirs: list[str] = []
+    for module_name in ("nvidia.cublas.lib", "nvidia.cudnn.lib"):
+        try:
+            spec = importlib.util.find_spec(module_name)
+        except (ImportError, ModuleNotFoundError, ValueError):
+            spec = None
+        if spec and spec.submodule_search_locations:
+            lib_dirs.extend(spec.submodule_search_locations)
+    if not lib_dirs:
+        return
+    existing = os.environ.get("LD_LIBRARY_PATH", "")
+    new_dirs = [d for d in lib_dirs if d not in existing]
+    if new_dirs:
+        os.environ["LD_LIBRARY_PATH"] = ":".join([*new_dirs, existing]) if existing else ":".join(new_dirs)
+
+
 def _asr_worker_loop(
     model_size: str, device: str, compute_type: str, beam_size: int, job_queue, result_queue
 ) -> None:
     """Same contract as _diarize_worker_loop above, for faster-whisper."""
+    if device == "cuda":
+        _ensure_cuda_libs_on_path()
     from faster_whisper import WhisperModel
 
     model = WhisperModel(model_size, device=device, compute_type=compute_type)

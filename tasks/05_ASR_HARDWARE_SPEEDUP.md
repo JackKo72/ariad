@@ -422,3 +422,61 @@ diarization worker를 pyannote.audio로 바꾸는 추가 구현)를 고려할 �
 생긴다. GPU로 옮기는 데는 성공했지만 `gpu_util%`가 낮게 나오면(스크립트가
 명시적으로 경고함) sherpa-onnx의 provider=cuda fallback과 같은 함정 —
 "성공"과 "가속"을 혼동하지 않도록 할 것.
+
+## 실측 업데이트 (2026-10-04): 경로 B 프로덕션 CUDA 버그 + 경로 C 1차 실행
+
+**버그 발견 및 수정 — `ParallelASRProvider`가 `make dev`에서 CUDA 로드 실패**:
+`ARIAD_ASR_ENGINE=parallel_fw_cuda`로 실제 전사를 시도하자 1분 20초 후
+`502 Bad Gateway` + `[ASR_PROVIDER_FAILED] ASR 실패: RuntimeError: Library
+libcublas.so.12 is not found or cannot be loaded`가 발생했다. 같은 하드웨어,
+같은 venv에서 `make compare-asr-engines ENGINES=faster_whisper_cuda_fp16`
+(평범한 스크립트 실행)는 CUDA가 실제로 동작했었다(GPU 94-100%) — 즉
+라이브러리 자체는 이 venv에 있다. 차이는 **실행 컨텍스트**: 스크립트는
+사용자의 대화형 셸에서 바로 실행됐지만, `ParallelASRProvider`의 ASR
+worker는 `make dev`가 띄운 `uvicorn --reload`(자신도 멀티프로세싱 자식)
+밑에서 또 한 번 `multiprocessing.get_context("spawn")`으로 띄운 자식
+프로세스다 — 대화형 셸이 가지고 있던 `LD_LIBRARY_PATH`(CUDA 라이브러리
+경로)가 이 중첩된 프로세스까지 그대로 전달되지 않은 것으로 보인다(정확한
+원인은 미확정 — uvicorn reload의 자체 프로세스 관리, 혹은 `make`의
+비대화형 서브셸이 `.bashrc`를 소스하지 않는 것 등 여러 가설이 있지만, 이
+셸 상속에 의존하지 않는 수정이 원인 불문 더 안전하다고 판단).
+
+**수정**: `apps/api/app/providers/parallel_asr.py`에 `_ensure_cuda_libs_on_path()`
+추가 — `faster_whisper`를 import하기 전에, 설치된 `nvidia-cublas-cu12`/
+`nvidia-cudnn-cu12` pip 패키지의 실제 라이브러리 디렉터리를
+`importlib.util.find_spec`으로 직접 찾아 `LD_LIBRARY_PATH`에 추가한다
+(faster-whisper 공식 문서가 사용자에게 수동으로 하라고 안내하는 것과 동일한
+경로를 코드로 계산해 자동 적용 — 셸 상속에 의존하지 않음). 해당 패키지가
+설치돼 있지 않으면 조용히 no-op(이 샌드박스는 GPU가 없어 실제로 no-op
+경로를 탄다). 단위 테스트 3개 추가(`TestEnsureCudaLibsOnPath` — no-op 확인,
+경로 추가 확인, 중복 방지 확인, `importlib.util.find_spec`을 가짜로 대체).
+**이 수정이 실제로 libcublas 문제를 없애는지는 사용자 하드웨어에서
+`ARIAD_ASR_ENGINE=parallel_fw_cuda`로 다시 전사해봐야 확정된다** — 이
+샌드박스는 GPU가 없어 end-to-end로 재현/검증할 수 없다.
+
+**경로 C 1차 실행 결과 (`make compare-diarization-engines`, 6:25 실제 파일,
+384.73초)**:
+
+| engine | RTF | warm_ms | 비고 |
+|---|---|---|---|
+| sherpa_cpu | **0.184** | 70,789 | turns_detected=33 |
+| sherpa_cuda | 0.215 | 82,814 | CPU보다 느림 — **6분 파일에서의 결론이 6:25 파일에서도 재확인됨** |
+| pyannote_cpu | SKIPPED | - | `torch` 미설치 |
+| pyannote_cuda | SKIPPED | - | `torch` 미설치 |
+
+sherpa-onnx의 provider=cuda가 diarization에는 도움이 안 된다는 기존 결론이
+세 번째 실제 파일(59.5s 합성 → 6분 실제 → 6:25분 실제)에서도 일관되게
+재확인됐다 — 우연이 아니라 이 하드웨어/모델 조합에서의 일관된 특성으로 봐도
+될 것 같다. `pyannote.audio`는 아직 설치되지 않아(스크립트가 의도대로
+이유를 명시하고 SKIPPED 처리함, 추정치 없음) 경로 C의 핵심 질문(진짜 CUDA
+가속이 되는지)은 여전히 미실측 — `apps/api/.venv/bin/pip install
+pyannote.audio` 설치 + HuggingFace 토큰/gated 모델 라이선스 동의 후 재실행
+필요.
+
+**UtilizationSampler의 부수적 이슈**: 두 sherpa 후보 모두 `gpu_note:
+"nvidia-smi present but returned no samples during the run"`로 나왔다 —
+`nvidia-smi -L`은 성공했지만 decode 도중의 `--query-gpu=...` 폴링은 매번
+실패(조용히 `None`으로 처리됨)했다는 뜻. 원인 미확인(일시적 현상일 수도,
+이 하드웨어의 nvidia-smi 쿼리 포맷 문제일 수도 있음) — RTF 측정 자체에는
+영향 없지만, GPU 사용률 숫자가 필요한 다음 실행에서 계속 비면 별도로
+조사할 가치가 있다.

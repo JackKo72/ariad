@@ -9,11 +9,18 @@ this promotes into the pipeline was measured on the user's own hardware via
 scripts/parallel_asr_diarization_mp.py, not re-derived here.
 """
 
+import importlib.util
+
 import pytest
 
 from app.domain.errors import AsrProviderFailed
 from app.domain.models import AudioAsset
-from app.providers.parallel_asr import ParallelASRProvider, _speaker_label, merge_turns_with_asr_segments
+from app.providers.parallel_asr import (
+    ParallelASRProvider,
+    _ensure_cuda_libs_on_path,
+    _speaker_label,
+    merge_turns_with_asr_segments,
+)
 from app.providers.sherpa_onnx_asr import DiarizationTurn
 
 _FIXED_KWARGS = dict(
@@ -131,3 +138,59 @@ class TestParallelASRProviderTranscribe:
         asset = AudioAsset(**_FIXED_KWARGS)
         with pytest.raises(AsrProviderFailed, match="faster-whisper"):
             provider.transcribe(asset, str(tmp_path / "audio.wav"))
+
+
+class TestEnsureCudaLibsOnPath:
+    """Real bug (2026-10-04 user report): faster-whisper's CUDA path raised
+    'Library libcublas.so.12 is not found or cannot be loaded' from inside
+    this worker process, even though the same CUDA call worked when the
+    user ran it as a plain script -- the worker didn't inherit whatever
+    LD_LIBRARY_PATH the interactive shell had. This sandbox has no
+    nvidia-cublas-cu12 installed (no GPU), so the real dlopen fix can't be
+    exercised end-to-end here; these tests cover the path-resolution logic
+    itself via a faked importlib.util.find_spec, and the genuine no-op when
+    nothing is installed."""
+
+    def test_noop_when_nvidia_packages_not_installed(self, monkeypatch):
+        monkeypatch.delenv("LD_LIBRARY_PATH", raising=False)
+        _ensure_cuda_libs_on_path()  # must not raise, must not invent a path
+        assert "LD_LIBRARY_PATH" not in __import__("os").environ
+
+    def test_adds_resolved_lib_dirs_to_ld_library_path(self, monkeypatch, tmp_path):
+        cublas_dir = str(tmp_path / "nvidia" / "cublas" / "lib")
+        cudnn_dir = str(tmp_path / "nvidia" / "cudnn" / "lib")
+
+        def fake_find_spec(name):
+            if name == "nvidia.cublas.lib":
+                return type("Spec", (), {"submodule_search_locations": [cublas_dir]})()
+            if name == "nvidia.cudnn.lib":
+                return type("Spec", (), {"submodule_search_locations": [cudnn_dir]})()
+            return None
+
+        monkeypatch.setattr(importlib.util, "find_spec", fake_find_spec)
+        monkeypatch.delenv("LD_LIBRARY_PATH", raising=False)
+
+        _ensure_cuda_libs_on_path()
+
+        import os
+
+        updated = os.environ["LD_LIBRARY_PATH"]
+        assert cublas_dir in updated
+        assert cudnn_dir in updated
+
+    def test_does_not_duplicate_dirs_already_present(self, monkeypatch, tmp_path):
+        cublas_dir = str(tmp_path / "nvidia" / "cublas" / "lib")
+
+        def fake_find_spec(name):
+            if name == "nvidia.cublas.lib":
+                return type("Spec", (), {"submodule_search_locations": [cublas_dir]})()
+            return None
+
+        monkeypatch.setattr(importlib.util, "find_spec", fake_find_spec)
+        monkeypatch.setenv("LD_LIBRARY_PATH", cublas_dir)
+
+        _ensure_cuda_libs_on_path()
+
+        import os
+
+        assert os.environ["LD_LIBRARY_PATH"] == cublas_dir

@@ -294,7 +294,15 @@ parallel_fw_cuda`로 명시적으로 켜야 diarization(sherpa-onnx, CPU)과
 ASR(faster-whisper large-v3, CUDA)이 별도 프로세스로 동시에 돈다
 (`apps/api/.venv/bin/pip install faster-whisper` 필요 -- 설치돼 있지 않으면
 전사 시도 시 `ASR_PROVIDER_FAILED`로 명확히 안내됨, 조용히 다른 엔진으로
-넘어가지 않음). **아직 기본값으로 올리지 않은 이유**: `make
+넘어가지 않음). **실측으로 발견/수정된 버그**: `make dev`(uvicorn --reload)
+밑에서 `parallel_fw_cuda`로 실제 전사를 돌리면 ASR worker 프로세스가
+`libcublas.so.12 is not found` 에러로 실패하는 사례가 있었다 — 같은 CUDA
+호출이 평범한 스크립트 실행에서는 됐던 것과 달리, 이 중첩된 worker
+프로세스는 대화형 셸의 `LD_LIBRARY_PATH`를 그대로 물려받지 못한 것으로
+보인다. `_ensure_cuda_libs_on_path()`가 `nvidia-cublas-cu12`/
+`nvidia-cudnn-cu12` pip 패키지의 실제 경로를 코드로 찾아 추가하도록
+수정했다(셸 상속에 의존하지 않음) — 자세한 내용과 재현 방법은 tasks/05의
+"실측 업데이트" 절 참고. **아직 기본값으로 올리지 않은 이유**: `make
 check-faster-whisper-accuracy FASTER_WHISPER_MODEL=large-v3`로 실측했을 때
 large-v3가 실제 부정 표현("시작하지 않습니다" -> "시작하기란 습니다")을
 누락하는 사례가 확인됐다 -- 속도 개선과 별개로 임상 안전성 하류 검증
