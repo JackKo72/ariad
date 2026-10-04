@@ -179,3 +179,26 @@ ground truth(sample_consultation.wav)로 검증하도록 했다 — 아직 사�
 **다음**: `make check-faster-whisper-accuracy`로 정확도 확인(속도만으로 채택 금지
 원칙), 화자분리 자체의 GPU/경량화 대안 조사(PyTorch 기반 pyannote.audio 등 —
 미확정, 공개 자료 기반 가설일 뿐 이 PC 실측 아님), ASR·화자분리 병렬 실행 검토.
+
+**`make check-faster-whisper-accuracy` 실측 결과 (small 모델) — 채택 불가**:
+
+- 1/4 anchor pass. 통과한 1개(날짜 "시월")도 "시월드홉"이라는 깨진 단어 안의
+  우연한 부분 문자열 일치로, 실질적으로는 0/4에 가깝다.
+- anchor 점수보다 더 심각한 건 predicted 텍스트 자체다 — 단순히 부정확한 게
+  아니라 거의 모든 구간이 의미 없는 한글 음절 나열로 무너졌다. 예:
+  `오늘 혈압을 재보니 145에 92로 조금 높게 나왔습니다` →
+  `오늘 혀가 풀채 보니 패스하시, 오에구시, 이보초금, 롯게나와 습니다`.
+  "정확도가 조금 낮다" 수준이 아니라 환각(hallucination)에 가깝다.
+- 결론: **faster-whisper `small`(244M, multilingual)은 이 용도(한국어 임상
+  발화)에 채택 불가.** RTF 0.02~0.03이라는 속도만으로 판단했다면 완전히 잘못된
+  선택을 했을 뻔했다 — "속도만으로 엔진을 결정하지 말라"는 원칙이 그대로
+  적용된 사례.
+- 다음 시도: **`large-v3`**(현재 기본 경로가 쓰는 것과 동일한 Whisper 가중치,
+  CTranslate2 런타임만 다름 — 한국어 정확도는 large-v3 수준을 유지하면서도
+  CTranslate2의 속도 이점이 어느 정도 남는지 확인 필요, 8GB VRAM에 fp16으로
+  적재 가능할 것으로 예상되나 미확정):
+  ```bash
+  FASTER_WHISPER_MODEL=large-v3 make check-faster-whisper-accuracy
+  FASTER_WHISPER_MODEL=large-v3 ENGINES=faster_whisper_cuda_fp16 make compare-asr-engines AUDIO=<6분 파일>
+  ```
+  (아직 사용자가 실행 전 — 속도·정확도 모두 미확인.)
