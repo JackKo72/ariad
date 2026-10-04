@@ -1,4 +1,4 @@
-.PHONY: doctor setup dev test e2e eval lint sample-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization
+.PHONY: doctor setup dev test e2e eval lint sample-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization parallel-asr-diarization-mp
 
 doctor:
 	@echo "Checking required tools..."
@@ -118,3 +118,11 @@ check-faster-whisper-accuracy:
 # Requires faster-whisper. Usage: make parallel-asr-diarization AUDIO=path
 parallel-asr-diarization:
 	ARIAD_SHERPA_MODELS_DIR=./apps/api/models apps/api/.venv/bin/python scripts/parallel_asr_diarization.py
+
+# Real measurement on make parallel-asr-diarization showed threads give
+# ~1.00x speedup (the GIL appears to serialize sherpa-onnx's diarization
+# call against faster-whisper's progress). This retries with separate OS
+# processes (no shared GIL) instead. Usage:
+# make parallel-asr-diarization-mp AUDIO=path
+parallel-asr-diarization-mp:
+	ARIAD_SHERPA_MODELS_DIR=./apps/api/models apps/api/.venv/bin/python scripts/parallel_asr_diarization_mp.py

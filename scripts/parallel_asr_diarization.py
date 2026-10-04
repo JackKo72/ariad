@@ -210,19 +210,29 @@ def main() -> int:
     speedup = seq_total_ms / parallel_wall_ms if parallel_wall_ms else float("nan")
     print(f"speedup: {speedup:.2f}x")
 
-    shorter_task_ms = min(diar_ms, asr_ms)
-    if overlap_ms < 0.5 * shorter_task_ms:
+    # Regression fix: the overlap window alone is NOT proof of real
+    # concurrency -- a thread can be started (so its own start/end
+    # timestamps appear to "overlap" in wall-clock terms) while actually
+    # stalled waiting for the GIL the whole time. The only trustworthy
+    # signal is whether parallel wall time is actually shorter than the
+    # sequential sum -- check that directly instead.
+    if speedup < 1.3:
         print(
-            "\n결론: overlap window가 둘 중 짧은 작업 시간의 절반도 안 됨 -- "
-            "실제로는 거의 겹치지 않았다(GIL 등으로 직렬화된 것으로 보임). "
-            "스레드 기반 병렬화는 이 조합에서 효과가 없다 -- 별도 프로세스 기반"
-            "(multiprocessing) 재설계가 필요할 것으로 보임. tasks/05 결론 2를"
-            "이 결과로 업데이트할 것."
+            f"\n결론: speedup {speedup:.2f}x -- 실질적인 속도 향상이 없다. "
+            "overlap window가 커 보여도(두 스레드 모두 거의 전체 구간에서 "
+            "\"시작됨\" 상태였음) 실제 연산은 직렬화된 것으로 보인다 -- 짧은 "
+            "작업(이 경우 ASR)의 종료 시각이 긴 작업의 종료 시각 + 자기 자신의 "
+            "단독 소요시간과 거의 일치한다면, 긴 작업이 GIL을 계속 쥐고 있어 "
+            "짧은 작업이 그 끝날 때까지 거의 진행하지 못했다는 뜻이다. "
+            "스레드 기반 병렬화는 이 조합에서 효과가 없다 -- "
+            "scripts/parallel_asr_diarization_mp.py(별도 프로세스 기반)로 "
+            "재시도할 것. tasks/05 결론 2를 이 결과로 업데이트할 것."
         )
     else:
         print(
-            "\n결론: 두 작업이 실제로 겹쳐 돌았다 -- 스레드 기반 병렬 실행이 이"
-            "조합에서 유효함을 확인. 위 parallel RTF x 600을 10분 환산치로 쓸 것."
+            f"\n결론: speedup {speedup:.2f}x -- 스레드 기반 병렬 실행이 이 "
+            "조합에서 실질적으로 유효함을 확인(순차 대비 유의미하게 빨라짐). "
+            "위 parallel RTF x 600을 10분 환산치로 쓸 것."
         )
     return 0
 

@@ -247,12 +247,24 @@ make check-faster-whisper-accuracy
 make parallel-asr-diarization AUDIO=path/to/recording.wav
 # ASR(faster-whisper, GPU)과 화자분리(sherpa-onnx, CPU)를 순차 실행과 동시 실행
 # (threading.Barrier로 같은 순간에 시작)으로 둘 다 돌려 비교한다. 각 작업의
-# 시작/종료 시각을 공유 기준점 대비로 출력해 실제로 겹쳤는지 직접 확인할 수 있고,
-# 겹침이 적으면("GIL에 막혀 직렬화된 것으로 보임") 스레드 대신 별도 프로세스가
-# 필요하다고 명시한다 -- 병렬화가 당연히 될 거라 가정하지 않는다. GPU/CPU
-# 사용률도 동시 실행 구간에서 샘플링한다. FASTER_WHISPER_MODEL(기본 large-v3)/
-# ARIAD_SHERPA_PROVIDER(기본 cpu, 화자분리에는 변경 비권장 — 이미 GPU가 더
-# 느림을 확인함)로 조정 가능.
+# 시작/종료 시각을 공유 기준점 대비로 출력해 실제로 겹쳤는지 직접 확인할 수 있다.
+# FASTER_WHISPER_MODEL(기본 large-v3)/ARIAD_SHERPA_PROVIDER(기본 cpu, 화자분리에는
+# 변경 비권장 — 이미 GPU가 더 느림을 확인함)로 조정 가능.
+#
+# 실측 결과(2026-10-04): speedup 1.00x — 스레드로는 효과 없음. overlap window는
+# 컸지만("둘 다 시작됨" 상태가 전체 구간과 겹쳤음) 실제로는 diarization이 GIL을
+# 계속 쥐고 있어 ASR이 그 끝날 때까지 거의 진행하지 못한 것으로 보임(ASR 스레드의
+# 종료 시각이 diarize 종료 시각 + ASR 단독 소요시간과 거의 일치). overlap window
+# 크기만으로 "병렬화가 됐다"고 판단하면 안 된다는 것도 이번에 배운 것 — 판정은
+# speedup(순차 대비 실제로 빨라졌는지)으로만 한다.
+
+make parallel-asr-diarization-mp AUDIO=path/to/recording.wav
+# 위 결과(스레드 효과 없음) 이후 시도: 공유 GIL이 없는 별도 OS 프로세스로 같은
+# 실험을 재시도한다. 각 프로세스가 자기 모델을 따로 로드/워밍업한 뒤
+# multiprocessing.Barrier로 동시에 시작한다. CUDA와 fork를 섞으면 위험해
+# "spawn" 방식을 명시적으로 쓴다. 같은 run 안에서 단일 프로세스 순차 베이스라인도
+# 함께 측정해 직접 비교한다(베이스라인 모델은 VRAM 확보를 위해 자식 프로세스
+# 시작 전에 명시적으로 해제).
 ```
 
 **측정 순서 제안** (tasks/05 item 4): `sample_consultation.wav`(59.5s, 이미 있음) →
