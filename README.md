@@ -190,6 +190,33 @@ make compare-asr-accuracy
 | auto_then_ko | 2.64–2.69x | 0/4 pass                     | auto 인식기가 언어를 잘못 판별해 완전히 깨진 로마자 표기 환각(hallucination) 텍스트 생성. 자체 비-한국어 판별 fallback도 로마자 환각은 못 걸러냄 |
 | ko_only      | 1.27–1.35x | 1/4 pass                     | 읽을 수 있는 한국어로 정상 디코딩(나머지 3개 실패는 mode 문제가 아니라 순수 ASR 인식 오류, 예: "오 밀리그램"→"오오 밀크 레") |
 
+**ASR 출력 검증 단 + 제2단 설계 (tasks/06_ASR_OUTPUT_VERIFICATION.md,
+2026-10-07)**: `make compare-asr-accuracy`가 이제 4개 anchor PASS/FAIL뿐
+아니라 전체 전사문 기준 CER/WER(`app/eval/asr_metrics.py`)도 함께
+출력한다 — 세그먼트별 숫자가 아니라 **whole-transcript 숫자를 믿을 것**
+(이 fixture는 diarization이 10개 세그먼트를 1개로 병합해서 세그먼트별
+비교는 의미가 없다는 게 사용자 실측으로 확인됐고, 그래서 whole-transcript
+비교로 고쳤다). 또한 ASR 이후 출력을 개선하는 후처리 두 가지가
+opt-in으로 준비됐다(아직 어떤 provider에도 연결 안 됨):
+`app/pipeline/asr_normalize.py`(단위어 바로 앞 숫자만 정규화, "오
+밀리그램"→"5 밀리그램") / `app/pipeline/medication_candidates.py`(약명
+사전 fuzzy 교정 후보 — 원문은 안 바꾸고 `needs_review` 후보만 제시).
+
+```bash
+make vital-signs-audio
+# tasks/06의 "leading-keyword anchor"(혈압처럼 숫자 앞에 오는 키워드) 연구용
+# 합성 fixture 생성. tests/fixtures/audio/vital_signs_dictation.wav(53.3s,
+# 12 세그먼트) + .transcript.json. 혈압/체중/혈당/맥박/소수점 체온 등 다양한
+# 어순 패턴 포함(세그먼트별 vital_sign_pattern 메타데이터로 표시).
+
+AUDIO=tests/fixtures/audio/vital_signs_dictation.wav \
+GROUND_TRUTH=tests/fixtures/audio/vital_signs_dictation.transcript.json \
+make compare-asr-accuracy
+# 위 fixture로 실제 ASR이 혈압/체중 등을 어떻게 깨뜨리는지 관찰(사용자
+# 하드웨어 필요). 이 fixture에는 기존 4개 anchor가 없어 전부 [SKIPPED]로
+# 표시된다 — 정상 동작.
+```
+
 RTF·정확도 두 지표 모두 `ko_only`가 확인된 개선이므로(속도만으로 채택하지 않는다는
 원칙 충족) **`ko_only`를 기본값으로 전환했다** (`ARIAD_ASR_KO_MODE` 생략 시 `ko_only`).
 `auto_then_ko`는 다국어 시나리오 참고용으로 env var를 통해 여전히 선택 가능하지만,

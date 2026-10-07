@@ -1,4 +1,4 @@
-.PHONY: doctor setup dev test e2e eval lint sample-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization parallel-asr-diarization-mp compare-diarization-engines
+.PHONY: doctor setup dev test e2e eval lint sample-audio vital-signs-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization parallel-asr-diarization-mp compare-diarization-engines
 
 doctor:
 	@echo "Checking required tools..."
@@ -17,6 +17,16 @@ doctor:
 
 sample-audio:
 	python3 scripts/generate_sample_audio.py
+
+# tasks/06_ASR_OUTPUT_VERIFICATION.md leading-keyword-anchor research: a
+# separate synthetic fixture (not sample_consultation) covering varied
+# vital-sign dictation patterns (BP, weight, glucose, pulse, two-vitals-
+# one-sentence, a decimal temperature). Regenerates tests/fixtures/audio/
+# vital_signs_dictation.wav + .transcript.json. Run compare-asr-accuracy
+# against it on real hardware with AUDIO=.../vital_signs_dictation.wav
+# GROUND_TRUTH=.../vital_signs_dictation.transcript.json.
+vital-signs-audio:
+	python3 scripts/generate_vital_signs_fixture.py
 
 setup:
 	python3 -m venv apps/api/.venv

@@ -183,3 +183,96 @@ task 범위에 넣지 않았다 — 별도 작업으로 제안한다(다음 섹�
   사전을 늘려야 한다. 사전에 없는 약물은 구조적으로 교정 후보가 안 나온다.
 - 유사도 임계값(0.6)과 사전 범위 모두 아직 실측 없이 정한 값이다 —
   `make compare-asr-accuracy` 실측 후 오탐/누락 비율을 보고 조정 필요.
+
+## 사용자 첫 실측 결과 분석 + 검증 단 버그 수정 (2026-10-07)
+
+사용자가 `make compare-asr-accuracy`(sample_consultation.wav, 59.54s)를
+실제 하드웨어에서 돌린 결과를 보내왔다.
+
+### 발견한 버그: per-segment CER/WER가 전부 터무니없는 값(2.5~88.5)
+
+**원인**: 이 fixture는 README에 이미 기록된 알려진 제한 때문에, 화자분리가
+10개 gt 세그먼트를 전부 **단 1개의 병합된 segment**로 반환한다. 내가 만든
+`_match_predicted_text`는 시간 겹침으로 매칭하므로, 이 1개 segment가
+0~59.54초 전체와 겹쳐서 **모든 gt 세그먼트가 같은 전체 전사문 덩어리와
+매칭**된다. 그 상태에서 짧은 gt 세그먼트(예: 6글자 "알겠습니다")를
+500자가 넘는 전체 전사문과 편집거리로 비교하니 CER이 88.5처럼 1을 훌쩍
+넘는 값이 나왔다 — 숫자 자체가 무의미했다(anchor 체크는 부분문자열
+포함 여부만 보므로 이 문제에 영향받지 않아 그대로 유효했다).
+
+**수정**: `scripts/compare_asr_accuracy.py`에 **전체 전사문 기준
+CER/WER**(gt 세그먼트를 순서대로 합친 문자열 vs 실제 predicted_segments를
+순서대로 합친 문자열 — 세그먼트 개수가 안 맞아도 항상 올바름)을 추가해
+이걸 "믿을 수 있는 숫자"로 표시하도록 바꿨다. `predicted_segments` 개수가
+`ground_truth`보다 적으면("화자분리가 병합했을 가능성") 경고를 출력하고,
+그럴 때 per-segment 숫자 옆에 "의미 없음" 표시를 붙인다. 정규화 전/후
+비교도 전체 전사문 기준으로 다시 맞췄다. 수정 후 실제로 사용자가 보낸
+ko_only 출력을 재계산해보니 **전체 전사문 CER 0.542, WER 0.662**로
+합리적인 범위가 나왔다(이 숫자는 이 샌드박스에서 사후 재계산한 것이고,
+사용자 하드웨어에서 수정된 스크립트로 다시 돌려야 공식 수치가 된다).
+
+### 실측 내용 자체에서 읻은 것 (tasks/05 기존 발견과 일치)
+
+- `auto_then_ko`: RTF 2.82, 완전히 깨진 라틴 음차 환각("Annion haseo!
+  Odul fiora...") — tasks/05에서 이미 확인된 실패 패턴 재현.
+- `ko_only`(현재 기본값): RTF 1.37, 읽을 수 있는 한국어. 부정 표현
+  "시작하지 않습니다" **보존**(anchor PASS) — 기존 발견과 일치. 약명/용량/
+  날짜 anchor는 모두 FAIL — "리시노프릴"→"약리신", "오 밀리그램"→
+  "오오 밀크 레"(tasks/05에서 봤던 것과 **동일한 깨짐 패턴**, 재현성 확인).
+- **"145에 92로"(혈압)가 실제로 어떻게 깨지는지 처음 확인**: "백사십오에
+  구십이초금"으로 — 숫자 두 개가 하나로 붙어버리고 "로"가 다음 단어
+  "조금"과 섞여 "초금"이 됐다. 이건 내가 테스트에 쓴 깨끗한 예시
+  ("백사십오에 구십이로")보다 훨씬 지저분하다 — 토큰 경계 자체가
+  깨져서, leading-keyword anchor를 설계해도 "숫자 뒤에 특정 조사가 온다"는
+  가정이 이 경우엔 안 맞는다. 이 발견이 아래 vital-signs fixture와
+  leading-anchor 설계를 더 보수적으로 접근해야 하는 이유다.
+- diarization은 여전히 10개 세그먼트를 1개로 병합(README의 기존 알려진
+  제한, 이번에 다시 확인됨) — 이번 task 범위 밖(Phase 2 과제).
+
+## 리딩 앵커 연구용 합성 fixture 추가 (2026-10-07)
+
+사용자 제안("면담 몇 개를 ASR 해보면 패턴이 보일 것")에 따라, 실제 환자
+음성 대신(CLAUDE.md) **합성 fixture**를 새로 만들었다:
+
+- `scripts/generate_vital_signs_fixture.py`(신규, `make vital-signs-audio`)
+  — `generate_sample_audio.py`와 같은 방식(espeak-ng+ffmpeg)으로
+  `tests/fixtures/audio/vital_signs_dictation.wav`(53.3s, 12 세그먼트) +
+  `.transcript.json` 생성. 이 샌드박스에 espeak-ng/ffmpeg가 있어서 직접
+  생성·검증(ffprobe로 duration/포맷 확인)까지 완료했다 — 실제 ASR 실행은
+  여전히 사용자 하드웨어에서 필요.
+- 담은 패턴(각 세그먼트에 `vital_sign_pattern` 메타데이터로 표시):
+  1. **혈압, bare number, leading keyword만**(단위어 없음) — "혈압을
+     재보니 138에 86으로"
+  2. **체중, leading + trailing anchor 둘 다**("체중을 확인해보니
+     72킬로그램이네요") — trailing anchor 규칙이 이미 처리 가능한지 확인
+  3. **혈당, 키워드와 숫자가 멀리 떨어짐**("공복 혈당 검사를 했는데
+     수치가 118로") — 거리 문제 실측용
+  4. **맥박, trailing unit이지만 중간에 단어가 끼어 있음**("맥박은 분당
+     76회로") — "분당"이 숫자와 단위어 사이에 끼어든 경우
+  5. **한 문장에 두 생체 수치**("혈압이 132에 84, 맥박은 70회였습니다")
+     — 소유권 모호성(어떤 숫자가 어떤 키워드에 속하는지) 실측용
+  6. **소수점 체온**("체온을 재보니 37.5도였습니다") — 현재 정규화기
+     범위 밖임을 알고 포함, ASR이 소수점을 어떻게 다루는지만 관찰
+- `scripts/compare_asr_accuracy.py`도 이 fixture에 맞게 보강: 다른
+  ground truth 파일을 쓸 때(`GROUND_TRUTH=` 오버라이드) 거기 없는
+  anchor 체크는 FAIL이 아니라 `[SKIPPED] (not in this ground truth file)`
+  로 표시하도록 고쳤다(기존 4개 anchor는 sample_consultation 전용이므로
+  이 새 fixture에선 전부 적용 불가 — 혼란스러운 거짓 FAIL을 막기 위함).
+
+**사용자가 직접 실행할 것**:
+```bash
+AUDIO=tests/fixtures/audio/vital_signs_dictation.wav \
+GROUND_TRUTH=tests/fixtures/audio/vital_signs_dictation.transcript.json \
+make compare-asr-accuracy
+```
+결과(특히 whole-transcript 비교의 predicted 텍스트)를 보면 숫자-키워드
+거리, 소유권 모호성, 소수점 처리가 실제로 어떻게 깨지는지 보일 것이다 —
+그걸 보고 나서 leading-keyword anchor 규칙을 설계하는 게 맞다(지금
+추측으로 설계하면 위 "145/92" 사례처럼 토큰 경계 가정이 틀릴 위험이 크다).
+
+## Out of scope 추가
+
+- leading-keyword anchor 규칙 자체의 설계/구현 — vital-signs fixture
+  실측 결과를 받은 뒤 진행.
+- diarization이 10개 세그먼트를 1개로 병합하는 근본 문제 수정 — 별도
+  과제(tasks/03 Phase 2 전제조건으로 이미 기록됨).

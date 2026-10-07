@@ -1,0 +1,112 @@
+{
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "expected_role": "doctor",
+      "start": 0.0,
+      "end": 6.2,
+      "text": "오늘 혈압을 재보니 138에 86으로 나왔습니다.",
+      "vital_sign_pattern": "bp_bare_number_leading_keyword"
+    },
+    {
+      "id": "seg_002",
+      "speaker": "B",
+      "expected_role": "patient",
+      "start": 6.8,
+      "end": 9.96,
+      "text": "지난번보다 조금 높아진 것 같아요.",
+      "vital_sign_pattern": "filler"
+    },
+    {
+      "id": "seg_003",
+      "speaker": "A",
+      "expected_role": "doctor",
+      "start": 10.56,
+      "end": 14.95,
+      "text": "체중을 확인해보니 72킬로그램이네요.",
+      "vital_sign_pattern": "weight_leading_and_trailing_unit"
+    },
+    {
+      "id": "seg_004",
+      "speaker": "B",
+      "expected_role": "patient",
+      "start": 15.55,
+      "end": 18.19,
+      "text": "네, 요즘 운동을 못 해서요.",
+      "vital_sign_pattern": "filler"
+    },
+    {
+      "id": "seg_005",
+      "speaker": "A",
+      "expected_role": "doctor",
+      "start": 18.79,
+      "end": 24.77,
+      "text": "공복 혈당 검사를 했는데 수치가 118로 나왔습니다.",
+      "vital_sign_pattern": "glucose_keyword_distant_from_number"
+    },
+    {
+      "id": "seg_006",
+      "speaker": "B",
+      "expected_role": "patient",
+      "start": 25.37,
+      "end": 27.98,
+      "text": "식전에 뭘 좀 먹었나 봐요.",
+      "vital_sign_pattern": "filler"
+    },
+    {
+      "id": "seg_007",
+      "speaker": "A",
+      "expected_role": "doctor",
+      "start": 28.58,
+      "end": 33.57,
+      "text": "맥박은 분당 76회로 측정되었습니다.",
+      "vital_sign_pattern": "pulse_trailing_unit_with_gap"
+    },
+    {
+      "id": "seg_008",
+      "speaker": "B",
+      "expected_role": "patient",
+      "start": 34.17,
+      "end": 36.06,
+      "text": "네, 알겠습니다.",
+      "vital_sign_pattern": "filler"
+    },
+    {
+      "id": "seg_009",
+      "speaker": "A",
+      "expected_role": "doctor",
+      "start": 36.66,
+      "end": 43.82,
+      "text": "오늘은 혈압이 132에 84, 맥박은 70회였습니다.",
+      "vital_sign_pattern": "two_vitals_one_sentence_ownership_ambiguity"
+    },
+    {
+      "id": "seg_010",
+      "speaker": "B",
+      "expected_role": "patient",
+      "start": 44.42,
+      "end": 46.18,
+      "text": "조금 좋아졌네요.",
+      "vital_sign_pattern": "filler"
+    },
+    {
+      "id": "seg_011",
+      "speaker": "A",
+      "expected_role": "doctor",
+      "start": 46.78,
+      "end": 51.09,
+      "text": "체온을 재보니 37.5도였습니다.",
+      "vital_sign_pattern": "temperature_decimal_out_of_scope"
+    },
+    {
+      "id": "seg_012",
+      "speaker": "B",
+      "expected_role": "patient",
+      "start": 51.69,
+      "end": 53.34,
+      "text": "미열이 있었군요.",
+      "vital_sign_pattern": "filler"
+    }
+  ]
+}

@@ -26,18 +26,22 @@ and reports:
     from the ground truth (see ACCURACY_CHECKS below)? This is a coarse
     presence check, not exact-match scoring -- ASR spacing/tokenization
     varies even when the content is correct.
-  - tasks/06_ASR_OUTPUT_VERIFICATION.md: per-segment and aggregate CER/WER
-    (app.eval.asr_metrics) -- the anchor checks above only cover four
-    hand-picked phrases; CER/WER scores every character/word in every
-    segment, so a regression the anchors don't happen to touch still shows
-    up. CER is primary (docs/TESTING_AND_EVALS.md), WER is secondary/
+  - tasks/06_ASR_OUTPUT_VERIFICATION.md: per-segment CER/WER (app.eval.
+    asr_metrics) printed for manual review, plus a whole-transcript CER/WER
+    (all gt segments concatenated vs. all actual predicted segments
+    concatenated) as the number to trust -- a real run surfaced that this
+    fixture's diarization merges every speaker turn into fewer segments
+    than ground truth has, so every short gt segment ends up compared
+    against the same large merged blob; per-segment CER/WER in that case
+    is not meaningful (a WARNING is printed when segment counts don't
+    match). CER is primary (docs/TESTING_AND_EVALS.md), WER is secondary/
     informational for Korean.
-  - The same CER/WER recomputed after running both the ground truth and
-    the predicted text through app.pipeline.asr_normalize's Sino-Korean
-    number-word normalizer, to show whether that candidate post-ASR stage
-    actually reduces meaning-preserving mismatches (e.g. "오"/"5") rather
-    than just moving the fixture's own spoken-form ground truth further
-    away from a digit-normalized prediction, or vice versa.
+  - The same whole-transcript CER/WER recomputed after running both sides
+    through app.pipeline.asr_normalize's Sino-Korean number-word
+    normalizer, to show whether that candidate post-ASR stage actually
+    reduces meaning-preserving mismatches (e.g. "오"/"5") rather than just
+    moving the fixture's own spoken-form ground truth further away from a
+    digit-normalized prediction, or vice versa.
   - app.pipeline.medication_candidates.find_medication_candidates() run
     against each predicted segment -- dictionary-fuzzy-match medication
     name candidates, printed as needs_review suggestions. Never mutates
@@ -149,7 +153,7 @@ def _speaker_mapping_accuracy(gt_segments: list[dict], predicted_segments: list)
 def _run_one_mode(ko_mode: str, audio_path: Path, ground_truth: list[dict]) -> None:
     from app.domain.errors import AriadError
     from app.domain.models import AudioAsset
-    from app.eval.asr_metrics import aggregate, compute_cer, compute_wer
+    from app.eval.asr_metrics import compute_cer, compute_wer
     from app.pipeline.asr_normalize import normalize_korean_number_words
     from app.pipeline.medication_candidates import find_medication_candidates
     from app.providers.sherpa_onnx_asr import SherpaOnnxASRProvider, models_available
@@ -190,46 +194,61 @@ def _run_one_mode(ko_mode: str, audio_path: Path, ground_truth: list[dict]) -> N
     accuracy, correct, total = _speaker_mapping_accuracy(ground_truth, predicted_segments)
     print(f"speaker/diarization consistency: {correct}/{total} segments ({accuracy * 100:.0f}%)")
 
+    if len(predicted_segments) < len(ground_truth):
+        print(
+            f"\nWARNING: predicted segment count ({len(predicted_segments)}) < ground truth segment "
+            f"count ({len(ground_truth)}) -- diarization likely merged multiple speaker turns into "
+            "fewer segments than the script expected (known limitation, see README.md's "
+            "\"화자분리가 ... 구분하지 못함\" note). Every short gt segment below will then overlap "
+            "the SAME large merged predicted segment and print identical text -- per-segment CER/WER "
+            "in that case compares a short reference against the whole merged blob and is NOT "
+            "meaningful (expect CER/WER > 1.0). Use the whole-transcript CER/WER printed below "
+            "instead; it does not depend on segment-count matching."
+        )
+
     matched_by_id = {}
-    cer_results = []
-    wer_results = []
     print("\nPer-segment expected vs. predicted text:")
     for gt_seg in ground_truth:
         matched_text, pred_speaker = _match_predicted_text(gt_seg, predicted_segments)
         matched_by_id[gt_seg["id"]] = matched_text
         cer = compute_cer(gt_seg["text"], matched_text)
         wer = compute_wer(gt_seg["text"], matched_text)
-        cer_results.append(cer)
-        wer_results.append(wer)
         print(f"  [{gt_seg['id']}] gt_speaker={gt_seg['speaker']} pred_speaker={pred_speaker}")
         print(f"    expected : {gt_seg['text']}")
         print(f"    predicted: {matched_text or '(no overlapping predicted segment)'}")
         print(f"    CER={cer.rate:.3f} (S={cer.substitutions} D={cer.deletions} I={cer.insertions} / {cer.ref_length} chars)"
-              f"  WER={wer.rate:.3f} (S={wer.substitutions} D={wer.deletions} I={wer.insertions} / {wer.ref_length} words)")
+              f"  WER={wer.rate:.3f} (S={wer.substitutions} D={wer.deletions} I={wer.insertions} / {wer.ref_length} words)"
+              + ("  (not meaningful -- see WARNING above)" if len(predicted_segments) < len(ground_truth) else ""))
 
-    overall_cer = aggregate(cer_results)
-    overall_wer = aggregate(wer_results)
+    # tasks/06 real-data finding (2026-10-07): the per-gt-segment CER/WER
+    # above is only meaningful when predicted segments roughly correspond
+    # 1:1 to gt segments. When diarization merges everything into fewer
+    # segments than that (reproducible on this fixture, see warning above),
+    # every gt segment redundantly compares against the same large blob.
+    # This whole-transcript comparison -- one reference string (all gt
+    # segments concatenated in order) against one hypothesis string (all
+    # *actual* predicted segments concatenated in order, deduplicated by
+    # construction since it iterates predicted_segments directly, not the
+    # gt-segment loop above) -- is correct regardless of how many segments
+    # either side has, so it is the number to trust.
+    whole_gt_text = " ".join(seg["text"] for seg in ground_truth)
+    whole_predicted_text = " ".join(seg.text for seg in sorted(predicted_segments, key=lambda s: s.start))
+    whole_cer = compute_cer(whole_gt_text, whole_predicted_text)
+    whole_wer = compute_wer(whole_gt_text, whole_predicted_text)
     print(
-        f"\ntasks/06 verification stage -- overall CER: {overall_cer.rate:.3f} "
-        f"({overall_cer.substitutions + overall_cer.deletions + overall_cer.insertions}/{overall_cer.ref_length} chars), "
-        f"overall WER: {overall_wer.rate:.3f} "
-        f"({overall_wer.substitutions + overall_wer.deletions + overall_wer.insertions}/{overall_wer.ref_length} words)"
+        f"\ntasks/06 verification stage -- whole-transcript CER: {whole_cer.rate:.3f} "
+        f"({whole_cer.substitutions + whole_cer.deletions + whole_cer.insertions}/{whole_cer.ref_length} chars), "
+        f"whole-transcript WER: {whole_wer.rate:.3f} "
+        f"({whole_wer.substitutions + whole_wer.deletions + whole_wer.insertions}/{whole_wer.ref_length} words)  "
+        "<- primary number, diarization-segment-count-independent"
     )
 
-    normalized_cer_results = [
-        compute_cer(normalize_korean_number_words(gt_seg["text"]), normalize_korean_number_words(matched_by_id[gt_seg["id"]]))
-        for gt_seg in ground_truth
-    ]
-    normalized_wer_results = [
-        compute_wer(normalize_korean_number_words(gt_seg["text"]), normalize_korean_number_words(matched_by_id[gt_seg["id"]]))
-        for gt_seg in ground_truth
-    ]
-    normalized_overall_cer = aggregate(normalized_cer_results)
-    normalized_overall_wer = aggregate(normalized_wer_results)
+    normalized_cer = compute_cer(normalize_korean_number_words(whole_gt_text), normalize_korean_number_words(whole_predicted_text))
+    normalized_wer = compute_wer(normalize_korean_number_words(whole_gt_text), normalize_korean_number_words(whole_predicted_text))
     print(
-        f"after normalize_korean_number_words() on both sides -- CER: {normalized_overall_cer.rate:.3f}, "
-        f"WER: {normalized_overall_wer.rate:.3f}  "
-        f"(delta CER {normalized_overall_cer.rate - overall_cer.rate:+.3f}, delta WER {normalized_overall_wer.rate - overall_wer.rate:+.3f})"
+        f"after normalize_korean_number_words() on both sides -- CER: {normalized_cer.rate:.3f}, "
+        f"WER: {normalized_wer.rate:.3f}  "
+        f"(delta CER {normalized_cer.rate - whole_cer.rate:+.3f}, delta WER {normalized_wer.rate - whole_wer.rate:+.3f})"
     )
 
     print("\nMedication name candidates (needs_review -- never auto-applied):")
@@ -245,8 +264,16 @@ def _run_one_mode(ko_mode: str, audio_path: Path, ground_truth: list[dict]) -> N
     if not any_candidate:
         print("  (no candidates above the similarity threshold)")
 
+    gt_segment_ids = {seg["id"] for seg in ground_truth}
     print("\nClinical-anchor checks:")
     for check in ACCURACY_CHECKS:
+        if check["segment_id"] not in gt_segment_ids:
+            # This ground truth file (e.g. a different fixture passed via
+            # GROUND_TRUTH=) doesn't have this segment id at all -- say so
+            # plainly instead of printing a misleading FAIL for a check
+            # that was never applicable here.
+            print(f"  [SKIPPED] {check['segment_id']}: {check['label']} (not in this ground truth file)")
+            continue
         text = _normalize(matched_by_id.get(check["segment_id"], ""))
         passed = any(_normalize(kw) in text for kw in check["keywords"])
         status = "PASS" if passed else "FAIL"
