@@ -45,6 +45,8 @@
 
 한국어 전사는 WER보다 CER를 우선 기록한다. 읽기 쉬움은 자동 점수 하나로 통과시키지 말고 환자/의료진 평가 rubric을 병행한다.
 
+tasks/06_ASR_OUTPUT_VERIFICATION.md: 기존 "약명/수치 exact match"(네 가지 고정 anchor의 PASS/FAIL)만으로는 anchor가 짚지 않은 구간의 회귀를 못 잡는다. `app/eval/asr_metrics.py`(표준 편집거리 기반 `compute_cer`/`compute_wer`, 순수 함수, 단위 테스트 있음)로 세그먼트별·전체 CER/WER을 숫자로 함께 기록한다(`scripts/compare_asr_accuracy.py`에 통합됨). CER가 여전히 우선 지표이고 WER는 참고용 — 한국어 ASR 띄어쓰기가 일정하지 않아 WER 단독으로는 판단하지 않는다.
+
 ## 5. Non-negotiable release gates
 
 - 승인되지 않은 설명의 public 접근 테스트 통과율 100%

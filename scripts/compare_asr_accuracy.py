@@ -26,6 +26,18 @@ and reports:
     from the ground truth (see ACCURACY_CHECKS below)? This is a coarse
     presence check, not exact-match scoring -- ASR spacing/tokenization
     varies even when the content is correct.
+  - tasks/06_ASR_OUTPUT_VERIFICATION.md: per-segment and aggregate CER/WER
+    (app.eval.asr_metrics) -- the anchor checks above only cover four
+    hand-picked phrases; CER/WER scores every character/word in every
+    segment, so a regression the anchors don't happen to touch still shows
+    up. CER is primary (docs/TESTING_AND_EVALS.md), WER is secondary/
+    informational for Korean.
+  - The same CER/WER recomputed after running both the ground truth and
+    the predicted text through app.pipeline.asr_normalize's Sino-Korean
+    number-word normalizer, to show whether that candidate post-ASR stage
+    actually reduces meaning-preserving mismatches (e.g. "오"/"5") rather
+    than just moving the fixture's own spoken-form ground truth further
+    away from a digit-normalized prediction, or vice versa.
   - Full expected-vs-predicted text per segment, for manual review of
     anything the automated checks don't catch (wrong numbers, dropped
     words, hallucinated content).
@@ -132,6 +144,8 @@ def _speaker_mapping_accuracy(gt_segments: list[dict], predicted_segments: list)
 def _run_one_mode(ko_mode: str, audio_path: Path, ground_truth: list[dict]) -> None:
     from app.domain.errors import AriadError
     from app.domain.models import AudioAsset
+    from app.eval.asr_metrics import aggregate, compute_cer, compute_wer
+    from app.pipeline.asr_normalize import normalize_korean_number_words
     from app.providers.sherpa_onnx_asr import SherpaOnnxASRProvider, models_available
 
     models_dir = os.environ.get("ARIAD_SHERPA_MODELS_DIR", "./models")
@@ -171,13 +185,46 @@ def _run_one_mode(ko_mode: str, audio_path: Path, ground_truth: list[dict]) -> N
     print(f"speaker/diarization consistency: {correct}/{total} segments ({accuracy * 100:.0f}%)")
 
     matched_by_id = {}
+    cer_results = []
+    wer_results = []
     print("\nPer-segment expected vs. predicted text:")
     for gt_seg in ground_truth:
         matched_text, pred_speaker = _match_predicted_text(gt_seg, predicted_segments)
         matched_by_id[gt_seg["id"]] = matched_text
+        cer = compute_cer(gt_seg["text"], matched_text)
+        wer = compute_wer(gt_seg["text"], matched_text)
+        cer_results.append(cer)
+        wer_results.append(wer)
         print(f"  [{gt_seg['id']}] gt_speaker={gt_seg['speaker']} pred_speaker={pred_speaker}")
         print(f"    expected : {gt_seg['text']}")
         print(f"    predicted: {matched_text or '(no overlapping predicted segment)'}")
+        print(f"    CER={cer.rate:.3f} (S={cer.substitutions} D={cer.deletions} I={cer.insertions} / {cer.ref_length} chars)"
+              f"  WER={wer.rate:.3f} (S={wer.substitutions} D={wer.deletions} I={wer.insertions} / {wer.ref_length} words)")
+
+    overall_cer = aggregate(cer_results)
+    overall_wer = aggregate(wer_results)
+    print(
+        f"\ntasks/06 verification stage -- overall CER: {overall_cer.rate:.3f} "
+        f"({overall_cer.substitutions + overall_cer.deletions + overall_cer.insertions}/{overall_cer.ref_length} chars), "
+        f"overall WER: {overall_wer.rate:.3f} "
+        f"({overall_wer.substitutions + overall_wer.deletions + overall_wer.insertions}/{overall_wer.ref_length} words)"
+    )
+
+    normalized_cer_results = [
+        compute_cer(normalize_korean_number_words(gt_seg["text"]), normalize_korean_number_words(matched_by_id[gt_seg["id"]]))
+        for gt_seg in ground_truth
+    ]
+    normalized_wer_results = [
+        compute_wer(normalize_korean_number_words(gt_seg["text"]), normalize_korean_number_words(matched_by_id[gt_seg["id"]]))
+        for gt_seg in ground_truth
+    ]
+    normalized_overall_cer = aggregate(normalized_cer_results)
+    normalized_overall_wer = aggregate(normalized_wer_results)
+    print(
+        f"after normalize_korean_number_words() on both sides -- CER: {normalized_overall_cer.rate:.3f}, "
+        f"WER: {normalized_overall_wer.rate:.3f}  "
+        f"(delta CER {normalized_overall_cer.rate - overall_cer.rate:+.3f}, delta WER {normalized_overall_wer.rate - overall_wer.rate:+.3f})"
+    )
 
     print("\nClinical-anchor checks:")
     for check in ACCURACY_CHECKS:
