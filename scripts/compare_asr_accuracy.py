@@ -38,6 +38,11 @@ and reports:
     actually reduces meaning-preserving mismatches (e.g. "오"/"5") rather
     than just moving the fixture's own spoken-form ground truth further
     away from a digit-normalized prediction, or vice versa.
+  - app.pipeline.medication_candidates.find_medication_candidates() run
+    against each predicted segment -- dictionary-fuzzy-match medication
+    name candidates, printed as needs_review suggestions. Never mutates
+    the predicted text; this is visibility into what the candidate (not
+    yet wired into any provider) would flag, not a correction being applied.
   - Full expected-vs-predicted text per segment, for manual review of
     anything the automated checks don't catch (wrong numbers, dropped
     words, hallucinated content).
@@ -146,6 +151,7 @@ def _run_one_mode(ko_mode: str, audio_path: Path, ground_truth: list[dict]) -> N
     from app.domain.models import AudioAsset
     from app.eval.asr_metrics import aggregate, compute_cer, compute_wer
     from app.pipeline.asr_normalize import normalize_korean_number_words
+    from app.pipeline.medication_candidates import find_medication_candidates
     from app.providers.sherpa_onnx_asr import SherpaOnnxASRProvider, models_available
 
     models_dir = os.environ.get("ARIAD_SHERPA_MODELS_DIR", "./models")
@@ -225,6 +231,19 @@ def _run_one_mode(ko_mode: str, audio_path: Path, ground_truth: list[dict]) -> N
         f"WER: {normalized_overall_wer.rate:.3f}  "
         f"(delta CER {normalized_overall_cer.rate - overall_cer.rate:+.3f}, delta WER {normalized_overall_wer.rate - overall_wer.rate:+.3f})"
     )
+
+    print("\nMedication name candidates (needs_review -- never auto-applied):")
+    any_candidate = False
+    for gt_seg in ground_truth:
+        predicted_text = matched_by_id.get(gt_seg["id"], "")
+        for candidate in find_medication_candidates(predicted_text):
+            any_candidate = True
+            print(
+                f"  [{gt_seg['id']}] '{candidate.matched_span}' -> suggest '{candidate.suggested_name}' "
+                f"(similarity={candidate.similarity:.2f})"
+            )
+    if not any_candidate:
+        print("  (no candidates above the similarity threshold)")
 
     print("\nClinical-anchor checks:")
     for check in ACCURACY_CHECKS:
