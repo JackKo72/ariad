@@ -1,4 +1,4 @@
-.PHONY: doctor setup dev test e2e eval lint sample-audio vital-signs-audio vital-signs-isolated-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization parallel-asr-diarization-mp compare-diarization-engines noisy-diarization-set eval-diarization-der
+.PHONY: doctor setup dev test e2e eval lint sample-audio vital-signs-audio vital-signs-isolated-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization parallel-asr-diarization-mp compare-diarization-engines noisy-diarization-set eval-diarization-der draft-annotation labels-to-reference
 
 doctor:
 	@echo "Checking required tools..."
@@ -174,3 +174,18 @@ noisy-diarization-set:
 # make eval-diarization-der [ENGINES=sherpa_cpu,sortformer_cuda] [PREPROCESS=none]
 eval-diarization-der:
 	ARIAD_SHERPA_MODELS_DIR=./apps/api/models apps/api/.venv/bin/python scripts/eval_diarization_der.py
+
+# tasks/08_REAL_VOICE_REFERENCE_ANNOTATION.md: semi-automatic reference for
+# a role-played (no real patient) recording. Writes an Audacity label-track
+# draft (SPEAKER|TYPE|text per region) to data/annotations (gitignored).
+# Text is filled by the app's own ASR when Whisper models are present.
+# Usage: make draft-annotation AUDIO=data/annotations/x.m4a [NUM_SPEAKERS=2]
+draft-annotation:
+	ARIAD_SHERPA_MODELS_DIR=./apps/api/models apps/api/.venv/bin/python scripts/draft_reference_annotation.py
+
+# Corrected Audacity label export -> <stem>.ref.json beside it; then
+# `make eval-diarization-der SET_DIR=data/annotations` scores every
+# <stem>.ref.json + <stem>.<audio> pair there.
+# Usage: make labels-to-reference LABELS=data/annotations/x.labels.txt
+labels-to-reference:
+	apps/api/.venv/bin/python scripts/labels_to_reference.py

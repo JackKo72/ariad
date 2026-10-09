@@ -83,7 +83,7 @@ def _load_pcm(audio_path: Path) -> tuple[object, int, float]:
     return frames, sample_rate, len(frames) / sample_rate
 
 
-def _run_sherpa(audio_path: Path, provider: str) -> dict:
+def _run_sherpa(audio_path: Path, provider: str, num_speakers: int = 0) -> dict:
     from app.providers.sherpa_onnx_asr import build_diarizer, models_available
     from compare_asr_engines import UtilizationSampler
 
@@ -95,7 +95,7 @@ def _run_sherpa(audio_path: Path, provider: str) -> dict:
 
     try:
         load_start = time.perf_counter()
-        diarizer = build_diarizer(models_dir, provider)
+        diarizer = build_diarizer(models_dir, provider, num_speakers)
         load_ms = (time.perf_counter() - load_start) * 1000
     except Exception as exc:
         return {"skipped": True, "reason": f"build_diarizer() failed: {type(exc).__name__}: {exc}"}
@@ -282,6 +282,12 @@ def _run_sortformer(audio_path: Path, device: str, preset: str) -> dict:
 CANDIDATES = {
     "sherpa_cpu": lambda audio: _run_sherpa(audio, provider="cpu"),
     "sherpa_cuda": lambda audio: _run_sherpa(audio, provider="cuda"),
+    # Fixed cluster count (the app's num_speakers > 0 path). ICU real-voice
+    # probe: auto mode split one 5.5-min talk into 9 "speakers", 8 of them
+    # 1-6 s fragments -- these show what a known head-count buys.
+    "sherpa_cpu_2spk": lambda audio: _run_sherpa(audio, provider="cpu", num_speakers=2),
+    "sherpa_cpu_3spk": lambda audio: _run_sherpa(audio, provider="cpu", num_speakers=3),
+    "sherpa_cpu_4spk": lambda audio: _run_sherpa(audio, provider="cpu", num_speakers=4),
     "pyannote_cpu": lambda audio: _run_pyannote(audio, device="cpu"),
     "pyannote_cuda": lambda audio: _run_pyannote(audio, device="cuda"),
     "sortformer_cuda": lambda audio: _run_sortformer(audio, device="cuda", preset="high"),

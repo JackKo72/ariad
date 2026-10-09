@@ -15,6 +15,10 @@ measurement, same skip-with-reason when a package/GPU/token is missing.
 PREPROCESS=none,light_denoise runs app.audio.preprocess.standardize_audio
 first, so the app's own denoise setting is A/B'd on the same ground truth.
 
+SET_DIR without a manifest.json (e.g. data/annotations, real role-played
+recordings -- tasks/08): every <stem>.ref.json paired with a same-stem
+audio file (.wav/.m4a/.opus/.mp3/.flac) is one condition.
+
 Env: SET_DIR (default data/eval_noisy_diarization), ENGINES (default
 sherpa_cpu), PREPROCESS (default none,light_denoise), COLLAR (default 0.25 s).
 Writes <SET_DIR>/der_results.json. Prints only scores and counts -- never a
@@ -38,8 +42,31 @@ from app.eval.diarization_metrics import SpeakerSegment, score_diarization  # no
 from compare_diarization_engines import CANDIDATES, _load_env_local  # noqa: E402
 
 
+AUDIO_SUFFIXES = (".wav", ".m4a", ".opus", ".mp3", ".flac")
+
+
 def load_reference(path: Path) -> list[SpeakerSegment]:
-    return [SpeakerSegment(**seg) for seg in json.loads(path.read_text(encoding="utf-8"))["segments"]]
+    # Human references (labels_to_reference.py) also carry role/discourse/
+    # text -- diarization scoring needs only who-spoke-when.
+    return [
+        SpeakerSegment(seg["start"], seg["end"], seg["speaker"], seg.get("background", False))
+        for seg in json.loads(path.read_text(encoding="utf-8"))["segments"]
+    ]
+
+
+def discover_conditions(set_dir: Path) -> list[dict]:
+    manifest_path = set_dir / "manifest.json"
+    if manifest_path.exists():
+        return json.loads(manifest_path.read_text(encoding="utf-8"))["conditions"]
+    conditions = []
+    for ref in sorted(set_dir.glob("*.ref.json")):
+        stem = ref.name[: -len(".ref.json")]
+        audio = next((set_dir / f"{stem}{sfx}" for sfx in AUDIO_SUFFIXES if (set_dir / f"{stem}{sfx}").exists()), None)
+        if audio is None:
+            print(f"[{stem}] reference without a same-stem audio file, skipping")
+            continue
+        conditions.append({"name": stem, "wav": audio.name, "ref": ref.name, "noise": "real", "snr_db": None})
+    return conditions
 
 
 def score_row(condition: dict, engine: str, preprocess: str, result: dict, reference: list[SpeakerSegment],
@@ -85,9 +112,10 @@ def print_table(rows: list[dict]) -> None:
 
 def main() -> int:
     set_dir = Path(os.environ.get("SET_DIR", REPO_ROOT / "data" / "eval_noisy_diarization"))
-    manifest_path = set_dir / "manifest.json"
-    if not manifest_path.exists():
-        print(f"No manifest at {manifest_path} -- run `make noisy-diarization-set` first.")
+    conditions = discover_conditions(set_dir) if set_dir.is_dir() else []
+    if not conditions:
+        print(f"Nothing to score in {set_dir} -- run `make noisy-diarization-set`, "
+              "or put <stem>.ref.json + <stem>.<audio> pairs there.")
         return 1
     engines = [e.strip() for e in os.environ.get("ENGINES", "sherpa_cpu").split(",")]
     unknown = [e for e in engines if e not in CANDIDATES]
@@ -98,7 +126,6 @@ def main() -> int:
     collar = float(os.environ.get("COLLAR", "0.25"))
     _load_env_local()
 
-    conditions = json.loads(manifest_path.read_text(encoding="utf-8"))["conditions"]
     rows = []
     with tempfile.TemporaryDirectory() as tmp:
         for condition in conditions:
