@@ -1,4 +1,4 @@
-.PHONY: doctor setup dev test e2e eval lint sample-audio vital-signs-audio vital-signs-isolated-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization parallel-asr-diarization-mp compare-diarization-engines
+.PHONY: doctor setup dev test e2e eval lint sample-audio vital-signs-audio vital-signs-isolated-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization parallel-asr-diarization-mp compare-diarization-engines noisy-diarization-set eval-diarization-der
 
 doctor:
 	@echo "Checking required tools..."
@@ -157,3 +157,20 @@ parallel-asr-diarization-mp:
 # make compare-diarization-engines AUDIO=path [ENGINES=sherpa_cpu,...]
 compare-diarization-engines:
 	ARIAD_SHERPA_MODELS_DIR=./apps/api/models apps/api/.venv/bin/python scripts/compare_diarization_engines.py
+
+# tasks/07_NOISY_DIARIZATION_EVAL.md: builds the noisy diarization eval set
+# (clean + music/construction/neighbouring-rounds at SNR 0/5/10 dB) from the
+# existing synthetic fixtures, with known speaker-turn ground truth. Output
+# goes to data/eval_noisy_diarization (gitignored -- never commit). Free,
+# offline, seconds. Usage: make noisy-diarization-set [SNRS=0,5,10]
+noisy-diarization-set:
+	apps/api/.venv/bin/python scripts/generate_noisy_diarization_set.py
+
+# tasks/07_NOISY_DIARIZATION_EVAL.md: DER / missed / false alarm /
+# confusion / neighbour-speech leakage per condition x engine x
+# preprocessing (none vs light_denoise). Engines are
+# compare-diarization-engines' candidates (sherpa_cpu, pyannote_cuda,
+# sortformer_cuda, ...). Opt-in, free, never part of `make test`. Usage:
+# make eval-diarization-der [ENGINES=sherpa_cpu,sortformer_cuda] [PREPROCESS=none]
+eval-diarization-der:
+	ARIAD_SHERPA_MODELS_DIR=./apps/api/models apps/api/.venv/bin/python scripts/eval_diarization_der.py

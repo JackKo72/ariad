@@ -114,6 +114,8 @@ def _run_sherpa(audio_path: Path, provider: str) -> dict:
         "audio_duration_seconds": round(audio_duration, 2),
         "rtf": round(warm_ms / 1000 / audio_duration, 3) if audio_duration else None,
         "turns_detected": len(turns),
+        "speakers_detected": len({t.speaker for t in turns}),
+        "segments": [(t.start, t.end, str(t.speaker)) for t in turns],
         **sampler.summary(),
     }
 
@@ -185,7 +187,94 @@ def _run_pyannote(audio_path: Path, device: str) -> dict:
         "audio_duration_seconds": round(audio_duration, 2),
         "rtf": round(warm_ms / 1000 / audio_duration, 3) if audio_duration else None,
         "turns_detected": len(turns),
+        "speakers_detected": len({label for _seg, _track, label in turns}),
+        "segments": [(seg.start, seg.end, str(label)) for seg, _track, label in turns],
         "device": device,
+        **sampler.summary(),
+    }
+
+
+# Sortformer streaming presets from the nvidia/diar_streaming_sortformer_4spk-v2
+# model card (units: 80 ms frames). "high" = ~10 s latency, enough for
+# "finished right after the encounter ends" without ultra-low-latency cost.
+_SORTFORMER_PRESETS = {
+    "high": {"chunk_len": 124, "chunk_right_context": 1, "fifo_len": 124,
+             "spkcache_update_period": 124, "spkcache_len": 188},
+    "low": {"chunk_len": 6, "chunk_right_context": 7, "fifo_len": 188,
+            "spkcache_update_period": 144, "spkcache_len": 188},
+}
+
+
+def _run_sortformer(audio_path: Path, device: str, preset: str) -> dict:
+    """NeMo Sortformer (end-to-end, max 4 speakers). Uses the streaming v2
+    model -- v1 is CC-BY-NC (non-commercial), v2 is CC-BY-4.0. Trained mainly
+    on English; Korean clinical performance is unmeasured, which is exactly
+    what this candidate exists to measure."""
+    try:
+        import torch
+        from nemo.collections.asr.models import SortformerEncLabelModel
+    except ImportError as exc:
+        return {
+            "skipped": True,
+            "reason": (
+                f"nemo_toolkit[asr](또는 torch) 미설치: {exc}. "
+                "pip install Cython packaging && "
+                "pip install 'nemo_toolkit[asr]' 로 설치 (libsndfile1, ffmpeg 필요)."
+            ),
+        }
+
+    if device == "cuda" and not torch.cuda.is_available():
+        return {"skipped": True, "reason": "torch.cuda.is_available() == False -- GPU 없음 또는 CPU-only torch."}
+
+    import tempfile
+
+    from app.audio.preprocess import standardize_audio
+    from app.audio.validation import probe_audio
+    from compare_asr_engines import UtilizationSampler
+
+    try:
+        load_start = time.perf_counter()
+        model = SortformerEncLabelModel.from_pretrained(
+            "nvidia/diar_streaming_sortformer_4spk-v2", map_location=device
+        )
+        model.eval()
+        for name, value in _SORTFORMER_PRESETS[preset].items():
+            setattr(model.sortformer_modules, name, value)
+        model.sortformer_modules._check_streaming_parameters()
+        load_ms = (time.perf_counter() - load_start) * 1000
+    except Exception as exc:
+        return {"skipped": True, "reason": f"from_pretrained() failed: {type(exc).__name__}: {exc}"}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        # Sortformer requires mono/16 kHz -- same standardization the app uses.
+        wav_path = Path(tmp) / "16k.wav"
+        standardize_audio(audio_path, wav_path, "none")
+
+        model.diarize(audio=[str(wav_path)], batch_size=1)  # cold warm-up, discarded
+
+        with UtilizationSampler() as sampler:
+            decode_start = time.perf_counter()
+            segments = model.diarize(audio=[str(wav_path)], batch_size=1)[0]
+            warm_ms = (time.perf_counter() - decode_start) * 1000
+
+    # Each segment is "begin end speaker_N" (string) in current NeMo; accept a
+    # (begin, end, label) sequence too, and never print the label.
+    parsed = [tuple(s.split()) if isinstance(s, str) else tuple(s) for s in segments]
+    turns = [(float(begin), float(end), str(label)) for begin, end, label in parsed]
+    labels = {label for _begin, _end, label in turns}
+    audio_duration = probe_audio(str(audio_path)).duration_seconds
+
+    return {
+        "skipped": False,
+        "cold_load_ms": round(load_ms, 1),
+        "warm_diarize_ms": round(warm_ms, 1),
+        "audio_duration_seconds": round(audio_duration, 2),
+        "rtf": round(warm_ms / 1000 / audio_duration, 3) if audio_duration else None,
+        "turns_detected": len(segments),
+        "speakers_detected": len(labels),
+        "segments": turns,
+        "device": device,
+        "preset": preset,
         **sampler.summary(),
     }
 
@@ -195,6 +284,8 @@ CANDIDATES = {
     "sherpa_cuda": lambda audio: _run_sherpa(audio, provider="cuda"),
     "pyannote_cpu": lambda audio: _run_pyannote(audio, device="cpu"),
     "pyannote_cuda": lambda audio: _run_pyannote(audio, device="cuda"),
+    "sortformer_cuda": lambda audio: _run_sortformer(audio, device="cuda", preset="high"),
+    "sortformer_cuda_low": lambda audio: _run_sortformer(audio, device="cuda", preset="low"),
 }
 
 
@@ -228,29 +319,34 @@ def main() -> int:
         if result.get("skipped"):
             print(f"  SKIPPED: {result['reason']}")
         else:
-            print(json.dumps(result, ensure_ascii=False, indent=2))
+            # "segments" (per-turn timestamps + labels) feeds
+            # scripts/eval_diarization_der.py only -- kept out of this output.
+            printable = {k: v for k, v in result.items() if k != "segments"}
+            print(json.dumps(printable, ensure_ascii=False, indent=2))
         print()
 
     print("=" * 78)
     print("요약 (RTF = warm_diarize_ms / audio_duration_ms; 낮을수록 빠름, 목표 <= 0.1)")
     print("=" * 78)
-    header = f"{'engine':<16}{'RTF':>8}{'warm_ms':>12}{'gpu_util%':>12}{'cpu_util%':>12}"
+    header = f"{'engine':<20}{'RTF':>8}{'warm_ms':>12}{'gpu_util%':>12}{'cpu_util%':>12}{'speakers':>10}"
     print(header)
     print("-" * len(header))
     for key, result in results.items():
         if result.get("skipped"):
-            print(f"{key:<16}{'SKIPPED':>8}")
+            print(f"{key:<20}{'SKIPPED':>8}")
             continue
         rtf = result.get("rtf")
         warm_ms = result.get("warm_diarize_ms")
         gpu_util = result.get("gpu_util_avg_pct")
         cpu_util = result.get("cpu_util_avg_pct")
+        speakers = result.get("speakers_detected")
         print(
-            f"{key:<16}"
+            f"{key:<20}"
             f"{(f'{rtf:.3f}' if rtf is not None else '-'):>8}"
             f"{(f'{warm_ms:.0f}' if warm_ms is not None else '-'):>12}"
             f"{(f'{gpu_util:.0f}' if gpu_util is not None else '-'):>12}"
             f"{(f'{cpu_util:.0f}' if cpu_util is not None else '-'):>12}"
+            f"{(str(speakers) if speakers is not None else '-'):>10}"
         )
     print(
         "\n주의: pyannote_cuda의 gpu_util%가 0에 가깝거나 '-'이면 torch가 모델을 cuda 디바이스로 "

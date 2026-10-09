@@ -73,3 +73,5 @@ make lint          # format/lint/typecheck
 
 명령이 실패하면 성공으로 보고하지 말고 원인과 재현 명령을 남긴다.
 
+
+tasks/07_NOISY_DIARIZATION_EVAL.md: 화자분리는 `app/eval/diarization_metrics.py`의 frame DER(NIST 정의, collar 0.25 s, 최적 화자 매핑)로 기록하고, 옆 환자 회진처럼 이 진료가 아닌 발화가 우리 의사·환자 라벨로 들어간 비율(background leakage)을 함께 기록한다. 평가셋은 `make noisy-diarization-set`(합성 fixture + 음악/공사/옆 회진, SNR 0/5/10 dB, 출력은 gitignore된 `data/`), 측정은 `make eval-diarization-der ENGINES=... PREPROCESS=none,light_denoise`. 기본 fixture는 같은 TTS 음성이라 DER 절대값은 비관적이며, 엔진·전처리 간 상대 비교 용도다.
