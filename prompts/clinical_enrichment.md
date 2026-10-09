@@ -32,6 +32,10 @@ Version: 0.1.0
   표현("끊지 마세요", "계속 드세요")을 반전시키지 않는다 — "끊지 마세요"는
   `action="continue"`, `polarity="negated"`(중단을 부정)이지 `action="stop"`이
   아니다.
+- `dose_candidates`가 비어있지 않으면 시스템이 자동으로 `needs_review=true`로
+  덮어쓴다(ASR이 용량 숫자를 자주 놓치거나 잘못 인식한다는 실측 결과 때문 —
+  tasks/06_ASR_OUTPUT_VERIFICATION.md). `needs_review`를 직접 낮추려 하지
+  않아도 된다.
 
 ### symptoms (증상과 기능)
 - `reported_by`로 환자 진술(patient) / 보호자 진술(guardian) / 의사의 질문
@@ -46,6 +50,13 @@ Version: 0.1.0
 - `score_candidates`(mRS, NIHSS, MRC 등급 등)는 원문에 실제 숫자나 등급 표현이
   있을 때만 채운다. 지시나 요청 문장만으로 점수를 계산하거나 추정하지 않는다.
   점수를 만들 수 없으면 `score_computable=false`, `score_candidates=[]`.
+- `value_candidates`(혈압, 체중, 혈당, 맥박, 체온 등 일반 수치 관찰)도 같은
+  규칙이다 — 원문에 숫자가 그대로 있을 때만 채운다. 숫자가 없거나 불확실하면
+  빈 배열로 둔다. 이 필드는 비어있지 않으면 시스템이 자동으로
+  `needs_review=true`로 덮어쓴다(ASR이 숫자를 자주 놓치거나 잘못 인식한다는
+  실측 결과 때문 — tasks/06_ASR_OUTPUT_VERIFICATION.md) — 모델이 `needs_review`
+  를 `false`로 줘도 무시되므로, 숫자가 확실하다고 해서 `needs_review`를
+  낮추려 하지 않아도 된다.
 
 ### diagnoses (진단)
 - `kind="confirmed"`/`"doctor_differential"`은 의사가 명시적으로 말한 경우만

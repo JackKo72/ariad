@@ -84,6 +84,105 @@ def test_score_with_verbatim_number_in_source_is_kept():
     assert fixed.validator_violations == []
 
 
+def test_value_candidates_without_verbatim_number_is_cleared():
+    enrichment = ClinicalEnrichment(
+        exam=[
+            ExamFinding(
+                id="e3",
+                raw_text="다리 들어보세요",
+                kind="order",
+                value_candidates=[{"value": "138/86", "confidence": "low"}],
+                source_spans=[_span("s1", "다리 들어보세요", "A", "doctor")],
+            )
+        ]
+    )
+    fixed = validate_enrichment(enrichment, _SEGMENTS)
+    assert fixed.exam[0].value_candidates == []
+    assert any("value_candidates" in v for v in fixed.validator_violations)
+
+
+def test_value_candidates_with_verbatim_number_is_kept():
+    segments = _SEGMENTS + [
+        DiarizedSegment(id="s8", speaker="A", role="doctor", start=14.0, end=16.0, text="혈압이 138에 86으로 나왔습니다")
+    ]
+    enrichment = ClinicalEnrichment(
+        exam=[
+            ExamFinding(
+                id="e4",
+                raw_text="혈압이 138에 86으로 나왔습니다",
+                kind="observation",
+                value_candidates=[{"value": "138/86", "confidence": "high"}],
+                source_spans=[_span("s8", "혈압이 138에 86으로 나왔습니다", "A", "doctor")],
+            )
+        ]
+    )
+    fixed = validate_enrichment(enrichment, segments)
+    assert fixed.exam[0].value_candidates
+    assert fixed.validator_violations == []
+
+
+def test_grounded_numeric_exam_candidate_forces_needs_review_even_if_provider_said_false():
+    # tasks/06_ASR_OUTPUT_VERIFICATION.md: ASR frequently drops/garbles
+    # numbers -- a provider explicitly setting needs_review=False must
+    # never be trusted when a numeric candidate (score or value) survives
+    # grounding.
+    segments = _SEGMENTS + [
+        DiarizedSegment(id="s9", speaker="A", role="doctor", start=16.0, end=18.0, text="혈당이 118로 나왔습니다")
+    ]
+    enrichment = ClinicalEnrichment(
+        exam=[
+            ExamFinding(
+                id="e5",
+                raw_text="혈당이 118로 나왔습니다",
+                kind="observation",
+                value_candidates=[{"value": "118", "confidence": "high"}],
+                needs_review=False,
+                source_spans=[_span("s9", "혈당이 118로 나왔습니다", "A", "doctor")],
+            )
+        ]
+    )
+    fixed = validate_enrichment(enrichment, segments)
+    assert fixed.exam[0].needs_review is True
+
+
+def test_grounded_dose_candidate_forces_needs_review_even_if_provider_said_false():
+    segments = _SEGMENTS + [
+        DiarizedSegment(id="s10", speaker="A", role="doctor", start=18.0, end=20.0, text="리시노프릴 5밀리그램 드세요")
+    ]
+    enrichment = ClinicalEnrichment(
+        medications=[
+            MedicationFinding(
+                id="m3",
+                raw_text="리시노프릴 5밀리그램 드세요",
+                dose_candidates=[{"value": "5mg", "confidence": "high"}],
+                needs_review=False,
+                source_spans=[_span("s10", "리시노프릴 5밀리그램 드세요", "A", "doctor")],
+            )
+        ]
+    )
+    fixed = validate_enrichment(enrichment, segments)
+    assert fixed.medications[0].needs_review is True
+
+
+def test_medication_without_dose_candidates_respects_provider_needs_review():
+    segments = _SEGMENTS + [
+        DiarizedSegment(id="s11", speaker="A", role="doctor", start=20.0, end=22.0, text="계속 같은 약 드세요")
+    ]
+    enrichment = ClinicalEnrichment(
+        medications=[
+            MedicationFinding(
+                id="m4",
+                raw_text="계속 같은 약 드세요",
+                action="continue",
+                needs_review=False,
+                source_spans=[_span("s11", "계속 같은 약 드세요", "A", "doctor")],
+            )
+        ]
+    )
+    fixed = validate_enrichment(enrichment, segments)
+    assert fixed.medications[0].needs_review is False
+
+
 def test_diagnosis_without_doctor_source_is_demoted_to_follow_up_question():
     enrichment = ClinicalEnrichment(
         diagnoses=[

@@ -538,3 +538,53 @@ ASR 출력을 그대로 신뢰하지 않는다"는 쪽으로 결론이 기운다
 최종 선택하든(또는 둘 다 안 바꾸든) 유효하다. 2번은 가치 있지만 별도
 task로 분리할 만큼 크다. 어느 방향으로 진행할지 알려주면 이어서
 진행하겠다.
+
+## 1번 구현 완료: 숫자/수치 필드 강제 needs_review (2026-10-09)
+
+사용자가 1번(엔진 교체 없이, 숫자/수치 필드를 항상 검토 필요로 보낸다)을
+선택해 구현했다.
+
+- `apps/api/app/domain/models.py`: `ExamFinding`에 `value_candidates:
+  list[NormalizedCandidate]` 신규 필드 추가 — 기존 `score_candidates`
+  (mRS/NIHSS/MRC 등 등급 전용)와 별도로, 혈압/체중/혈당/맥박/체온 같은
+  **일반 수치 관찰**을 담는다. `score_candidates`의 기존 설계(원문에
+  숫자가 그대로 있을 때만 채움)를 그대로 일반화한 것 — 새 패턴을 만들지
+  않고 기존 메커니즘을 재사용했다.
+- `apps/api/app/pipeline/enrichment_validation.py`: 두 가지 강제 규칙
+  추가.
+  1. **grounding 확장**: `value_candidates`도 `score_candidates`와 같은
+     방식으로 source_span에 숫자가 실제로 있는지 검사하고, 없으면
+     비운다(+ violation 기록).
+  2. **신규: 무조건 `needs_review=True` 강제** — `MedicationFinding.
+     dose_candidates`가 비어있지 않거나, `ExamFinding.score_candidates`/
+     `value_candidates`가 비어있지 않으면(grounding 통과분만), provider가
+     `needs_review=False`를 줬더라도 **무조건 `True`로 덮어쓴다**. 이게
+     이번 요청의 핵심 — "어느 엔진을 쓰든" 숫자가 있으면 검토 필요를
+     보장하는 지점이다(provider가 뭘 주든 이 레이어에서 강제).
+- `prompts/clinical_enrichment.md`: `value_candidates`와 `dose_candidates`
+  관련 안내 추가 — 모델이 `needs_review`를 낮추려 해도 시스템이 무시한다는
+  점을 명시(실제 LLM provider가 이 규칙에 맞춰 불필요한 확신을 표현하지
+  않도록).
+- 테스트(`apps/api/tests/test_enrichment_validation.py`, 6개 추가):
+  - `value_candidates` grounding 통과/실패 각각.
+  - **provider가 명시적으로 `needs_review=False`를 줘도** 숫자 후보가
+    있으면(exam value, medication dose 각각) 강제로 `True`가 되는지.
+  - **역방향 확인**: 숫자 후보가 전혀 없는 medication은 provider가 준
+    `needs_review=False`가 그대로 유지되는지(과잉 강제 없음 확인).
+- `apps/api/app/providers/mock.py`는 수정하지 않았다 — mock은 아직
+  `value_candidates`를 채우는 규칙이 없어서(혈압/체중 등 수치 관찰을
+  감지하는 규칙 자체가 미구현) 이 변경의 영향을 받지 않는다. 실제 수치를
+  추출하는 새 규칙(leading-keyword anchor 포함)은 여전히 보류 상태다 —
+  이번 변경은 "추출된 숫자를 신뢰하지 않는다"는 안전장치이고, "숫자를
+  더 잘 추출한다"는 별개의(아직 하지 않은) 작업이다.
+- `apps/api/app/providers/openai_llm.py`는 수정 불필요 — `ClinicalEnrichment`
+  pydantic 모델을 그대로 structured output 스키마로 쓰므로 새 필드가
+  자동으로 반영된다.
+- 전체 테스트 222개 통과(기존 217 + 신규 6 — 1개는 "과잉 강제 없음"
+  역방향 테스트), ruff clean.
+
+**의도적으로 하지 않은 것**: 실제 혈압/체중/혈당 수치를 ASR 텍스트에서
+추출하는 규칙(leading-keyword anchor, mock provider 규칙 추가 등)은
+여전히 미구현 — 이번 변경은 "있다면 믿지 않는다"이지 "더 잘 뽑아낸다"가
+아니다. 프론트엔드에 이 `needs_review`/`value_candidates`를 보여주는
+UI도 없음(Phase 04 때부터 알려진 제한, 그대로 유지).

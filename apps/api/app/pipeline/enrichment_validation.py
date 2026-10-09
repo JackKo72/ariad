@@ -60,6 +60,12 @@ def validate_enrichment(
                 f"medication {item.id}: source negates stopping but action=stop -- downgraded to unknown"
             )
             action, needs_review = "unknown", True
+        # tasks/06_ASR_OUTPUT_VERIFICATION.md: real-hardware measurement
+        # found ASR frequently drops/garbles dose numbers -- a dose
+        # candidate is never auto-trusted regardless of which provider
+        # (mock, OpenAI, or a future ASR-adjacent one) set needs_review.
+        if item.dose_candidates:
+            needs_review = True
         medications.append(item.model_copy(update={"source_spans": spans, "action": action, "needs_review": needs_review}))
 
     exam: list[ExamFinding] = []
@@ -67,9 +73,10 @@ def validate_enrichment(
         spans, has_ground = ground_or_drop("exam", item.id, item.source_spans)
         if not has_ground:
             continue
-        score_candidates, score_computable, needs_review = (
+        score_candidates, score_computable, value_candidates, needs_review = (
             item.score_candidates,
             item.score_computable,
+            item.value_candidates,
             item.needs_review,
         )
         if score_candidates and not any(_HAS_DIGIT_RE.search(s.quote) for s in spans):
@@ -77,12 +84,23 @@ def validate_enrichment(
                 f"exam {item.id}: score_candidates without a verbatim number in source -- cleared"
             )
             score_candidates, score_computable, needs_review = [], False, True
+        if value_candidates and not any(_HAS_DIGIT_RE.search(s.quote) for s in spans):
+            violations.append(
+                f"exam {item.id}: value_candidates without a verbatim number in source -- cleared"
+            )
+            value_candidates, needs_review = [], True
+        # Same rule as medication dose above: any surviving numeric
+        # observation (a graded score or a raw measurement like BP/weight/
+        # glucose) is never auto-trusted, regardless of provider input.
+        if score_candidates or value_candidates:
+            needs_review = True
         exam.append(
             item.model_copy(
                 update={
                     "source_spans": spans,
                     "score_candidates": score_candidates,
                     "score_computable": score_computable,
+                    "value_candidates": value_candidates,
                     "needs_review": needs_review,
                 }
             )
