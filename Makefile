@@ -1,4 +1,4 @@
-.PHONY: doctor setup dev test e2e eval lint sample-audio vital-signs-audio vital-signs-isolated-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization parallel-asr-diarization-mp compare-diarization-engines noisy-diarization-set eval-diarization-der draft-annotation labels-to-reference
+.PHONY: doctor setup dev test e2e eval lint sample-audio vital-signs-audio vital-signs-isolated-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization parallel-asr-diarization-mp compare-diarization-engines noisy-diarization-set eval-diarization-der draft-annotation labels-to-reference answer-to-transcript eval-structure
 
 doctor:
 	@echo "Checking required tools..."
@@ -189,3 +189,16 @@ draft-annotation:
 # Usage: make labels-to-reference LABELS=data/annotations/x.labels.txt
 labels-to-reference:
 	apps/api/.venv/bin/python scripts/labels_to_reference.py
+
+# tasks/09_STRUCTURE_EVAL_AGAINST_CLINICIAN_GOLD.md: clinician-typed answer
+# transcript ("의사: ...", no timestamps) -> <stem>.transcript.json in data/.
+# Usage: make answer-to-transcript ANSWER=data/annotations/x.answer.txt [SPEAKERS=의사,보호자]
+answer-to-transcript:
+	apps/api/.venv/bin/python scripts/answer_to_transcript.py
+
+# Runs the app's enrichment + structure stages on a transcript and scores
+# them against a clinician gold list (conversation recall, chart-only
+# leaks, latency). Mock by default; REAL=1 calls OpenAI after a y/N prompt.
+# Usage: make eval-structure TRANSCRIPT=data/annotations/x.transcript.json GOLD=data/annotations/x.gold.json [REAL=1]
+eval-structure:
+	apps/api/.venv/bin/python scripts/eval_structure_against_gold.py
