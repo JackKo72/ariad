@@ -382,3 +382,85 @@ make diagnose-asr AUDIO=tests/fixtures/audio/vital_signs_isolated.wav
 
 **leading-keyword anchor 설계는 이 결과가 나올 때까지 보류한다** — 숫자
 텍스트가 ASR 출력에 없는 상태에서 "앵커 규칙"을 설계하는 건 의미가 없다.
+
+## `vital_signs_isolated.wav` 실측 결과 — 부분 개선, 가설 부분 반증 (2026-10-09)
+
+`make diagnose-asr`가 실제로 **6개 구간을 따로 디코딩**했음을 확인시켜줬다
+(2.0초 간격이 `merge_diarization_turns`의 0.8초 병합 임계값을 성공적으로
+이겼다는 뜻):
+
+```
+turn  duration_s   ko_fired     ko_ms
+0     5.906        True         13429.7
+1     4.050        True         13773.7
+2     5.754        True         14849.3
+3     4.792        True         12992.5
+4     6.986        True         15893.5
+5     4.219        True          8637.7
+```
+
+**결과는 "완전 반증"도 "완전 확인"도 아니다 — 부분적으로만 개선됐다.**
+짧게 격리된 구간에서도 숫자 6개 중 다수(138/86, 72, 118)는 여전히
+완전히 사라졌다. 하지만 이번엔 숫자 조각이 **처음으로 일부 등장**했다 —
+"팔십사"(84, seg_005의 "132에 84" 중 84 — **정확히 맞음**), "십 회"(seg_005
+"70회였습니다" 중 단위 구조는 맞지만 값은 틀림), "삼십"(seg_006 "37.5도"의
+"37" 일부 — 소수점·단위 소실). 긴 병합 구간(53.34초 전체가 2조각)에서는
+숫자 음절이 **하나도** 안 나왔던 것과 비교하면, 짧은 구간(개별 4~7초)이
+일부 숫자를 복구하긴 했다 — 즉 디코딩 구간 길이가 **원인 중 하나이긴
+하지만 유일한 원인은 아니다.** 나머지 소실(138/86/72/118)은 구간을
+짧게 해도 안 고쳐지는, 더 근본적인(양자화? 모델 자체?) 문제로 보인다.
+
+**속도는 개선되지 않았다**: `diagnose-asr`의 `ko_fallback` 총
+79576.5ms/31.71s 입력 = 순수 decode RTF **2.51** — 오히려 이전(merged,
+긴 구간)보다 나쁘거나 비슷하다. 짧게 쪼개는 게 속도 이득은 없다 —
+있다면 정확도 이득뿐인데, 그마저 부분적이다.
+
+**별개로 확인한 것**: 이 fixture는 전부 의사(A) 화자만 담아서
+"speaker/diarization consistency: 6/6(100%)"가 나왔는데, 이건 비교
+대상이 전부 같은 라벨이라 trivially 100%인 것 — 화자분리 자체가
+좋아졌다는 뜻은 아니다(설계상 이 fixture는 화자 구분을 테스트하지
+않음). `auto_then_ko` vs `ko_only` RTF가 이번에도 비슷했다(2.12 vs
+1.96) — 지난번과 같은 이유(`_NON_KOREAN_RE`가 라틴 문자를 못 잡아서
+ko fallback이 안 일어남)로 재확인됨, 이 설명이 반복 재현된다는 뜻.
+
+### 다음 진단: faster-whisper(다른 런타임/정밀도)로 같은 fixture 교차 확인
+
+숫자 소실이 구간 길이와 무관하게 일부 남는다는 건, sherpa-onnx CPU int8
+large-v3 양자화 모델 자체의 한계일 가능성을 시사한다. 이를 가르기 위해
+**새 코드 없이 기존 도구로** 바로 확인 가능하다 —
+`scripts/check_faster_whisper_accuracy.py`는 faster-whisper가 자체
+세그먼트 경계를 쓰므로(diarization/merge_diarization_turns 영향을 전혀
+안 받음) sherpa-onnx의 청크 분할 로직과 완전히 독립적으로 같은 질문을
+던질 수 있다. `AUDIO=`/`GROUND_TRUTH=` 오버라이드도 이미 지원한다
+(오늘 사용 중 발견: 이 스크립트도 `compare_asr_accuracy.py`와 같은 "다른
+ground truth 파일의 미해당 anchor는 FAIL이 아니라 SKIPPED로 표시" 버그가
+있어서 같이 고쳤다).
+
+**사용자가 직접 실행할 것**:
+```bash
+FASTER_WHISPER_MODEL=large-v3 \
+AUDIO=tests/fixtures/audio/vital_signs_isolated.wav \
+GROUND_TRUTH=tests/fixtures/audio/vital_signs_isolated.transcript.json \
+make check-faster-whisper-accuracy
+```
+(약명/부정/날짜 anchor 4개는 이 fixture에 없어 전부 SKIPPED로 나올 것 —
+정상. 중요한 건 per-segment expected/predicted 텍스트에 숫자가 보이는지다.)
+
+**결과 해석**:
+- faster-whisper(CUDA, large-v3)에서 숫자가 **잘 나오면** → sherpa-onnx
+  CPU int8 양자화 특유의 문제일 가능성이 커진다 — 다만 tasks/05에서
+  이미 faster-whisper large-v3가 부정 표현("않")을 삭제하는 별도 안전
+  문제가 확인됐으므로, "숫자는 되는데 부정은 안 되는" 트레이드오프를
+  어떻게 다룰지 결정이 필요해진다.
+- faster-whisper에서도 숫자가 **마찬가지로 빠지면** → 모델/엔진에
+  무관하게 자연스러운 문장에 섞인 한국어 숫자 인식 자체가 현재 ASR
+  스택 공통의 약점이라는 뜻 — 이 경우 post-ASR 텍스트 보정(leading/
+  trailing anchor 등)으로는 해결할 수 없다(없는 텍스트를 보정할 수
+  없음). 그 경우의 현실적인 다음 전략은 "숫자가 포함된 생체 신호
+  필드는 ASR 결과를 신뢰하지 않고 항상 `needs_review`로 보낸다"는
+  하류 안전장치 쪽으로 방향을 바꾸는 것이 될 것이다(CLAUDE.md의
+  "불확실한 임상 사실은 검토 필요 상태로 보낸다" 원칙과 직접 부합).
+
+**leading-keyword anchor 설계는 여전히 보류** — 위 교차 확인 결과가
+나온 뒤, "post-ASR 보정으로 해결 가능한 문제인지" 자체를 먼저 판단해야
+한다.

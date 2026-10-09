@@ -131,14 +131,24 @@ def main() -> int:
         print(f"    expected : {gt_seg['text']}")
         print(f"    predicted: {matched_text or '(no overlapping predicted segment)'}")
 
+    gt_segment_ids = {seg["id"] for seg in ground_truth}
     print("\nClinical-anchor checks:")
     pass_count = 0
+    applicable_count = 0
     for check in ACCURACY_CHECKS:
+        if check["segment_id"] not in gt_segment_ids:
+            # A different GROUND_TRUTH= fixture (e.g. one with no
+            # medication/negation/date content at all) won't have this
+            # segment id -- say so plainly instead of printing a
+            # misleading FAIL for a check that was never applicable here.
+            print(f"  [SKIPPED] {check['segment_id']}: {check['label']} (not in this ground truth file)")
+            continue
+        applicable_count += 1
         text = _normalize(matched_by_id.get(check["segment_id"], ""))
         passed = any(_normalize(kw) in text for kw in check["keywords"])
         pass_count += passed
         print(f"  [{'PASS' if passed else 'FAIL'}] {check['segment_id']}: {check['label']}")
-    print(f"\n{pass_count}/{len(ACCURACY_CHECKS)} anchors passed")
+    print(f"\n{pass_count}/{applicable_count} anchors passed")
 
     print(
         "\nNote: compare this pass count and the per-segment text directly against "
