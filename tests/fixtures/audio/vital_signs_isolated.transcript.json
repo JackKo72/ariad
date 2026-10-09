@@ -1,0 +1,58 @@
+{
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "expected_role": "doctor",
+      "start": 0.0,
+      "end": 6.2,
+      "text": "오늘 혈압을 재보니 138에 86으로 나왔습니다.",
+      "vital_sign_pattern": "bp_bare_number_leading_keyword"
+    },
+    {
+      "id": "seg_002",
+      "speaker": "A",
+      "expected_role": "doctor",
+      "start": 8.2,
+      "end": 12.59,
+      "text": "체중을 확인해보니 72킬로그램이네요.",
+      "vital_sign_pattern": "weight_leading_and_trailing_unit"
+    },
+    {
+      "id": "seg_003",
+      "speaker": "A",
+      "expected_role": "doctor",
+      "start": 14.59,
+      "end": 20.57,
+      "text": "공복 혈당 검사를 했는데 수치가 118로 나왔습니다.",
+      "vital_sign_pattern": "glucose_keyword_distant_from_number"
+    },
+    {
+      "id": "seg_004",
+      "speaker": "A",
+      "expected_role": "doctor",
+      "start": 22.57,
+      "end": 27.57,
+      "text": "맥박은 분당 76회로 측정되었습니다.",
+      "vital_sign_pattern": "pulse_trailing_unit_with_gap"
+    },
+    {
+      "id": "seg_005",
+      "speaker": "A",
+      "expected_role": "doctor",
+      "start": 29.57,
+      "end": 36.73,
+      "text": "오늘은 혈압이 132에 84, 맥박은 70회였습니다.",
+      "vital_sign_pattern": "two_vitals_one_sentence_ownership_ambiguity"
+    },
+    {
+      "id": "seg_006",
+      "speaker": "A",
+      "expected_role": "doctor",
+      "start": 38.73,
+      "end": 43.04,
+      "text": "체온을 재보니 37.5도였습니다.",
+      "vital_sign_pattern": "temperature_decimal_out_of_scope"
+    }
+  ]
+}

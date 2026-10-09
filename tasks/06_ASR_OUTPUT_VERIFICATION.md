@@ -276,3 +276,109 @@ make compare-asr-accuracy
   실측 결과를 받은 뒤 진행.
 - diarization이 10개 세그먼트를 1개로 병합하는 근본 문제 수정 — 별도
   과제(tasks/03 Phase 2 전제조건으로 이미 기록됨).
+
+## vital-signs fixture 실측 결과 — 숫자가 "깨짐"이 아니라 "소실" (2026-10-09)
+
+사용자가 `vital_signs_dictation.wav`로 `make compare-asr-accuracy`를
+실행한 결과를 보냈다. **leading-keyword anchor 설계보다 먼저 다뤄야 할
+더 근본적인 문제를 발견했다.**
+
+### 발견 1: 숫자 5개(138/86, 72, 118, 76, 132/84/70)가 전부 사라짐
+
+ko_only(현재 기본값) 전체 전사문에서 숫자가 포함된 6개 문장(도입부
+혈압/체중/혈당/맥박/혈압·맥박 동시/체온) 전부, **숫자 자체가 아예
+나타나지 않았다** — 숫자 아닌 음절로 대체되거나 그냥 사라졌다:
+
+| 기대 | 실제 predicted |
+|---|---|
+| "혈압을 재보니 138에 86으로 나왔습니다" | "여러 불한 일상 속에 빠어 유가 니다" |
+| "체중을 확인해보니 72킬로그램이네요" | "해율과 인해니 실시피크이도 구요" |
+| "검사를 했는데 수치가 118로 나왔습니다" | "돈 복단 점사 스치카스입 파 니다" |
+
+반면 숫자가 없는 짧은 환자 대답은 정확하거나 거의 정확했다("네,
+알겠습니다." → 완전 일치, "지난번보다 조금 높아진 것 같아요." →
+"지다 조금 높아진 것 같아요."). **이건 tasks/05의 "145에 92로" →
+"백사십오에구십이초금"보다 더 나쁜 결과다** — 그때는 숫자 음절이 깨진
+채로라도 남아있었는데, 이번엔 숫자 음절 자체가 하나도 안 보인다.
+
+### 발견 2: TTS 발음 문제가 아님을 직접 확인함
+
+이 샌드박스에서 `espeak-ng -v ko -x`(음소 출력, 오디오 재생 없이 텍스트만
+확인 가능)로 직접 확인:
+
+```
+espeak-ng -v ko -x "138에 86으로"   ->  백(100)+삼(3)+십(10)+팔(8) 에 팔(8)+십(10)+육(6) 으로
+espeak-ng -v ko -x "72킬로그램"      ->  칠(7)+십(10)+이(2) 킬로그램
+espeak-ng -v ko -x "145에 92로"      ->  백(100)+사(4)+십(10)+오(5) 에 구(9)+십(10)+이(2) 로
+```
+
+전부 올바른 한국어 숫자 단어로 정확히 발음된다. **TTS가 숫자를 잘못
+읽어서 ASR이 못 알아들은 게 아니다** — 오디오 자체는 "백삼십팔...
+팔십육..."을 정확히 말하고 있는데, ASR이 그걸 인식하지 못하고 전혀 다른
+음절을 뱉어낸 것이다.
+
+### 가설(코드로 근거는 있지만 확정은 아님): 디코딩 구간 길이
+
+`SherpaOnnxASRProvider.merge_diarization_turns()`는 병합된 구간이
+28초(`max_segment_seconds`)를 넘으면 균등 분할한다. 이 프로젝트의 알려진
+diarization 병합 버그(README) 때문에 두 fixture 모두 전체가 먼저 1개
+구간으로 뭉쳐지는데:
+
+- `sample_consultation.wav`(59.54s) → ceil(59.54/28)=**3조각**(~19.9s씩)
+  → 숫자 1개 사례, **깨졌지만 숫자 음절은 남음**
+- `vital_signs_dictation.wav`(53.34s) → ceil(53.34/28)=**2조각**(~26.7s씩)
+  → 숫자 5개 사례, **전부 소실**
+
+조각이 길수록(26.7s > 19.9s) 숫자 인식이 더 나빠지는 상관관계가 보이지만,
+**표본이 2개뿐이라 증명은 아니다** — 추측을 사실처럼 말하지 않기 위해
+검증용 fixture를 추가로 만들었다(아래).
+
+### 별개로 확인한 것: auto_then_ko ≈ ko_only RTF (2.35 = 2.35, 평소엔 2x 차이였음)
+
+`_NON_KOREAN_RE = re.compile(r"[Ͱ-ϿЀ-ӿ؀-ۿ぀-ヿ一-鿿]")`(그리스/키릴/아랍/
+일본어가나/CJK만 매치, **라틴 문자는 매치 안 함**)를 코드에서 직접
+재확인했다. auto_then_ko의 자체 auto-decode 결과가 라틴 문자로만 된
+환각("Oul fiora pulce...", 심지어 헝가리어 단어 "és ez a nyúl"까지 섞임)
+이라서, `ko_fired = _NON_KOREAN_RE.search(text) or turn_duration < 1.2`가
+**False**가 되어 이번엔 ko fallback 디코딩이 전혀 안 일어난 것으로
+보인다 — 그래서 auto_then_ko도 이번엔 디코딩을 1회만 해서(auto만) ko_only
+(ko만 1회)와 시간이 비슷해진 것 같다. sample_consultation에서는 같은
+라틴 환각이었는데도 auto_then_ko가 ko_only의 2배였던 것과 대조적인데,
+그건 그 fixture가 3조각으로 나뉘어서 조각마다 ko_fired 여부가 달랐을
+가능성이 있다(모든 조각이 라틴 환각이 아니었을 수 있음) — 역시 추측,
+`make diagnose-asr`로 조각별 `ko_fallback_count`를 보면 확인 가능하다.
+
+### 다음 진단: `vital_signs_isolated.wav`(짧게 격리된 구간으로 재시험)
+
+`scripts/generate_vital_signs_isolated_fixture.py`(신규,
+`make vital-signs-isolated-audio`) — 숫자가 들어간 6개 문장만, **각 문장
+사이에 2.0초 간격**(기존 fixture의 0.6초보다 길게, `merge_diarization_
+turns`의 `merge_gap_seconds=0.8`보다 길게)을 둬서 화자 클러스터링이
+틀려도 시간 간격만으로 병합이 막히도록 설계했다 — 각 문장이 자기만의
+짧은(4~7초) 구간으로 디코딩될 것으로 예상된다(diarization이 실제로
+6개 구간으로 나누는지는 `make diagnose-asr`로 확인 필요 — 간격 기반
+방어가 클러스터링 버그보다 강한지는 아직 실측 전).
+
+**사용자가 직접 실행할 것**:
+```bash
+AUDIO=tests/fixtures/audio/vital_signs_isolated.wav \
+GROUND_TRUTH=tests/fixtures/audio/vital_signs_isolated.transcript.json \
+make compare-asr-accuracy
+
+# 추가로 실제 구간 개수/경계 확인:
+make diagnose-asr AUDIO=tests/fixtures/audio/vital_signs_isolated.wav
+```
+
+**결과 해석 방법**:
+- 숫자가 **돌아오면** → 디코딩 구간이 짧을수록 숫자 인식이 낫다는 뜻 —
+  tasks/05 item 3의 미착수 후보("화자분리 전 발화 chunk 인식")가 숫자
+  보존에도 도움될 근거가 되고, leading-keyword anchor 설계를 재개할 수
+  있다(그때는 적어도 앵커를 걸 숫자 텍스트가 ASR 출력에 존재하니까).
+- 숫자가 **여전히 안 돌아오면** → 구간 길이와 무관한 문제(이 양자화
+  모델의 숫자 인식 자체 한계일 가능성) — leading-keyword anchor 설계는
+  의미가 없다(앵커를 걸 대상 텍스트가 ASR 출력에 없으므로). 이 경우
+  faster-whisper(CUDA, tasks/05 경로 A)로 같은 fixture를 돌려 다른
+  런타임/정밀도에서도 같은 현상이 나는지 확인하는 게 다음 단계가 될 것.
+
+**leading-keyword anchor 설계는 이 결과가 나올 때까지 보류한다** — 숫자
+텍스트가 ASR 출력에 없는 상태에서 "앵커 규칙"을 설계하는 건 의미가 없다.

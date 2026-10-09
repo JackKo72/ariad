@@ -217,6 +217,26 @@ make compare-asr-accuracy
 # 표시된다 — 정상 동작.
 ```
 
+**실측 결과(2026-10-09)**: 위 fixture로 실제 돌려보니 숫자 5개(138/86,
+72, 118, 76, 132/84/70)가 전부 사라졌다(단순 "깨짐"이 아니라 숫자 음절
+자체가 안 나타남) — `espeak-ng -v ko -x`로 TTS 발음 자체는 정확함을
+확인했으니 TTS 문제는 아니다. 디코딩 구간 길이(merge_diarization_turns의
+28초 분할)와 관련 있을 가능성을 검증하는 추가 fixture를 만들었다:
+
+```bash
+make vital-signs-isolated-audio
+# 숫자 포함 문장 6개를 각각 2.0초 간격으로 격리(merge_diarization_turns의
+# merge_gap_seconds=0.8초보다 길게 둬서 재병합을 막음) -- 각 문장이 짧은
+# 단독 구간으로 디코딩되는지, 그러면 숫자가 돌아오는지 확인하는 진단용.
+
+AUDIO=tests/fixtures/audio/vital_signs_isolated.wav \
+GROUND_TRUTH=tests/fixtures/audio/vital_signs_isolated.transcript.json \
+make compare-asr-accuracy
+make diagnose-asr AUDIO=tests/fixtures/audio/vital_signs_isolated.wav  # 실제 구간 개수 확인
+```
+
+자세한 분석과 결과 해석 방법은 tasks/06_ASR_OUTPUT_VERIFICATION.md 참고.
+
 RTF·정확도 두 지표 모두 `ko_only`가 확인된 개선이므로(속도만으로 채택하지 않는다는
 원칙 충족) **`ko_only`를 기본값으로 전환했다** (`ARIAD_ASR_KO_MODE` 생략 시 `ko_only`).
 `auto_then_ko`는 다국어 시나리오 참고용으로 env var를 통해 여전히 선택 가능하지만,

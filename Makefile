@@ -1,4 +1,4 @@
-.PHONY: doctor setup dev test e2e eval lint sample-audio vital-signs-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization parallel-asr-diarization-mp compare-diarization-engines
+.PHONY: doctor setup dev test e2e eval lint sample-audio vital-signs-audio vital-signs-isolated-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization parallel-asr-diarization-mp compare-diarization-engines
 
 doctor:
 	@echo "Checking required tools..."
@@ -27,6 +27,16 @@ sample-audio:
 # GROUND_TRUTH=.../vital_signs_dictation.transcript.json.
 vital-signs-audio:
 	python3 scripts/generate_vital_signs_fixture.py
+
+# tasks/06_ASR_OUTPUT_VERIFICATION.md diagnostic: real data showed
+# vital_signs_dictation.wav losing ALL its numbers entirely (not just
+# garbled) -- this isolates each vital-sign line with a 2.0s gap (beats
+# merge_diarization_turns' 0.8s merge threshold) so each line decodes as
+# its own short turn, to test whether a short decode context recovers the
+# numbers a long merged one lost. Regenerates tests/fixtures/audio/
+# vital_signs_isolated.wav + .transcript.json (6 segments, no filler lines).
+vital-signs-isolated-audio:
+	python3 scripts/generate_vital_signs_isolated_fixture.py
 
 setup:
 	python3 -m venv apps/api/.venv
