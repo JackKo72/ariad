@@ -1,4 +1,4 @@
-.PHONY: doctor setup dev test e2e eval lint sample-audio vital-signs-audio vital-signs-isolated-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization parallel-asr-diarization-mp compare-diarization-engines
+.PHONY: doctor setup dev test e2e eval sim lint sample-audio vital-signs-audio vital-signs-isolated-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization parallel-asr-diarization-mp compare-diarization-engines
 
 doctor:
 	@echo "Checking required tools..."
@@ -71,6 +71,11 @@ eval:
 	apps/api/.venv/bin/python scripts/eval_clinical_enrichment.py
 	apps/api/.venv/bin/python scripts/eval_action_directives.py
 	apps/api/.venv/bin/python scripts/eval_barriers.py
+
+# docs/ARIAD_stage2_design.md Step 7: scenarios A–D through the stage 2
+# pipeline (mock provider by default); reports land in sim/output/.
+sim:
+	apps/api/.venv/bin/python sim/run_scenarios.py --out sim/output
 
 lint:
 	apps/api/.venv/bin/ruff check apps/api scripts

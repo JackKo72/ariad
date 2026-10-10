@@ -207,3 +207,15 @@ def test_unjudgeable_items_raise(item, code, match):
 def test_judge_module_has_no_llm_dependency():
     source = inspect.getsource(judge_module)
     assert "provider" not in source.lower() and "generate_json" not in source
+
+
+def test_missed_measurements_lower_the_rate_instead_of_hiding_it():
+    """Regression (found by the Step 7 simulation): H2 measured on 3 of 7
+    targeted days must read as non-adherent, not indeterminate."""
+    j = _judge("H2", 7, "measurements_per_week", [120, 118, 125])
+    assert (j.label, j.rate, j.response_rate) == (AdherenceLabel.NON_ADHERENT, 0.4286, 1.0)
+
+
+def test_zero_measurements_stay_indeterminate():
+    j = _judge("H2", 7, "measurements_per_week", [])
+    assert (j.label, j.rate) == (AdherenceLabel.INDETERMINATE, None)

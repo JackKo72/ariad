@@ -504,3 +504,80 @@ class CheckinConfig(BaseModel):
             if len(days) != times or len(set(days)) != times or not all(1 <= d <= 7 for d in days):
                 raise ValueError(f"weekly_schedule[{times}] must list {times} distinct ISO weekdays")
         return self
+
+
+# ---------------------------------------------------------------- clinician report (Step 6)
+
+
+class ReportConfig(BaseModel):
+    """config/report.yaml."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    config_version: str
+    review_status: Literal["draft_unreviewed", "clinician_reviewed"]
+    days_before_visit: int = Field(ge=0)
+    weeks: int = Field(ge=1)
+    top_codes: list[BarrierCode]
+    consecutive_weeks_for_suggestion: int = Field(ge=2)
+    label_suggestions: dict[AdherenceLabel, str]
+    unit_labels: dict[str, str]
+
+    @model_validator(mode="after")
+    def _all_labels(self) -> "ReportConfig":
+        if set(self.label_suggestions) != set(AdherenceLabel):
+            raise ValueError("label_suggestions must cover every AdherenceLabel")
+        return self
+
+
+class WeeklyResult(BaseModel):
+    week: str
+    label: Optional[AdherenceLabel] = None  # None: no judgment recorded that week
+    rate: Optional[float] = None
+    response_rate: Optional[float] = None
+
+
+class BarrierCount(BaseModel):
+    code: BarrierCode
+    label_ko: str
+    count: int = Field(ge=1)
+    consecutive_weeks: int = Field(ge=1)
+
+
+class ReportRow(BaseModel):
+    """One ActionItem: 원 발화 -> 목표 -> 이행률 -> 주요 사유 -> 제안 (Part 5-1 step 6)."""
+
+    action_id: str
+    catalog_code: str
+    name_ko: str
+    respondent: Respondent
+    source_text: Optional[str] = None  # directive raw_text (clinician-facing only)
+    source_segment_ids: list[str] = Field(default_factory=list)
+    target_text: str
+    weekly: list[WeeklyResult]
+    overall_rate: Optional[float] = None
+    overall_label: AdherenceLabel
+    top_barriers: list[BarrierCount] = Field(default_factory=list)
+    suggestions: list[str] = Field(default_factory=list)
+
+
+class ReportAlert(BaseModel):
+    kind: Literal["red_flag", "barrier", "unclassified"]
+    action_id: str
+    catalog_code: str
+    week: str
+    labels: list[str]  # red flag category labels or barrier code label
+    free_text: Optional[str] = None  # clinician-facing only; never logged
+    notify_clinician: bool = False
+
+
+class ClinicianReport(BaseModel):
+    plan_id: str
+    encounter_id: str
+    visit_date: dt.date
+    as_of: dt.date
+    weeks: list[str]
+    alerts: list[ReportAlert] = Field(default_factory=list)
+    rows: list[ReportRow] = Field(default_factory=list)
+    rule_version: str
+    report_config_version: str
