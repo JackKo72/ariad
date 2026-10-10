@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from app.eval.structure_eval import matches, score_structure
+from app.eval.structure_eval import diagnose_miss, matches, score_structure
 
 GOLD = {
     "items": [
@@ -60,6 +60,24 @@ def test_term_candidates_still_count_for_leaks_and_frame_terms():
     output = {"structure": {"term_candidates": [{"term": "EVT"}, {"term": "midazolam"}]}}
     score = score_structure(output, gold, INPUT, frames=frozenset({"stroke"}))
     assert (score.frame_recall, score.context_only_leaks) == (1.0, ["ctx_drug"])
+
+
+LINE = {"id": "line", "tier": "conversation", "must_match": [["동맥"], ["관", "라인"]]}
+
+
+def test_diagnose_partial_split_omitted():
+    partial = {"plan": [{"text": "동맥 검사 예정"}]}
+    d = diagnose_miss(partial, LINE)
+    assert (d.kind, d.best_section, d.best_groups, d.in_quote) == ("partial", "plan", (0,), False)
+    split = {"plan": [{"text": "동맥 검사"}], "tests": [{"name": "라인 확보"}]}
+    assert diagnose_miss(split, LINE).kind == "split"
+    assert diagnose_miss({"plan": [{"text": "다른 이야기"}]}, LINE).kind == "omitted"
+
+
+def test_diagnose_quote_only_does_not_count_as_summary():
+    quote = {"structure": {"term_candidates": [{"spoken_text": "동맥에 관을 넣고"}], "plan": []}}
+    d = diagnose_miss(quote, LINE)
+    assert (d.kind, d.in_quote) == ("omitted", True)
 
 
 def test_must_exclude_hit_is_always_a_leak():

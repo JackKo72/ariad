@@ -1,4 +1,4 @@
-.PHONY: doctor setup dev test e2e eval lint sample-audio vital-signs-audio vital-signs-isolated-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization parallel-asr-diarization-mp compare-diarization-engines noisy-diarization-set eval-diarization-der draft-annotation labels-to-reference answer-to-transcript eval-structure check-vocab-leakage
+.PHONY: doctor setup dev test e2e eval lint sample-audio vital-signs-audio vital-signs-isolated-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization parallel-asr-diarization-mp compare-diarization-engines noisy-diarization-set eval-diarization-der draft-annotation labels-to-reference answer-to-transcript eval-structure diagnose-structure check-vocab-leakage
 
 doctor:
 	@echo "Checking required tools..."
@@ -202,6 +202,11 @@ answer-to-transcript:
 # Usage: make eval-structure TRANSCRIPT=data/annotations/x.transcript.json GOLD=data/annotations/x.gold.json [REAL=1]
 eval-structure:
 	apps/api/.venv/bin/python scripts/eval_structure_against_gold.py
+
+# tasks/13-d: why eval runs missed conversation items (paraphrased / split / omitted), from saved outputs, no API call.
+# Usage: make diagnose-structure GOLD=tests/evals/gold/x.gold.json OUTPUTS="data/annotations/x.openai_gpt-4o.run*.output.json"
+diagnose-structure:
+	apps/api/.venv/bin/python scripts/diagnose_structure_misses.py
 
 # tasks/11_NEURO_EXAM_VOCAB_AND_SPLITS.md: fails if a 3+ word phrase from an
 # evaluation recording (gold "split": "eval") was copied into a frame

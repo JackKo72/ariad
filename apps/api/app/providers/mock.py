@@ -18,7 +18,7 @@ from app.pipeline.asr_normalize import contains_number_word
 PROMPT_VERSION_STRUCTURE = "structure_transcript@0.6.0"
 PROMPT_VERSION_EXPLANATION = "patient_explanation@0.1.0"
 PROMPT_VERSION_ENRICHMENT = "clinical_enrichment@0.1.0"
-PROMPT_VERSION_TERM_CANDIDATES = "term_candidates@0.1.0"
+PROMPT_VERSION_TERM_CANDIDATES = "term_candidates@0.2.0"
 
 _DOSE_UNIT_RE = re.compile(r"(밀리그램|mg|(?<!킬로)그램)")
 _MEDICATION_MENTION_RE = re.compile(r"약")

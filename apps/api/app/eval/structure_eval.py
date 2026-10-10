@@ -137,3 +137,49 @@ def score_structure(output: dict[str, Any], gold: dict[str, Any], input_text: st
     frame_recall = sum(r.hit for r in in_frame) / len(in_frame) if in_frame else None
     frame_leaks = [r.id for r in results if r.tier == "frame_term" and frame_of[r.id] not in frames and r.hit]
     return StructureScore(results, recall, leaks, excluded, frame_recall, frame_leaks, gold_errors)
+
+
+@dataclass(frozen=True)
+class MissDiagnosis:
+    """Why a conversation item missed, from gold keywords alone (no output
+    text): tasks/13-d.
+
+    kind  partial  one output item has some must_match groups, not all
+                   (paraphrased, or part of the fact dropped)
+          split    every group appears, but across different output items
+          omitted  no counted output item has any group
+    best_section / best_groups: the output item matching the most groups.
+    in_quote: the whole item is in a term-candidate quote (said, and seen
+    by the term call, but not kept by the summary)."""
+
+    id: str
+    kind: str
+    best_section: str | None
+    best_groups: tuple[int, ...]
+    in_quote: bool
+
+
+def _groups_matched(text: str, must_match: list[list[str]]) -> set[int]:
+    return {i for i, group in enumerate(must_match) if any(_contains(text, alt) for alt in group)}
+
+
+def diagnose_miss(output: dict[str, Any], item: dict[str, Any]) -> MissDiagnosis:
+    must_match = item["must_match"]
+    best_section, best = None, set()
+    anywhere: set[int] = set()
+    in_quote = False
+    for section, text in output_items(output):
+        matched = _groups_matched(text, must_match)
+        if not _counts_for("conversation", section):
+            in_quote = in_quote or len(matched) == len(must_match)
+            continue
+        anywhere |= matched
+        if len(matched) > len(best):
+            best_section, best = section, matched
+    if not anywhere:
+        kind = "omitted"
+    elif len(anywhere) == len(must_match) and len(best) < len(must_match):
+        kind = "split"
+    else:
+        kind = "partial"
+    return MissDiagnosis(item["id"], kind, best_section, tuple(sorted(best)), in_quote)
