@@ -86,19 +86,49 @@ class RecordingProvider:
         return self.response
 
 
-def test_structure_sends_frame_only_when_selected_and_filters_output():
-    mock_output = MockLLMProvider().generate_json("structure_transcript", {"transcript_text": TRANSCRIPT})
-    response = {**mock_output, "term_candidates": [_candidate().model_dump(), _candidate(term="tPA").model_dump()]}
+class PerPromptProvider:
+    """Fixed response per prompt_id; records (prompt_id, payload) calls."""
 
-    provider = RecordingProvider(response)
-    with_frame = structure_encounter(TRANSCRIPT, provider, clinical_frame="stroke")
-    assert provider.payloads[0][1]["clinical_frame"]["id"] == "stroke"
-    assert [c.term for c in with_frame.term_candidates] == [EVT]
+    def __init__(self, responses: dict):
+        self.responses = responses
+        self.calls: list[tuple[str, dict]] = []
 
-    provider = RecordingProvider(response)
-    without = structure_encounter(TRANSCRIPT, provider)
-    assert "clinical_frame" not in provider.payloads[0][1]
-    assert without.term_candidates == []
+    def generate_json(self, prompt_id, payload, stage_timer=None):
+        self.calls.append((prompt_id, json.loads(json.dumps(payload, ensure_ascii=False))))
+        return self.responses[prompt_id]
+
+
+def _two_call_responses(structure_candidates=None):
+    structure = MockLLMProvider().generate_json("structure_transcript", {"transcript_text": TRANSCRIPT})
+    structure["term_candidates"] = structure_candidates or []
+    return {
+        "structure_transcript": structure,
+        "term_candidates": {"term_candidates": [_candidate().model_dump(), _candidate(term="tPA").model_dump()]},
+    }
+
+
+def test_frame_vocabulary_goes_only_to_the_dedicated_term_call():
+    provider = PerPromptProvider(_two_call_responses())
+    result = structure_encounter(TRANSCRIPT, provider, clinical_frame="stroke")
+    assert [pid for pid, _ in provider.calls] == ["structure_transcript", "term_candidates"]
+    assert "clinical_frame" not in provider.calls[0][1]  # structure call: transcript only
+    assert provider.calls[1][1]["clinical_frame"]["id"] == "stroke"
+    assert [c.term for c in result.term_candidates] == [EVT]  # tPA (outside vocabulary) dropped
+
+
+def test_no_frame_means_no_term_call_and_structure_candidates_discarded():
+    # Even if the structure call returns candidates, they are not kept.
+    provider = PerPromptProvider(_two_call_responses(structure_candidates=[_candidate().model_dump()]))
+    result = structure_encounter(TRANSCRIPT, provider)
+    assert [pid for pid, _ in provider.calls] == ["structure_transcript"]
+    assert result.term_candidates == []
+
+
+def test_structure_call_candidates_are_replaced_by_the_term_call():
+    provider = PerPromptProvider(_two_call_responses(
+        structure_candidates=[_candidate(spoken_text="제 말을 따라 해 보세요", term="repetition test (따라 말하기)").model_dump()]))
+    result = structure_encounter(TRANSCRIPT, provider, clinical_frame="stroke")
+    assert [c.term for c in result.term_candidates] == [EVT]
 
 
 def test_patient_explanation_never_sees_term_candidates():

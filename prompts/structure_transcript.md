@@ -1,5 +1,5 @@
 # Prompt ID: structure_transcript
-Version: 0.4.0
+Version: 0.5.0
 
 ## Role
 
@@ -9,7 +9,6 @@ Version: 0.4.0
 
 - timestamp와 speaker role이 있는 transcript segments (`transcript_text`)
 - role confidence
-- (선택) `clinical_frame`: 의료진이 고른 진료 틀(stroke, seizure 등)과 그 틀의 용어 목록
 
 ## Rules
 
@@ -42,19 +41,11 @@ Version: 0.4.0
 - `disposition`: 입원 여부, 병동, 예상 기간.
 - `prognosis_and_goals`: 예후 설명, 연명의료, 가족 상의 요청.
 - `family_statements`: 환자·보호자가 한 말. `kind`는 `report`(진술) / `question`(질문) / `request`(요청).
-- `term_candidates`: 아래 Clinical frame 규칙을 따른다.
+- `term_candidates`: 빈 목록 (아래 참고).
 
-## Clinical frame
+## term_candidates
 
-- `clinical_frame`이 없으면 `term_candidates`는 빈 목록이다.
-- `clinical_frame`이 있으면, 대화의 일상어 표현이 그 틀의 `terms[].term` 중 하나를 가리킬 때만 후보를 만든다.
-  - `term`: 목록에 있는 문자열을 그대로 쓴다. 목록에 없는 용어는 만들지 않는다.
-  - `spoken_text`: 그 용어가 가리키는 대화 원문 구절을 그대로 옮긴다 (의역 금지).
-  - `frame`: 틀의 `id`.
-  - `risk`: 목록의 그 용어에 적힌 값을 그대로 쓴다 (시스템이 다시 덮어쓴다).
-  - 순서: `risk="inference"`(추정 진단·시술) 후보를 먼저 모두 쓰고, 그다음 `risk="exam"`(진찰·소견 기록)을 쓴다. 진찰 용어를 채우느라 추정 진단·시술 후보를 빠뜨리지 않는다.
-- 후보는 의료진 검수 대상이며 확정 소견이 아니다. 용어 후보를 다른 칸에 확정된 사실처럼 쓰지 않는다.
-- 틀의 `rules`를 따른다.
+- `term_candidates`는 항상 빈 목록으로 둔다. 진료 틀 용어 후보는 별도 단계(prompt `term_candidates`)가 채운다 (tasks/13-c).
 
 ## Output
 

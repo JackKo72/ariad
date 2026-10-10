@@ -136,6 +136,12 @@ class ClinicalStructure(BaseModel):
 
 
 # One file per id in prompts/frames/ (test_clinical_frame checks they match).
+class TermCandidateList(BaseModel):
+    """Response of the dedicated term_candidates call (tasks/13-c)."""
+
+    term_candidates: list[TermCandidate] = Field(default_factory=list)
+
+
 ClinicalFrameId = Literal[
     "general_neuro", "stroke", "seizure", "headache", "dizziness", "movement", "cognitive", "neuromuscular", "spine",
     "icu",

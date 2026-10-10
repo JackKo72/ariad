@@ -14,7 +14,7 @@
 | Diarization | Speaker A/B/C 구간 분리 | `SpeakerTurn[]` | 겹침, 짧은 발화, 잡음 |
 | Role assignment | speaker를 doctor/patient/guardian/unknown으로 매핑 | `RoleAssignment` | role 확신 부족 |
 | Clinical enrichment | 구어체 대화를 약물/증상/진찰/진단/계획 후보로 정리 (원문 보존, tasks/04_CLINICAL_ENRICHMENT.md) | `ClinicalEnrichment` | 근거 없는 확정, 질문의 소견화 |
-| Structure | 원문에 있는 임상사실만 JSON으로 추출. 결정(하지 않음 포함), 검사 결과·소견(findings, tasks/13-a), 시행한 치료, 동의, 병동, 예후·연명의료, 보호자 발화 칸 포함. 의료진이 고른 진료 틀이 있으면 그 틀의 용어만 `term_candidates`로 제안 (tasks/10) | `ClinicalStructure` | 누락, 잘못된 slot, 결정 극성 반전 |
+| Structure | 원문에 있는 임상사실만 JSON으로 추출. 결정(하지 않음 포함), 검사 결과·소견(findings, tasks/13-a), 시행한 치료, 동의, 병동, 예후·연명의료, 보호자 발화 칸 포함. 의료진이 고른 진료 틀이 있으면 별도 호출(prompt `term_candidates`, tasks/13-c)이 그 틀의 용어만 `term_candidates`로 제안 (tasks/10). 틀 어휘는 구조화 호출에 넣지 않는다 | `ClinicalStructure` | 누락, 잘못된 slot, 결정 극성 반전 |
 | Simplification | 구조화 사실을 쉬운 한국어로 변환 | `ExplanationDraft` | 환각, 의미 약화, 위험 누락 |
 | Validation | schema, 수치/약물, 근거, 금지표현 검사 | `ValidationReport` | unsupported claim |
 | Review/publish | 사람이 수정·승인 후 immutable version 공개. 하지 않음·조건부 결정, 용어 후보, 확인 필요 약물은 체크리스트로 확인해야 승인 가능 (tasks/10) | `ApprovedExplanation` | 권한·version 오류, 검수 누락 |

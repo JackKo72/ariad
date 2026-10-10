@@ -15,9 +15,10 @@ from typing import Any, Optional
 from app.observability import StageTimer
 from app.pipeline.asr_normalize import contains_number_word
 
-PROMPT_VERSION_STRUCTURE = "structure_transcript@0.4.0"
+PROMPT_VERSION_STRUCTURE = "structure_transcript@0.5.0"
 PROMPT_VERSION_EXPLANATION = "patient_explanation@0.1.0"
 PROMPT_VERSION_ENRICHMENT = "clinical_enrichment@0.1.0"
+PROMPT_VERSION_TERM_CANDIDATES = "term_candidates@0.1.0"
 
 _DOSE_UNIT_RE = re.compile(r"(밀리그램|mg|(?<!킬로)그램)")
 _MEDICATION_MENTION_RE = re.compile(r"약")
@@ -64,6 +65,9 @@ class MockLLMProvider:
             return self._patient_explanation(payload)
         if prompt_id == "clinical_enrichment":
             return self._clinical_enrichment(payload)
+        if prompt_id == "term_candidates":
+            # Never maps lay words to terms -- that needs a real model.
+            return {"term_candidates": []}
         raise ValueError(f"MockLLMProvider has no handler for prompt_id={prompt_id!r}")
 
     def _structure_transcript(self, payload: dict[str, Any]) -> dict[str, Any]:

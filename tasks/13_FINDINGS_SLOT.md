@@ -45,3 +45,46 @@ ICU 8.3→3.0). 하지만 ER에서 영상 결과를 보호자에게 설명한 �
   finding_perfusion_holding, plan_procedure_risk_rupture (tasks/12: 0/3, 0/3, 0/3, 0/3)
 - 녹음 내용 recall: ER 60%, ICU 81%, MG 60%
 - 체크리스트 항목 수가 다시 늘지 않는지, 누출 0 유지, 진료당 토큰
+
+---
+
+# 13-c: 용어 후보 호출 분리
+
+## 왜
+
+13-a 측정에서 ER은 frame-term recall 8%, inference 후보 0개였다. 구조화 한 번의 호출에
+진료 틀 어휘 전체(입력)와 모든 칸(출력)이 같이 들어가서, 긴 대화에서는 용어 후보 칸이
+가장 먼저 줄어들었다. 용어 후보 찾기를 별도 호출로 나눈다.
+
+## 구현
+
+- `structure_encounter`는 두 번 호출한다.
+  1. `structure_transcript@0.5.0`: 진료 틀을 받지 않는다. `term_candidates`는 항상 빈 목록으로 두고,
+     모델이 채워도 버린다.
+  2. `term_candidates@0.1.0`: 진료 틀이 있을 때만 호출한다. 대화와 틀 어휘만 받아서
+     `{"term_candidates": [...]}`(`TermCandidateList`)만 반환한다. 결과는 이전과 같은
+     `validate_term_candidates`(틀 일치, 목록에 있는 용어, 원문 그대로 인용, 위험도 덮어쓰기)를 거친다.
+- 진료 틀이 없으면 두 번째 호출을 하지 않는다. 비용과 지연은 그대로다.
+- `PROMPT_VERSION` = `structure_transcript@0.5.0+term_candidates@0.1.0` (버전 기록에 둘 다 남는다).
+- mock과 OpenAI provider에 `term_candidates` 호출을 추가했다(strict 스키마).
+- 평가 스크립트는 바꾸지 않았다. StageTimer가 두 호출의 토큰을 합산하고, structure 지연에
+  두 호출이 모두 들어간다.
+
+## 의도적으로 하지 않은 것
+
+- 두 호출의 병렬 실행: 먼저 품질을 측정한다. 지연이 문제가 되면 그때 한다.
+- 13-b(긴 대화 분할): 13-c 측정 뒤에도 ER 압축이 남으면 진행한다.
+
+## Tests
+
+- `test_clinical_frame.py`:
+  - 틀 어휘는 용어 후보 호출에만 간다
+  - 틀이 없으면 용어 호출이 없고, 구조화 호출의 후보도 버린다
+  - 구조화 호출의 후보는 용어 호출 결과로 바뀐다
+- 전체: pytest 306, web typecheck/lint/unit 6, E2E 8 통과, `check-vocab-leakage` OK
+
+## 측정 (13-a 결과와 비교)
+
+- frame-term recall: ER 8%, ICU 67%, MG 60%. ER inference 후보는 0개였다.
+- 녹음 내용 recall: ER 62%, ICU 78%, MG 60% (떨어지면 안 된다)
+- 체크리스트 항목 수, 누출 0, 진료당 토큰(용어 호출만큼 입력이 늘어난다)
