@@ -6,7 +6,8 @@
   "rules": [
     "수치(산소포화도, 혈압, 체온, 검사 수치)는 원문에 숫자가 있을 때만 쓴다.",
     "'~의심' 용어는 의사가 그 가능성을 말했을 때만 후보로 쓴다. 증상 하나만으로 만들지 않는다.",
-    "심폐소생술·연명의료 관련 결정은 decisions에도 반드시 따로 쓴다."
+    "심폐소생술·연명의료 관련 결정은 decisions에도 반드시 따로 쓴다.",
+    "'콧줄'만 있으면 L-tube(약·영양 공급용 비위관)이고, '콧줄 산소'·'코 산소'는 nasal cannula다. 둘을 섞지 않는다. 산소 '마스크'는 facial mask이며 NIV(BiPAP)로 바꾸지 않는다."
   ],
   "terms": [
     {
@@ -459,10 +460,44 @@
       ]
     },
     {
-      "term": "nasogastric tube (비위관)",
+      "term": "L-tube (Levin tube, 비위관)",
       "risk": "exam",
       "spoken_examples": [
-        "약을 드시기 위해서 콧줄을 넣었는데"
+        "약을 드시기 위해서 콧줄을 넣었는데",
+        "콧줄로 약 드시는"
+      ],
+      "learned_from": [
+        "sim_mg_01"
+      ]
+    },
+    {
+      "term": "nasal cannula (비강 캐뉼라)",
+      "risk": "exam",
+      "spoken_examples": [
+        "콧줄 산소",
+        "코로 들어가는 산소"
+      ],
+      "learned_from": [
+        "sim_mg_01"
+      ]
+    },
+    {
+      "term": "facial mask (안면 마스크)",
+      "risk": "exam",
+      "spoken_examples": [
+        "마스크로 쓰는 걸 해야 되는데",
+        "산소 마스크"
+      ],
+      "learned_from": [
+        "sim_mg_01"
+      ]
+    },
+    {
+      "term": "respiratory failure 의심 (호흡부전 의심)",
+      "risk": "inference",
+      "spoken_examples": [
+        "숨을 못 쉬는 게 가장 큰 문제",
+        "산소가 몸에 잘 퍼져 있느냐"
       ],
       "learned_from": [
         "sim_mg_01"

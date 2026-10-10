@@ -62,7 +62,7 @@
 |---|---|---|---|
 | sim_icu_01 | seizure | eval | 2026-10-09 |
 | sim_er_01 | stroke | eval | 2026-10-09 |
-| sim_mg_01 | neuromuscular | **dev** | 2026-10-10, 신경근육 첫 녹음. 의료진 핵심 구조 미수령이라 gold는 초안이다. |
+| sim_mg_01 | neuromuscular | **dev** | 2026-10-10, 신경근육 첫 녹음. 의료진 핵심 구조 반영(MG crisis → 호흡부전, A-line·삽관 고려, ICU 모니터링, 지금 삽관 안 함, 보호자 설득). |
 
 sim_mg_01(dev)에서 어휘로 옮긴 표현(`learned_from: ["sim_mg_01"]` 표시):
 
@@ -75,3 +75,9 @@ dev 녹음의 점수는 어휘를 그 녹음에서 배웠으므로 부풀려져 
 
 답안 변환기 수정: 줄 전체가 "보호자분 (01:08)"인 헤더를 화자 전환으로 읽는다. 문장
 안의 "보호자분 ~"은 기존대로 본문이다(MG 답안에서 보호자 발화가 의사 발화로 읽힌 문제).
+
+의료진 확인(2026-10-10): "콧줄" = L-tube, "콧줄 산소" = nasal cannula, "마스크" = facial
+mask, "유속 빠른 것" = high flow. general_medicine에 nasal cannula, facial mask,
+respiratory failure 의심(inference)을 추가하고, 비위관 용어를 "L-tube (Levin tube, 비위관)"로
+바꿨다. 콧줄과 콧줄 산소를 구분하는 규칙도 넣었다. 보호자의 삽관 거부감과 의사의 설득은
+원문에 명시된 단어가 없어 키워드로 채점할 수 없으므로, 검수 메모로 남겼다.

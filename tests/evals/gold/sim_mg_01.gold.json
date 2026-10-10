@@ -1,7 +1,7 @@
 {
  "case": "sim_mg_01",
  "split": "dev",
- "source": "DRAFT from sim_mg_01.answer.txt (no clinician key yet) -- review pending",
+ "source": "clinician key (chat, 2026-10-10): MG crisis -> respiratory failure developing; A-line, intubation considered, needs ICU monitoring; no intubation now, intubate if worse; family does not want intubation and the doctor persuades them. + sim_mg_01.answer.txt",
  "items": [
   {
    "id": "dx_myasthenia_gravis",
@@ -335,6 +335,40 @@
     [
      "삽관"
     ]
+   ],
+   "note": "보호자들은 기관삽관을 원하지 않고 의사가 필요성을 설득하는 맥락 -- 이 거부감·설득이 family_statements/decisions에 반영됐는지 읽어서 확인 (암시적이라 키워드 채점 불가)"
+  },
+  {
+   "id": "icu_for_monitoring",
+   "section": "disposition",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "중환자실"
+    ],
+    [
+     "모니터",
+     "관찰",
+     "지켜",
+     "상태를 좀 봐",
+     "준비"
+    ]
+   ]
+  },
+  {
+   "id": "intubation_lifesaving_explained",
+   "section": "decision",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "삽관"
+    ],
+    [
+     "사망",
+     "즉사",
+     "죽",
+     "생명"
+    ]
    ]
   },
   {
@@ -408,6 +442,55 @@
      "fvc",
      "forced vital capacity",
      "spirometry"
+    ]
+   ],
+   "frame": "neuromuscular"
+  },
+  {
+   "id": "frame_respiratory_failure",
+   "section": "problem",
+   "tier": "frame_term",
+   "must_match": [
+    [
+     "respiratory failure",
+     "호흡부전"
+    ]
+   ],
+   "frame": "neuromuscular",
+   "note": "'숨을 못 쉬는 게 가장 큰 문제' -> respiratory failure는 추정, 후보로만 표시됐는지"
+  },
+  {
+   "id": "frame_ltube",
+   "section": "treatment",
+   "tier": "frame_term",
+   "must_match": [
+    [
+     "l-tube",
+     "levin"
+    ]
+   ],
+   "frame": "neuromuscular"
+  },
+  {
+   "id": "frame_nasal_cannula",
+   "section": "plan",
+   "tier": "frame_term",
+   "must_match": [
+    [
+     "nasal cannula",
+     "비강 캐뉼라"
+    ]
+   ],
+   "frame": "neuromuscular"
+  },
+  {
+   "id": "frame_facial_mask",
+   "section": "plan",
+   "tier": "frame_term",
+   "must_match": [
+    [
+     "facial mask",
+     "안면 마스크"
     ]
    ],
    "frame": "neuromuscular"
