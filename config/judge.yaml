@@ -1,0 +1,10 @@
+# ARIAD stage 2 이행 판정 기준 (docs/ARIAD_stage2_design.md Part 3-2, Step 4).
+# 기본값은 설계 문서 표 값이며 의료진이 조정할 수 있다.
+# 판정 순서: 응답률 < min_response_rate → indeterminate (판정 불가)
+#            rate >= adherent_min_rate → adherent (완전 이행, ≥80%)
+#            rate >= partial_min_rate  → partial  (부분 이행, 50–79%)
+#            그 외                    → non_adherent (미이행, <50%)
+rule_version: r1
+adherent_min_rate: 0.8
+partial_min_rate: 0.5
+min_response_rate: 0.5

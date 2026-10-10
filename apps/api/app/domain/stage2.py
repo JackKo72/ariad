@@ -329,3 +329,95 @@ class BarrierReport(BaseModel):
         if not self.red_flag and self.code is None:
             raise ValueError("non-red-flag report requires a barrier code")
         return self
+
+
+# ---------------------------------------------------------------- check-in questions (catalog/questions.yaml)
+
+AnswerType = Literal["yes_no", "number", "choice"]
+
+
+class QuestionPart(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    patient: str  # may be TODO_CLINICIAN
+    caregiver: str  # may be TODO_CLINICIAN
+    answer_type: AnswerType
+    caregiver_answer_type: Optional[AnswerType] = None
+    unit: Optional[str] = None
+    options: Optional[list[str]] = None
+    for_code: Optional[str] = None  # shared questions (Q-D45-01): which action this part feeds
+
+    @model_validator(mode="after")
+    def _choice_needs_options(self) -> "QuestionPart":
+        if self.answer_type == "choice" and not self.options:
+            raise ValueError("choice question needs options")
+        return self
+
+
+class QuestionTemplate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    review_status: Literal["draft_unreviewed", "clinician_reviewed"]
+    note: Optional[str] = None
+    parts: list[QuestionPart] = Field(min_length=1)
+
+    @property
+    def is_todo(self) -> bool:
+        return any(TODO_CLINICIAN in (p.patient, p.caregiver) for p in self.parts)
+
+
+class QuestionBank(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    questions_version: str
+    questions: dict[str, QuestionTemplate]
+
+
+class CheckInQuestion(BaseModel):
+    """One question part sent to a respondent on a given day."""
+
+    action_id: str
+    question_id: str
+    part_index: int = Field(ge=0)
+    respondent: Respondent
+    text: str
+    answer_type: AnswerType
+    unit: Optional[str] = None
+    options: Optional[list[str]] = None
+    review_status: Literal["draft_unreviewed", "clinician_reviewed"]
+
+
+# ---------------------------------------------------------------- config (config/*.yaml)
+
+
+class JudgeConfig(BaseModel):
+    """config/judge.yaml -- Part 3-2 thresholds."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rule_version: str
+    adherent_min_rate: float = Field(gt=0, le=1)
+    partial_min_rate: float = Field(gt=0, le=1)
+    min_response_rate: float = Field(ge=0, le=1)
+
+    @model_validator(mode="after")
+    def _ordered(self) -> "JudgeConfig":
+        if self.partial_min_rate >= self.adherent_min_rate:
+            raise ValueError("partial_min_rate must be below adherent_min_rate")
+        return self
+
+
+class CheckinConfig(BaseModel):
+    """config/checkin.yaml."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    max_questions_per_day: int = Field(ge=1)
+    weekly_schedule: dict[int, list[int]]  # times per week -> ISO weekdays
+
+    @model_validator(mode="after")
+    def _schedule_matches_times(self) -> "CheckinConfig":
+        for times, days in self.weekly_schedule.items():
+            if len(days) != times or len(set(days)) != times or not all(1 <= d <= 7 for d in days):
+                raise ValueError(f"weekly_schedule[{times}] must list {times} distinct ISO weekdays")
+        return self

@@ -1,0 +1,137 @@
+# ARIAD stage 2 체크인 질문 템플릿 (docs/ARIAD_stage2_design.md Part 2-2·2-3, Step 4).
+#
+# - question_id는 catalog/actions.yaml의 check_method.question_id와 연결된다.
+# - 각 질문은 parts 1개 이상. 하루 문항 수는 part 수로 센다 (D4–D5 "3문항" = parts 3개).
+# - patient: 환자 본인용, caregiver: 대리 응답 보호자용 (Part 2-1 원칙 4).
+#   식사 문항의 보호자용은 조리자 행동으로 바꿔 묻는다 (Part 2-3 시나리오 C).
+# - 설계 문서에 문구가 있는 것은 그대로 썼다 (source: design). 나머지는 초안이다.
+# - review_status: draft_unreviewed → 환자에게 나가기 전 의료진 문구 검토 필요.
+# - TODO_CLINICIAN 문구가 있는 질문은 생성하지 않는다 (checkin.py가 건너뜀).
+# - answer_type: yes_no | number | choice. CheckIn.value 변환 규칙은 judge.py 참고.
+
+questions_version: "0.1.0"
+
+questions:
+  Q-D1-01:
+    review_status: draft_unreviewed
+    note: "지중해식 점수 축약판 7문항의 문항 구성이 설계 문서에 없음"
+    parts:
+      - patient: TODO_CLINICIAN
+        caregiver: TODO_CLINICIAN
+        answer_type: number
+        unit: score_of_7
+
+  Q-D2-01:
+    review_status: draft_unreviewed
+    parts:
+      - patient: "오늘 국물은 얼마나 드셨나요?"  # source: design Part 2-2
+        caregiver: "오늘 국 간을 줄이셨나요?"  # source: design Part 2-3 시나리오 C
+        answer_type: choice
+        options: [안 먹음, 반, 다]
+        caregiver_answer_type: yes_no
+
+  Q-D3-01:
+    review_status: draft_unreviewed
+    note: "Part 2-2 체크리스트에 D3 행이 없음"
+    parts:
+      - patient: TODO_CLINICIAN
+        caregiver: TODO_CLINICIAN
+        answer_type: yes_no
+
+  Q-D45-01:  # D4–D5 공통 주 1회 3문항 (Part 2-2)
+    review_status: draft_unreviewed
+    parts:
+      - patient: "지난 7일 동안 튀김이나 삼겹살을 몇 번 드셨나요?"
+        caregiver: "지난 7일 동안 튀김이나 삼겹살을 몇 번 차리셨나요?"
+        answer_type: number
+        unit: times
+        for_code: D4
+      - patient: "지난 7일 동안 단 음료를 몇 번 드셨나요?"
+        caregiver: "지난 7일 동안 환자분이 단 음료를 몇 번 드셨나요?"
+        answer_type: number
+        unit: times
+        for_code: D5
+      - patient: "과일은 주스 대신 생과일로 드셨나요?"
+        caregiver: "과일은 주스 대신 생과일로 드리셨나요?"
+        answer_type: yes_no
+        for_code: D5
+
+  Q-P1-01:
+    review_status: draft_unreviewed
+    parts:
+      - patient: "오늘 걸으셨나요? 몇 분?"  # source: design Part 2-2
+        caregiver: "오늘 환자분이 걸으셨나요? 몇 분?"
+        answer_type: number
+        unit: minutes
+
+  Q-P2-01:
+    review_status: draft_unreviewed
+    parts:
+      - patient: "오늘 의자 일어서기·밴드 운동을 하셨나요? 몇 세트 하셨나요?"
+        caregiver: "오늘 환자분이 의자 일어서기·밴드 운동을 하셨나요? 몇 세트 하셨나요?"
+        answer_type: number
+        unit: sets
+
+  Q-P3-01:
+    review_status: draft_unreviewed
+    parts:
+      - patient: "일어나서 3분 움직이셨나요?"
+        caregiver: "환자분이 일어나서 3분 움직이셨나요?"
+        answer_type: yes_no
+
+  Q-W1-01:
+    review_status: draft_unreviewed
+    parts:
+      - patient: "오늘 아침 공복, 소변 본 뒤 잰 체중을 입력해 주세요."
+        caregiver: "오늘 아침 공복, 소변 본 뒤 잰 환자분의 체중을 입력해 주세요."
+        answer_type: number
+        unit: kg
+
+  Q-A1-01:
+    review_status: draft_unreviewed
+    parts:
+      - patient: "지난 7일 중 술 마신 날은 며칠인가요?"  # source: design Part 2-2
+        caregiver: "지난 7일 중 환자분이 술 마신 날은 며칠인가요?"
+        answer_type: number
+        unit: days
+      - patient: "지난 7일 동안 모두 몇 잔 드셨나요?"  # source: design Part 2-2 "잔 수"
+        caregiver: "지난 7일 동안 환자분이 모두 몇 잔 드셨나요?"
+        answer_type: number
+        unit: drinks
+
+  Q-S1-01:
+    review_status: draft_unreviewed
+    parts:
+      - patient: "오늘 담배(전자담배 포함) 피우셨나요?"  # source: design Part 2-2
+        caregiver: "오늘 환자분이 담배(전자담배 포함) 피우셨나요?"
+        answer_type: yes_no
+
+  Q-S1-02:
+    review_status: draft_unreviewed
+    parts:
+      - patient: "이번 주에 금연약을 드시고 금연 상담을 받으셨나요?"
+        caregiver: "이번 주에 환자분이 금연약을 드시고 금연 상담을 받으셨나요?"
+        answer_type: yes_no
+
+  Q-M1-01:
+    review_status: draft_unreviewed
+    parts:
+      - patient: "오늘 5분 호흡운동을 하셨나요?"
+        caregiver: "오늘 환자분이 5분 호흡운동을 하셨나요?"
+        answer_type: yes_no
+
+  Q-H1-01:
+    review_status: draft_unreviewed
+    parts:
+      - patient: "오늘 잰 혈압을 입력해 주세요."
+        caregiver: "오늘 잰 환자분의 혈압을 입력해 주세요."
+        answer_type: number
+        unit: mmHg
+
+  Q-H2-01:
+    review_status: draft_unreviewed
+    parts:
+      - patient: "오늘 잰 혈당을 입력해 주세요."
+        caregiver: "오늘 잰 환자분의 혈당을 입력해 주세요."
+        answer_type: number
+        unit: mg/dL

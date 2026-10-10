@@ -27,6 +27,7 @@ EXPORTED_MODELS = (
     stage2.CheckIn,
     stage2.AdherenceJudgment,
     stage2.BarrierReport,
+    stage2.CheckInQuestion,
 )
 
 
