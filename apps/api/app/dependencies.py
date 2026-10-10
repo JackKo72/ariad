@@ -64,7 +64,9 @@ def get_llm_provider() -> LLMProvider:
     global _real_llm_provider, _real_llm_provider_config
     api_key = os.environ.get("OPENAI_API_KEY")
     if _provider_mode_active() and api_key:
-        model = os.environ.get("OPENAI_TEXT_MODEL") or "gpt-4o-mini"
+        from app.providers.openai_llm import DEFAULT_TEXT_MODEL
+
+        model = os.environ.get("OPENAI_TEXT_MODEL") or DEFAULT_TEXT_MODEL
         config = (api_key, model)
         if _real_llm_provider is None or _real_llm_provider_config != config:
             from app.providers.openai_llm import OpenAILLMProvider

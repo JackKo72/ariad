@@ -46,11 +46,28 @@ export interface Decision {
   needs_confirmation: boolean;
 }
 
-export type ClinicalFrameId = "stroke" | "seizure";
+export type ClinicalFrameId =
+  | "general_neuro"
+  | "stroke"
+  | "seizure"
+  | "headache"
+  | "dizziness"
+  | "movement"
+  | "cognitive"
+  | "neuromuscular"
+  | "spine";
 
+// Every frame also includes the shared neurologic-exam vocabulary.
 export const CLINICAL_FRAME_LABELS: Record<ClinicalFrameId, string> = {
+  general_neuro: "일반 신경과 (신경학적 진찰만)",
   stroke: "뇌졸중 (stroke)",
   seizure: "경련/발작 (seizure)",
+  headache: "두통 (headache)",
+  dizziness: "어지럼 (dizziness)",
+  movement: "이상운동/파킨슨 (movement)",
+  cognitive: "인지/치매 (cognitive)",
+  neuromuscular: "신경근육 (neuromuscular)",
+  spine: "척추·신경근 (spine)",
 };
 
 export interface ReviewItem {

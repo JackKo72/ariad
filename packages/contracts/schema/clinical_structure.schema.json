@@ -166,7 +166,7 @@
         "properties": {
           "spoken_text": {"type": "string"},
           "term": {"type": "string"},
-          "frame": {"enum": ["stroke", "seizure"]},
+          "frame": {"enum": ["general_neuro", "stroke", "seizure", "headache", "dizziness", "movement", "cognitive", "neuromuscular", "spine"]},
           "source_segment_ids": {"type": "array", "items": {"type": "string"}}
         }
       }

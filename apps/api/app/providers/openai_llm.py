@@ -28,6 +28,12 @@ from app.providers.mock import (
 
 PROMPTS_DIR = Path(__file__).resolve().parents[4] / "prompts"
 
+# Used when OPENAI_TEXT_MODEL is unset. tasks/10 REPEAT=3 evals on the ICU/ER
+# role-plays: gpt-4o beat gpt-4o-mini by 13-17 points of recall on both, at
+# similar latency (14-16 s), so it is the default; set OPENAI_TEXT_MODEL to
+# override (e.g. gpt-4o-mini for cost).
+DEFAULT_TEXT_MODEL = "gpt-4o"
+
 # prompt_id -> (pipeline stage name, response schema, prompt version).
 # tasks/03_SPEAKER_MERGE_AND_LATENCY.md Phase 1 names the pipeline stages
 # structure_llm/explanation_llm; prompt_id names the prompt file instead --

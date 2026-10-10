@@ -116,7 +116,10 @@ class ClinicalStructure(BaseModel):
     term_candidates: list[TermCandidate] = Field(default_factory=list)
 
 
-ClinicalFrameId = Literal["stroke", "seizure"]
+# One file per id in prompts/frames/ (test_clinical_frame checks they match).
+ClinicalFrameId = Literal[
+    "general_neuro", "stroke", "seizure", "headache", "dizziness", "movement", "cognitive", "neuromuscular", "spine"
+]
 
 
 class ReviewItem(BaseModel):

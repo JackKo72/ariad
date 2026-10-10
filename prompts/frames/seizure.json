@@ -1,7 +1,7 @@
 {
   "id": "seizure",
   "label_ko": "경련/발작",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "rules": [
     "용어 후보는 term_candidates에만 쓴다. 다른 칸에는 대화에서 실제로 쓴 말을 그대로 쓴다.",
     "약 이름은 대화에 나온 경우에만 쓴다. '항발작제'는 ASM 후보이지 특정 약 이름이 아니다.",
@@ -49,7 +49,49 @@
         "연명치료를 할지 결정",
         "심폐소생술을 할지 말지"
       ]
+    },
+    {
+      "term": "aura (전조)",
+      "spoken_examples": [
+        "발작 전에 속이 울렁거리는 느낌이 올라와요",
+        "이상한 냄새가 나요"
+      ]
+    },
+    {
+      "term": "postictal state (발작 후 상태)",
+      "spoken_examples": [
+        "발작 끝나고 한참 멍해요"
+      ]
+    },
+    {
+      "term": "generalized tonic-clonic seizure 의심 (전신강직간대발작 의심)",
+      "spoken_examples": [
+        "온몸이 뻣뻣해지면서 떨었어요"
+      ]
+    },
+    {
+      "term": "focal seizure 의심 (국소발작 의심)",
+      "spoken_examples": [
+        "한쪽 손만 떨렸어요",
+        "멍하게 입맛을 다셨어요"
+      ]
+    },
+    {
+      "term": "tongue bite / incontinence (혀 깨물림 / 실금)",
+      "spoken_examples": [
+        "혀를 깨물었어요",
+        "소변을 지렸어요"
+      ]
+    },
+    {
+      "term": "video-EEG monitoring (비디오 뇌파 감시)",
+      "spoken_examples": [
+        "입원해서 며칠 뇌파를 찍는 검사"
+      ]
     }
   ],
-  "note": "spoken_examples are generic phrasings written for this file, deliberately NOT copied from the tasks/09 eval transcripts (that would inflate eval scores)."
+  "note": "spoken_examples are generic phrasings written for this file, NOT copied from the tasks/09 eval transcripts (that would inflate eval scores). Real phrasings get added from development recordings, never from evaluation recordings (tasks/11).",
+  "includes": [
+    "neuro_exam"
+  ]
 }

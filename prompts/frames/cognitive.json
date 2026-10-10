@@ -1,0 +1,54 @@
+{
+  "id": "cognitive",
+  "label_ko": "인지 (치매 등)",
+  "version": "0.1.0",
+  "note": "spoken_examples are generic phrasings written for this file, NOT copied from the tasks/09 eval transcripts (that would inflate eval scores). Real phrasings get added from development recordings, never from evaluation recordings (tasks/11).",
+  "includes": [
+    "neuro_exam"
+  ],
+  "rules": [
+    "용어 후보는 term_candidates에만 쓴다. 다른 칸에는 대화에서 실제로 쓴 말을 그대로 쓴다.",
+    "치매 유형 진단(알츠하이머 등)은 의사가 말한 경우에만 쓴다."
+  ],
+  "terms": [
+    {
+      "term": "memory decline (기억력 저하)",
+      "spoken_examples": [
+        "자꾸 깜빡해요",
+        "같은 말을 반복하세요"
+      ]
+    },
+    {
+      "term": "mild cognitive impairment 의심 (경도인지장애 의심)",
+      "spoken_examples": [
+        "기억력이 떨어졌지만 혼자 생활은 하세요"
+      ]
+    },
+    {
+      "term": "ADL decline (일상생활 수행능력 저하)",
+      "spoken_examples": [
+        "혼자서 은행 일을 못 보세요",
+        "옷을 혼자 못 입으세요"
+      ]
+    },
+    {
+      "term": "BPSD (행동심리증상)",
+      "spoken_examples": [
+        "헛것을 보세요",
+        "물건을 훔쳐 갔다고 의심하세요"
+      ]
+    },
+    {
+      "term": "amyloid PET (아밀로이드 PET)",
+      "spoken_examples": [
+        "치매 단백질 보는 PET 검사"
+      ]
+    },
+    {
+      "term": "caregiver report (보호자 보고)",
+      "spoken_examples": [
+        "보호자분이 보시기에 어떠세요"
+      ]
+    }
+  ]
+}

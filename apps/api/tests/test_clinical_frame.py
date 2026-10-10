@@ -2,10 +2,11 @@
 (tasks/10_CLINICAL_FRAME_AND_REVIEW.md). Synthetic text only."""
 
 import json
+import typing
 
 import pytest
 
-from app.domain.models import ClinicalStructure, Decision, Medication, TermCandidate
+from app.domain.models import ClinicalFrameId, ClinicalStructure, Decision, Medication, TermCandidate
 from app.pipeline.explanation import generate_patient_explanation
 from app.pipeline.frames import FRAMES_DIR, load_frame, validate_term_candidates
 from app.pipeline.review_checklist import build_review_checklist, missing_acknowledgments
@@ -21,16 +22,28 @@ def _candidate(**overrides) -> TermCandidate:
     return TermCandidate(**{**fields, **overrides})
 
 
-@pytest.mark.parametrize("frame_id", ["stroke", "seizure"])
-def test_frame_files_load_with_unique_terms(frame_id):
+FRAME_IDS = sorted(typing.get_args(ClinicalFrameId))
+
+
+@pytest.mark.parametrize("frame_id", FRAME_IDS)
+def test_frame_files_load_with_unique_terms_and_shared_exam(frame_id):
     frame = load_frame(frame_id)
     terms = [t["term"] for t in frame["terms"]]
     assert frame["id"] == frame_id and len(terms) == len(set(terms))
     assert all(t["spoken_examples"] for t in frame["terms"])
+    assert "diplopia (복시)" in terms and "tandem gait (일자 보행)" in terms  # shared neuro exam merged in
+    assert "includes" not in frame and "note" not in frame  # LLM gets the merged vocabulary only
 
 
 def test_frame_ids_match_files():
-    assert sorted(p.stem for p in FRAMES_DIR.glob("*.json")) == ["seizure", "stroke"]
+    assert sorted(p.stem for p in FRAMES_DIR.glob("*.json")) == FRAME_IDS
+
+
+def test_shared_exam_term_is_valid_in_any_frame():
+    transcript = "의사: 이거 두 개로 보여요?"
+    structure = ClinicalStructure(term_candidates=[
+        TermCandidate(spoken_text="두 개로 보여요", term="diplopia (복시)", frame="headache")])
+    assert len(validate_term_candidates(structure, "headache", transcript).term_candidates) == 1
 
 
 def test_valid_candidate_is_kept():

@@ -1,7 +1,7 @@
 {
   "id": "stroke",
   "label_ko": "뇌졸중",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "rules": [
     "용어 후보는 term_candidates에만 쓴다. 다른 칸에는 대화에서 실제로 쓴 말을 그대로 쓴다.",
     "NIHSS는 '항목 검사를 했다'는 후보로만 쓴다. 점수(숫자)는 원문에 숫자가 있을 때만 쓴다.",
@@ -22,14 +22,6 @@
         "팔을 들어 보세요",
         "이 물건 이름이 뭐예요",
         "제 말을 따라 해 보세요"
-      ]
-    },
-    {
-      "term": "aphasia (실어증)",
-      "spoken_examples": [
-        "말이 어눌해요",
-        "단어가 안 떠올라요",
-        "말을 알아듣지 못해요"
       ]
     },
     {
@@ -89,5 +81,8 @@
       ]
     }
   ],
-  "note": "spoken_examples are generic phrasings written for this file, deliberately NOT copied from the tasks/09 eval transcripts (that would inflate eval scores)."
+  "note": "spoken_examples are generic phrasings written for this file, NOT copied from the tasks/09 eval transcripts (that would inflate eval scores). Real phrasings get added from development recordings, never from evaluation recordings (tasks/11).",
+  "includes": [
+    "neuro_exam"
+  ]
 }

@@ -1,5 +1,6 @@
 {
  "case": "sim_icu_01",
+ "split": "eval",
  "source": "clinician key (chat, 2026-10-09) + sim_icu_01.answer.txt",
  "items": [
   {

@@ -32,7 +32,7 @@ def test_get_llm_provider_rebuilds_only_when_config_actually_changes(monkeypatch
     monkeypatch.delenv("OPENAI_TEXT_MODEL", raising=False)
 
     first = deps.get_llm_provider()
-    monkeypatch.setenv("OPENAI_TEXT_MODEL", "gpt-4o")
+    monkeypatch.setenv("OPENAI_TEXT_MODEL", "gpt-4o-mini")  # differs from the default
     second = deps.get_llm_provider()
     assert first is not second
 
@@ -129,3 +129,16 @@ def test_get_asr_provider_switches_engine_via_env_flag(monkeypatch, tmp_path):
     assert parallel_provider is not default_provider
 
     assert deps.get_asr_provider(asset) is parallel_provider
+
+
+def test_default_text_model_is_gpt_4o_when_unset(monkeypatch):
+    from app.providers.openai_llm import DEFAULT_TEXT_MODEL
+
+    monkeypatch.setattr(deps, "_real_llm_provider", None)
+    monkeypatch.setattr(deps, "_real_llm_provider_config", None)
+    monkeypatch.setenv("ARIAD_MODE", "provider")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-not-a-real-key")
+    monkeypatch.delenv("OPENAI_TEXT_MODEL", raising=False)
+
+    assert DEFAULT_TEXT_MODEL == "gpt-4o"
+    assert deps.get_llm_provider()._model == "gpt-4o"

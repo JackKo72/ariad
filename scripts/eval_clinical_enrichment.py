@@ -231,9 +231,10 @@ def _build_provider(use_real: bool):
         print("Cancelled -- falling back to mock.")
         return MockLLMProvider(), "mock"
 
-    from app.providers.openai_llm import OpenAILLMProvider
+    from app.providers.openai_llm import DEFAULT_TEXT_MODEL, OpenAILLMProvider
 
-    model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+    # OPENAI_MODEL (eval-only override) > OPENAI_TEXT_MODEL (what the app uses) > default
+    model = os.environ.get("OPENAI_MODEL") or os.environ.get("OPENAI_TEXT_MODEL") or DEFAULT_TEXT_MODEL
     return OpenAILLMProvider(api_key=api_key, model=model), f"openai:{model}"
 
 

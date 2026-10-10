@@ -1,0 +1,58 @@
+{
+  "id": "dizziness",
+  "label_ko": "어지럼",
+  "version": "0.1.0",
+  "note": "spoken_examples are generic phrasings written for this file, NOT copied from the tasks/09 eval transcripts (that would inflate eval scores). Real phrasings get added from development recordings, never from evaluation recordings (tasks/11).",
+  "includes": [
+    "neuro_exam"
+  ],
+  "rules": [
+    "용어 후보는 term_candidates에만 쓴다. 다른 칸에는 대화에서 실제로 쓴 말을 그대로 쓴다.",
+    "말초성/중추성 구분은 의사가 말한 경우에만 쓴다."
+  ],
+  "terms": [
+    {
+      "term": "vertigo (회전성 어지럼)",
+      "spoken_examples": [
+        "빙빙 돌아요",
+        "천장이 돌아요"
+      ]
+    },
+    {
+      "term": "presyncope (실신전 어지럼)",
+      "spoken_examples": [
+        "핑 돌면서 눈앞이 캄캄해져요"
+      ]
+    },
+    {
+      "term": "positional vertigo (자세 변환 어지럼)",
+      "spoken_examples": [
+        "누울 때나 고개 돌릴 때 어지러워요"
+      ]
+    },
+    {
+      "term": "Dix-Hallpike test (딕스-홀파이크 검사)",
+      "spoken_examples": [
+        "누우면서 고개를 옆으로 돌려 볼게요"
+      ]
+    },
+    {
+      "term": "head impulse test (두부충동검사)",
+      "spoken_examples": [
+        "제 코를 보고 계세요 고개를 빠르게 돌릴게요"
+      ]
+    },
+    {
+      "term": "canalith repositioning (이석 정복술)",
+      "spoken_examples": [
+        "돌 제자리 넣는 치료"
+      ]
+    },
+    {
+      "term": "oscillopsia (동요시)",
+      "spoken_examples": [
+        "걸을 때 풍경이 흔들려 보여요"
+      ]
+    }
+  ]
+}

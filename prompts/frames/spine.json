@@ -1,0 +1,49 @@
+{
+  "id": "spine",
+  "label_ko": "척추 (신경근·척수)",
+  "version": "0.1.0",
+  "note": "spoken_examples are generic phrasings written for this file, NOT copied from the tasks/09 eval transcripts (that would inflate eval scores). Real phrasings get added from development recordings, never from evaluation recordings (tasks/11).",
+  "includes": [
+    "neuro_exam"
+  ],
+  "rules": [
+    "용어 후보는 term_candidates에만 쓴다. 다른 칸에는 대화에서 실제로 쓴 말을 그대로 쓴다.",
+    "마미증후군 같은 응급 징후는 원문 표현과 함께 후보로만 쓴다."
+  ],
+  "terms": [
+    {
+      "term": "radiculopathy (신경근병증)",
+      "spoken_examples": [
+        "목에서 팔로 저린 게 내려가요",
+        "허리에서 다리로 뻗쳐요"
+      ]
+    },
+    {
+      "term": "myelopathy (척수병증)",
+      "spoken_examples": [
+        "손이 둔해지고 걸음이 불안해요",
+        "단추 잠그기가 힘들어요"
+      ]
+    },
+    {
+      "term": "neurogenic claudication (신경성 파행)",
+      "spoken_examples": [
+        "조금 걸으면 다리가 저려서 쉬어야 해요"
+      ]
+    },
+    {
+      "term": "cauda equina sign (마미증후군 징후)",
+      "spoken_examples": [
+        "엉덩이 주변 감각이 없어요",
+        "소변이 안 나와요"
+      ]
+    },
+    {
+      "term": "spine MRI (척추 MRI)",
+      "spoken_examples": [
+        "목 MRI",
+        "허리 MRI"
+      ]
+    }
+  ]
+}

@@ -27,12 +27,28 @@ from app.domain.models import ClinicalFrameId, ClinicalStructure
 logger = logging.getLogger("ariad.pipeline")
 
 FRAMES_DIR = Path(__file__).resolve().parents[4] / "prompts" / "frames"
+# Vocabularies shared by several frames (e.g. the neurologic exam), pulled in
+# through a frame's "includes" -- never selectable on their own.
+SHARED_DIR = FRAMES_DIR / "shared"
 
 
 @lru_cache(maxsize=None)
 def load_frame(frame_id: ClinicalFrameId) -> dict[str, Any]:
-    """The frame file as-is -- it is also what the LLM receives."""
-    return json.loads((FRAMES_DIR / f"{frame_id}.json").read_text(encoding="utf-8"))
+    """The frame file with its `includes` merged in (rules appended, terms
+    de-duplicated by name, frame's own terms first) -- this merged dict is
+    also exactly what the LLM receives. Cached: callers must not mutate it."""
+    frame = json.loads((FRAMES_DIR / f"{frame_id}.json").read_text(encoding="utf-8"))
+    rules, terms = list(frame.get("rules", [])), list(frame.get("terms", []))
+    seen = {t["term"] for t in terms}
+    for name in frame.get("includes", []):
+        shared = json.loads((SHARED_DIR / f"{name}.json").read_text(encoding="utf-8"))
+        rules += shared.get("rules", [])
+        for term in shared["terms"]:
+            if term["term"] not in seen:
+                seen.add(term["term"])
+                terms.append(term)
+    merged = {k: v for k, v in frame.items() if k not in ("includes", "note")}
+    return {**merged, "rules": rules, "terms": terms}
 
 
 def _norm(text: str) -> str:

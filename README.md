@@ -108,7 +108,7 @@ tests/
 ```dotenv
 ARIAD_MODE=provider
 OPENAI_API_KEY=sk-REPLACE_WITH_YOUR_REAL_KEY
-OPENAI_TEXT_MODEL=gpt-4o-mini   # 비워두면 기본값 gpt-4o-mini 사용
+OPENAI_TEXT_MODEL=              # 비워두면 기본값 gpt-4o 사용 (비용을 줄이려면 gpt-4o-mini)
 ```
 
 `apps/api/.env.local`은 `.gitignore`에 이미 포함되어 있어 git에 올라가지 않는다. 프론트엔드

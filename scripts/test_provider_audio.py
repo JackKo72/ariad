@@ -101,7 +101,9 @@ def main() -> int:
     role_by_speaker = {seg.speaker: "화자" for seg in segments}
     transcript_text = "\n".join(f"{role_by_speaker[s.speaker]}: {s.text}" for s in segments)
 
-    model = os.environ.get("OPENAI_TEXT_MODEL") or "gpt-4o-mini"
+    from app.providers.openai_llm import DEFAULT_TEXT_MODEL
+
+    model = os.environ.get("OPENAI_TEXT_MODEL") or DEFAULT_TEXT_MODEL
     provider = OpenAILLMProvider(api_key=api_key, model=model)
     try:
         structure = structure_encounter(transcript_text, provider)
