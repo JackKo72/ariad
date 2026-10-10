@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.domain.errors import LlmProviderFailed
-from app.domain.models import ClinicalEnrichment, ClinicalStructure, ExplanationDraft
+from app.domain.models import ClinicalEnrichment, ClinicalStructure, ExplanationDraft, TermCandidateList
 from app.observability import StageTimer
 from app.providers.openai_llm import OpenAILLMProvider
 
@@ -44,7 +44,7 @@ def test_structure_transcript_returns_schema_valid_dict():
     call_kwargs = provider._client.chat.completions.parse.call_args.kwargs
     assert call_kwargs["response_format"] is ClinicalStructure
     assert call_kwargs["model"] == "gpt-4o-mini"
-    assert call_kwargs["temperature"] == 0  # extraction, not creative writing
+    assert call_kwargs["temperature"] == 1.0  # at 0 it looped on the long ER role-play (13-c)
     assert call_kwargs["max_completion_tokens"] == 8000
 
 
@@ -55,17 +55,26 @@ def _length_cutoff():
     return openai.LengthFinishReasonError(completion=cut)
 
 
+def test_term_candidates_call_uses_temperature_zero():
+    # at the default, the same MG transcript gave 1, 4 and 10 candidates (13-c)
+    provider = _provider_with_mock_client()
+    provider._client.chat.completions.parse.return_value = _mock_completion(TermCandidateList())
+    provider.generate_json("term_candidates", {"transcript_text": "...", "clinical_frame": {}})
+    assert provider._client.chat.completions.parse.call_args.kwargs["temperature"] == 0
+
+
 def test_length_cutoff_retries_once_at_default_temperature_and_counts_both_attempts():
     # temperature 0 can loop until the output cap (13-c ER eval)
     provider = _provider_with_mock_client()
-    ok = _mock_completion(ClinicalStructure())
+    ok = _mock_completion(TermCandidateList())
     ok.usage = MagicMock(prompt_tokens=100, completion_tokens=2000)
     provider._client.chat.completions.parse.side_effect = [_length_cutoff(), ok]
     timer = StageTimer()
 
-    result = provider.generate_json("structure_transcript", {"transcript_text": "..."}, stage_timer=timer)
+    result = provider.generate_json("term_candidates", {"transcript_text": "...", "clinical_frame": {}},
+                                    stage_timer=timer)
 
-    assert result == ClinicalStructure().model_dump()
+    assert result == TermCandidateList().model_dump()
     temps = [c.kwargs["temperature"] for c in provider._client.chat.completions.parse.call_args_list]
     assert temps == [0, 1.0]
     record = timer.records[-1]

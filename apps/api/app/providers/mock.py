@@ -15,7 +15,7 @@ from typing import Any, Optional
 from app.observability import StageTimer
 from app.pipeline.asr_normalize import contains_number_word
 
-PROMPT_VERSION_STRUCTURE = "structure_transcript@0.5.0"
+PROMPT_VERSION_STRUCTURE = "structure_transcript@0.6.0"
 PROMPT_VERSION_EXPLANATION = "patient_explanation@0.1.0"
 PROMPT_VERSION_ENRICHMENT = "clinical_enrichment@0.1.0"
 PROMPT_VERSION_TERM_CANDIDATES = "term_candidates@0.1.0"

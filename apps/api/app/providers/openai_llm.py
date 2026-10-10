@@ -35,17 +35,19 @@ PROMPTS_DIR = Path(__file__).resolve().parents[4] / "prompts"
 # override (e.g. gpt-4o-mini for cost).
 DEFAULT_TEXT_MODEL = "gpt-4o"
 
-# Every call here extracts or rewrites what the transcript says; none needs
-# variety. With the API default (1.0) the 13-c REPEAT=3 eval returned 1, 4
-# and 10 term candidates for the same MG transcript.
-TEMPERATURE = 0
-# At temperature 0 a long transcript can fall into a repetition loop that
-# runs to the model's output limit (ER role-play: 16,384 tokens, no JSON).
-# Normal outputs here are 2-3k tokens, so cap well above that to fail
-# sooner and cheaper, then retry once at the API default temperature, which
-# never looped in earlier evals. The retry is recorded as the stage's retry_count.
+# Temperature per prompt, measured (tasks/13-c REPEAT=3 evals):
+# - term_candidates at the API default (1.0) returned 1, 4 and 10 candidates
+#   for the same MG transcript; at 0 it returned 8-9.
+# - structure_transcript at 0 looped on the 13-minute ER role-play until the
+#   output limit in 4 of 4 runs (no JSON), so it and the other calls stay at
+#   the default, which never looped.
+DEFAULT_TEMPERATURE = 1.0
+TEMPERATURE_BY_PROMPT = {"term_candidates": 0.0}
+# Normal outputs here are 2-3k tokens, so a cap well above that ends a
+# repetition loop sooner and cheaper; one retry at the default temperature
+# follows. The retry is recorded as the stage's retry_count.
 MAX_OUTPUT_TOKENS = 8000
-RETRY_TEMPERATURE = 1.0
+RETRY_TEMPERATURE = DEFAULT_TEMPERATURE
 
 # prompt_id -> (pipeline stage name, response schema, prompt version).
 # tasks/03_SPEAKER_MERGE_AND_LATENCY.md Phase 1 names the pipeline stages
@@ -108,7 +110,7 @@ class OpenAILLMProvider:
             cut_off_usage = None
             try:
                 try:
-                    completion = self._parse(messages, schema, TEMPERATURE)
+                    completion = self._parse(messages, schema, TEMPERATURE_BY_PROMPT.get(prompt_id, DEFAULT_TEMPERATURE))
                 except LengthFinishReasonError as exc:
                     cut_off_usage = exc.completion.usage
                     if meta is not None:
