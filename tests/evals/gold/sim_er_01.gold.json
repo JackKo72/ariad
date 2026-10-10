@@ -1,0 +1,538 @@
+{
+ "case": "sim_er_01",
+ "source": "clinician key (chat, 2026-10-10) + sim_er_01.answer.txt",
+ "items": [
+  {
+   "id": "dx_vessel_thrombus",
+   "section": "problem",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "혈전",
+     "막힌",
+     "막혀"
+    ]
+   ]
+  },
+  {
+   "id": "dx_left_side_this_time",
+   "section": "problem",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "왼쪽"
+    ]
+   ]
+  },
+  {
+   "id": "dx_recurrence",
+   "section": "problem",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "재발"
+    ]
+   ]
+  },
+  {
+   "id": "sx_mild_now",
+   "section": "problem",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "경미"
+    ]
+   ]
+  },
+  {
+   "id": "risk_worse_motor",
+   "section": "problem",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "팔다리"
+    ],
+    [
+     "나빠",
+     "악화",
+     "못쓰",
+     "안될"
+    ]
+   ]
+  },
+  {
+   "id": "risk_worse_speech",
+   "section": "problem",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "말이안",
+     "말못",
+     "실어",
+     "언어",
+     "말하기",
+     "의사소통"
+    ]
+   ]
+  },
+  {
+   "id": "etiology_cardiac",
+   "section": "problem",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "심장"
+    ],
+    [
+     "원인",
+     "구멍",
+     "혈전"
+    ]
+   ]
+  },
+  {
+   "id": "test_contrast_ct",
+   "section": "test",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "조영제"
+    ],
+    [
+     "ct",
+     "cta",
+     "시티",
+     "씨티"
+    ]
+   ]
+  },
+  {
+   "id": "test_ct_consent",
+   "section": "test",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "동의"
+    ]
+   ]
+  },
+  {
+   "id": "test_contrast_kidney_risk",
+   "section": "test",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "조영제",
+     "조용제"
+    ],
+    [
+     "콩팥",
+     "신장"
+    ]
+   ]
+  },
+  {
+   "id": "test_multiphase_ct",
+   "section": "test",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "multiphase",
+     "멀티페이스"
+    ]
+   ]
+  },
+  {
+   "id": "test_perfusion",
+   "section": "test",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "perfusion",
+     "관류",
+     "혈류량"
+    ]
+   ]
+  },
+  {
+   "id": "finding_main_trunk_open",
+   "section": "test",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "굵은"
+    ],
+    [
+     "뚫려",
+     "개통",
+     "열려"
+    ]
+   ]
+  },
+  {
+   "id": "finding_small_distal_vessel",
+   "section": "test",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "가느다란",
+     "가는혈관",
+     "m2"
+    ]
+   ]
+  },
+  {
+   "id": "plan_no_procedure_now",
+   "section": "plan",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "시술"
+    ],
+    [
+     "안할",
+     "하지않",
+     "않",
+     "보류",
+     "안하"
+    ]
+   ],
+   "note": "polarity: NOT doing the procedure now"
+  },
+  {
+   "id": "plan_procedure_if_much_worse",
+   "section": "plan",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "시술"
+    ],
+    [
+     "나빠",
+     "악화"
+    ]
+   ]
+  },
+  {
+   "id": "plan_procedure_risk_rupture",
+   "section": "plan",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "터지",
+     "찢어",
+     "파열"
+    ]
+   ]
+  },
+  {
+   "id": "plan_medical_max",
+   "section": "plan",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "약"
+    ],
+    [
+     "최대"
+    ]
+   ]
+  },
+  {
+   "id": "med_argatroban",
+   "section": "medication",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "argatroban",
+     "agatroban",
+     "아가트로반"
+    ]
+   ],
+   "note": "argatroban infusion, 의사 2와 상의 후 단독 사용으로 결정"
+  },
+  {
+   "id": "med_clopidogrel_discussed",
+   "section": "medication",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "clopi",
+     "clopidogrel",
+     "클로피"
+    ]
+   ],
+   "note": "clopi loading 하지 않기로 결정 -- loading 하는 것으로 뒤집히지 않았는지"
+  },
+  {
+   "id": "plan_stroke_unit",
+   "section": "plan",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "뇌졸중집중치료실",
+     "스트록유닛",
+     "stroke unit",
+     "뇌졸중 집중"
+    ]
+   ]
+  },
+  {
+   "id": "plan_not_icu",
+   "section": "plan",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "중환자실"
+    ],
+    [
+     "안",
+     "않"
+    ]
+   ]
+  },
+  {
+   "id": "plan_los_5_7_days",
+   "section": "plan",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "5일",
+     "일주일",
+     "7일"
+    ]
+   ]
+  },
+  {
+   "id": "plan_repeat_mri",
+   "section": "plan",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "mri"
+    ]
+   ]
+  },
+  {
+   "id": "plan_cardiac_closure_consult",
+   "section": "plan",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "교수",
+     "순환기"
+    ],
+    [
+     "막는",
+     "시술"
+    ]
+   ]
+  },
+  {
+   "id": "plan_repeat_echo_endoscopic",
+   "section": "plan",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "내시경초음파"
+    ]
+   ]
+  },
+  {
+   "id": "exam_naming",
+   "section": "exam",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "안경",
+     "핸드폰"
+    ]
+   ]
+  },
+  {
+   "id": "exam_repetition",
+   "section": "exam",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "따라"
+    ]
+   ]
+  },
+  {
+   "id": "guardian_worse_than_morning",
+   "section": "guardian",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "아침"
+    ]
+   ]
+  },
+  {
+   "id": "guardian_is_daughter",
+   "section": "guardian",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "딸"
+    ]
+   ]
+  },
+  {
+   "id": "decision_evt_deliberation",
+   "section": "plan",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "시술"
+    ],
+    [
+     "할지",
+     "결정",
+     "고민"
+    ]
+   ]
+  },
+  {
+   "id": "decision_hard_risk_benefit",
+   "section": "plan",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "결정",
+     "권고"
+    ],
+    [
+     "어려",
+     "쉽지"
+    ]
+   ]
+  },
+  {
+   "id": "finding_perfusion_holding",
+   "section": "test",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "관류",
+     "혈류",
+     "perfusion",
+     "초록",
+     "빨간"
+    ],
+    [
+     "버티",
+     "적",
+     "양호",
+     "유지",
+     "감소",
+     "없"
+    ]
+   ]
+  },
+  {
+   "id": "exam_motor",
+   "section": "exam",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "손",
+     "다리"
+    ],
+    [
+     "쥐",
+     "들어"
+    ]
+   ]
+  },
+  {
+   "id": "frame_pfo",
+   "section": "problem",
+   "tier": "frame_term",
+   "must_match": [
+    [
+     "pfo",
+     "난원공"
+    ]
+   ],
+   "frame": "stroke",
+   "note": "'심장 그 구멍' -> PFO는 추정(ASD 등 가능), 후보로만 표시됐는지"
+  },
+  {
+   "id": "frame_tee",
+   "section": "plan",
+   "tier": "frame_term",
+   "must_match": [
+    [
+     "tee",
+     "경식도"
+    ]
+   ],
+   "frame": "stroke"
+  },
+  {
+   "id": "frame_nihss",
+   "section": "exam",
+   "tier": "frame_term",
+   "must_match": [
+    [
+     "nihss"
+    ]
+   ],
+   "frame": "stroke",
+   "note": "NIHSS 항목 검사(aphasia 위주) 시행만 -- 점수 숫자를 만들면 안 됨"
+  },
+  {
+   "id": "frame_evt",
+   "section": "plan",
+   "tier": "frame_term",
+   "must_match": [
+    [
+     "thrombectomy",
+     "evt",
+     "혈전제거술",
+     "endovascular"
+    ]
+   ],
+   "frame": "stroke",
+   "note": "EVT를 '하지 않음'으로 결정 -- 하는 것으로 뒤집히지 않았는지"
+  },
+  {
+   "id": "ctx_tpa",
+   "section": "medication",
+   "tier": "context_only",
+   "must_match": [
+    [
+     "tpa",
+     "alteplase",
+     "혈전용해"
+    ]
+   ]
+  },
+  {
+   "id": "excl_profanity",
+   "section": "-",
+   "tier": "must_exclude",
+   "must_match": [
+    [
+     "씨발"
+    ]
+   ]
+  },
+  {
+   "id": "excl_background_talk",
+   "section": "-",
+   "tier": "must_exclude",
+   "must_match": [
+    [
+     "시청자",
+     "빅스비",
+     "공무원",
+     "맑은물",
+     "호시힐"
+    ]
+   ]
+  }
+ ]
+}

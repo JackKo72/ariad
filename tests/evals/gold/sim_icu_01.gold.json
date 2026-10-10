@@ -1,0 +1,337 @@
+{
+ "case": "sim_icu_01",
+ "source": "clinician key (chat, 2026-10-09) + sim_icu_01.answer.txt",
+ "items": [
+  {
+   "id": "dx_seizure",
+   "section": "problem",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "발작",
+     "경련",
+     "seizure"
+    ]
+   ]
+  },
+  {
+   "id": "dx_cause_glucose",
+   "section": "problem",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "당조절",
+     "당이안좋",
+     "혈당",
+     "고혈당"
+    ]
+   ]
+  },
+  {
+   "id": "tx_antiseizure_med",
+   "section": "treatment",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "항발작제",
+     "항경련제",
+     "항뇌전증"
+    ]
+   ]
+  },
+  {
+   "id": "tx_sedation",
+   "section": "treatment",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "재워",
+     "진정",
+     "수면"
+    ]
+   ]
+  },
+  {
+   "id": "tx_intubation",
+   "section": "treatment",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "기관삽관",
+     "삽관",
+     "목에관"
+    ]
+   ]
+  },
+  {
+   "id": "test_cardiac_abnormal",
+   "section": "test",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "심장"
+    ],
+    [
+     "이상",
+     "모양"
+    ]
+   ]
+  },
+  {
+   "id": "plan_coronary_eval",
+   "section": "test",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "관상동맥"
+    ]
+   ]
+  },
+  {
+   "id": "result_no_emergent_procedure",
+   "section": "test",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "시술"
+    ],
+    [
+     "아니",
+     "않",
+     "불필요",
+     "필요없"
+    ]
+   ]
+  },
+  {
+   "id": "risk_contrast_kidney",
+   "section": "current_problem",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "조영제"
+    ],
+    [
+     "콩팥",
+     "신장",
+     "신기능"
+    ]
+   ]
+  },
+  {
+   "id": "problem_kidney_poor",
+   "section": "current_problem",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "콩팥",
+     "신장",
+     "신기능"
+    ],
+    [
+     "안좋",
+     "나쁘",
+     "저하",
+     "투석전"
+    ]
+   ]
+  },
+  {
+   "id": "plan_possible_dialysis",
+   "section": "plan",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "투석"
+    ],
+    [
+     "할수도",
+     "할수있",
+     "가능",
+     "필요할수"
+    ]
+   ]
+  },
+  {
+   "id": "dialysis_lifelong",
+   "section": "plan",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "투석"
+    ],
+    [
+     "평생"
+    ]
+   ]
+  },
+  {
+   "id": "sputum_med_up",
+   "section": "current_problem",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "가래"
+    ],
+    [
+     "약"
+    ]
+   ]
+  },
+  {
+   "id": "prognosis_poor",
+   "section": "plan",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "사망",
+     "돌아가실",
+     "예후"
+    ]
+   ]
+  },
+  {
+   "id": "goc_life_sustaining",
+   "section": "goals_of_care",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "연명"
+    ]
+   ]
+  },
+  {
+   "id": "goc_family_discussion",
+   "section": "goals_of_care",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "상의"
+    ]
+   ]
+  },
+  {
+   "id": "guardian_dm_med_adherence",
+   "section": "guardian",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "당뇨약"
+    ]
+   ]
+  },
+  {
+   "id": "guardian_predialysis_known",
+   "section": "guardian",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "투석전"
+    ]
+   ]
+  },
+  {
+   "id": "frame_asm",
+   "section": "treatment",
+   "tier": "frame_term",
+   "frame": "seizure",
+   "must_match": [
+    [
+     "asm",
+     "anti-seizure",
+     "항뇌전증약",
+     "antiseizure"
+    ]
+   ]
+  },
+  {
+   "id": "frame_status_epilepticus",
+   "section": "problem",
+   "tier": "frame_term",
+   "must_match": [
+    [
+     "status epilepticus",
+     "간질중첩",
+     "경련중첩",
+     "뇌전증지속"
+    ]
+   ],
+   "frame": "seizure",
+   "note": "'발작 + 재워놨어요' -> status epilepticus는 추정, 후보로만 표시됐는지"
+  },
+  {
+   "id": "ctx_midazolam",
+   "section": "treatment",
+   "tier": "context_only",
+   "must_match": [
+    [
+     "midazolam",
+     "미다졸람"
+    ]
+   ]
+  },
+  {
+   "id": "ctx_eeg",
+   "section": "test",
+   "tier": "context_only",
+   "must_match": [
+    [
+     "eeg",
+     "뇌파"
+    ]
+   ]
+  },
+  {
+   "id": "ctx_scmp",
+   "section": "problem",
+   "tier": "context_only",
+   "must_match": [
+    [
+     "scmp",
+     "스트레스심근",
+     "stress cardiomyopathy",
+     "takotsubo",
+     "타코츠보"
+    ]
+   ]
+  },
+  {
+   "id": "ctx_cag",
+   "section": "test",
+   "tier": "context_only",
+   "must_match": [
+    [
+     "cag",
+     "관상동맥조영술",
+     "coronary angiography"
+    ]
+   ]
+  },
+  {
+   "id": "ctx_cardio_staff",
+   "section": "test",
+   "tier": "context_only",
+   "must_match": [
+    [
+     "순환기",
+     "cardio",
+     "cardiology",
+     "심장내과"
+    ]
+   ]
+  },
+  {
+   "id": "ctx_cin",
+   "section": "current_problem",
+   "tier": "context_only",
+   "must_match": [
+    [
+     "cin",
+     "조영제신증",
+     "contrast-induced",
+     "조영제유발"
+    ]
+   ]
+  }
+ ]
+}
