@@ -240,11 +240,30 @@ def test_determinate_judgment_requires_rate():
         AdherenceJudgment(action_id="A", plan_id="P", week="2026-W42", response_rate=1, label="adherent", rule_version="r1")
 
 
+_RED_FLAG = dict(red_flag=True, red_flag_categories=["new_neuro_deficit"], guidance_text="119", notify_clinician=True)
+
+
 def test_red_flag_report_skips_code():
-    report = BarrierReport(action_id="A", week="2026-W42", red_flag=True, free_text="말이 어눌해졌어요")
+    report = BarrierReport(action_id="A", week="2026-W42", free_text="말이 어눌해졌어요", **_RED_FLAG)
     assert report.code is None
     with pytest.raises(ValidationError, match="skip classification"):
-        BarrierReport(action_id="A", week="2026-W42", red_flag=True, code="MED")
+        BarrierReport(action_id="A", week="2026-W42", code="MED", **_RED_FLAG)
+
+
+@pytest.mark.parametrize("missing", ["red_flag_categories", "guidance_text", "notify_clinician"])
+def test_red_flag_report_needs_guidance_and_alert(missing):
+    data = dict(_RED_FLAG, **{missing: [] if missing == "red_flag_categories" else (None if missing == "guidance_text" else False)})
+    with pytest.raises(ValidationError, match="need categories"):
+        BarrierReport(action_id="A", week="2026-W42", **data)
+
+
+def test_unclassified_report_allowed_only_for_review():
+    assert BarrierReport(action_id="A", week="2026-W42", free_text="...", needs_review=True).code is None
+
+
+def test_red_flag_categories_without_red_flag_rejected():
+    with pytest.raises(ValidationError, match="without red_flag"):
+        BarrierReport(action_id="A", week="2026-W42", code="MED", red_flag_categories=["syncope"])
 
 
 def test_non_red_flag_report_requires_code():

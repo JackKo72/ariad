@@ -70,6 +70,30 @@
       "title": "Red Flag",
       "type": "boolean"
     },
+    "red_flag_categories": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Red Flag Categories",
+      "type": "array"
+    },
+    "guidance_text": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Guidance Text"
+    },
+    "notify_clinician": {
+      "default": false,
+      "title": "Notify Clinician",
+      "type": "boolean"
+    },
     "follow_up_question": {
       "anyOf": [
         {

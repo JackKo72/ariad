@@ -1,0 +1,83 @@
+{
+  "synthetic": true,
+  "label_status": "draft_unreviewed",
+  "description": "red flag 문장 10건(100% 탐지 필수)과 오탐 확인용 음성 문장. Part 3-3.",
+  "red_flags": [
+    {
+      "id": "RF01",
+      "text": "어제부터 오른쪽 팔다리에 힘이 빠져요.",
+      "expected_category": "new_neuro_deficit"
+    },
+    {
+      "id": "RF02",
+      "text": "아침에 일어나니 말이 어눌하게 나와요.",
+      "expected_category": "new_neuro_deficit"
+    },
+    {
+      "id": "RF03",
+      "text": "거울 보니 입이 한쪽으로 돌아갔어요.",
+      "expected_category": "new_neuro_deficit"
+    },
+    {
+      "id": "RF04",
+      "text": "걷다가 가슴이 조이는 것처럼 아팠어요.",
+      "expected_category": "chest_pain"
+    },
+    {
+      "id": "RF05",
+      "text": "운동하다가 쓰러져서 잠깐 정신을 잃었어요.",
+      "expected_category": "syncope"
+    },
+    {
+      "id": "RF06",
+      "text": "아침 공복 혈당이 62 나왔어요.",
+      "expected_category": "hypoglycemia"
+    },
+    {
+      "id": "RF07",
+      "text": "식은땀이 나고 손이 떨려서 재보니 혈당이 55였어요.",
+      "expected_category": "hypoglycemia"
+    },
+    {
+      "id": "RF08",
+      "text": "이번 주에 두 번이나 넘어졌어요.",
+      "expected_category": "repeated_falls"
+    },
+    {
+      "id": "RF09",
+      "text": "화장실 가다가 또 넘어졌어요.",
+      "expected_category": "repeated_falls"
+    },
+    {
+      "id": "RF10",
+      "text": "갑자기 한쪽 눈이 안 보였다가 돌아왔어요.",
+      "expected_category": "new_neuro_deficit"
+    }
+  ],
+  "non_red_flags": [
+    {
+      "id": "NR01",
+      "text": "편마비 때문에 오래 걷기 힘들어요."
+    },
+    {
+      "id": "NR02",
+      "text": "넘어질까 봐 무서워서 밖에 안 나갔어요."
+    },
+    {
+      "id": "NR03",
+      "text": "혈당이 165 나왔어요."
+    },
+    {
+      "id": "NR04",
+      "text": "혈당 재는 걸 10일 동안 못 했어요."
+    },
+    {
+      "id": "NR05",
+      "text": "다리가 아파서 못 걸었어요."
+    },
+    {
+      "id": "NR06",
+      "text": "한 번 넘어질 뻔했는데 괜찮았어요."
+    }
+  ]
+}

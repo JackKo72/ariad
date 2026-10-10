@@ -18,6 +18,7 @@ PROMPT_VERSION_STRUCTURE = "structure_transcript@0.2.0"
 PROMPT_VERSION_EXPLANATION = "patient_explanation@0.1.0"
 PROMPT_VERSION_ENRICHMENT = "clinical_enrichment@0.1.0"
 PROMPT_VERSION_CLASSIFY_DIRECTIVE = "classify_action_directive@0.1.0"
+PROMPT_VERSION_CLASSIFY_BARRIER = "classify_barrier@0.1.0"
 
 _DOSE_UNIT_RE = re.compile(r"(밀리그램|mg|그램)")
 _MEDICATION_MENTION_RE = re.compile(r"약")
@@ -59,6 +60,25 @@ _DIRECTIVE_DOMAIN_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         ("activity_aerobic", r"걷|걸으|걸어|산책|운동"),
     )
 )
+# Stage 2 barrier classification (prompts/classify_barrier.md). Keyword
+# stand-in for the LLM: counts keyword hits per Part 3-3 code. A mock
+# heuristic for plumbing and tests, not a clinical classifier.
+_BARRIER_CODE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
+    (code, re.compile(pattern))
+    for code, pattern in (
+        ("C-PHY", r"편마비|불편|무릎|허리|통증|아파|아프|피곤|균형|숨이\s*차|힘들어서"),
+        ("C-PSY", r"잊어|잊었|깜빡|까먹|방법을\s*모르|어떻게\s*하는지|이해가\s*안|헷갈"),
+        ("O-PHY", r"비가|비\s*와|날씨|추워|추운|더워|장소|비싸|비용|돈이|기계가\s*없|없어서요|외식|출장|여행"),
+        ("O-SOC", r"가족|남편|아내|며느리|딸|아들|회식|친구|동료|짜게\s*해|같이\s*사는|모임"),
+        ("M-REF", r"필요\s*없|필요성|괜찮은\s*것\s*같|약\s*먹으니|효과가\s*없|소용없|왜\s*해야|별\s*차이"),
+        ("M-AUT", r"참기|못\s*참|생각이\s*나|습관|손이\s*가|땡겨|당겨|버릇"),
+        ("M-EMO", r"우울|의욕|기운이\s*없|불안|무기력|슬퍼|하기\s*싫|기분이"),
+        ("MED", r"감기|입원|어지러|몸살|열이|수술|장염|코로나|병원에"),
+        ("PLAN", r"목표가|너무\s*많|무슨\s*말인지|지시가|다른\s*병원|다른\s*의사|말이\s*달"),
+        ("MEAS", r"앱|어플|버튼|입력|고장|배터리|알림이|휴대폰|핸드폰"),
+    )
+)
+
 _DIRECTIVE_CUE_RE = re.compile(r"(세요|시고요|하셔야|마시고|드시지|줄이|끊으|끊으셔야|해보세요|하십시오)")
 _TARGET_HINT_RE = re.compile(r"(하루\s*\d+\s*(번|회|분|잔|개비)|주\s*\d+\s*(일|회|번)(\s*\d+\s*분)?|\d+\s*분)")
 _REFUSED_RE = re.compile(r"(못\s*하|안\s*할|싫|못\s*끊)")
@@ -163,6 +183,8 @@ class MockLLMProvider:
             return self._clinical_enrichment(payload)
         if prompt_id == "classify_action_directive":
             return self._classify_action_directive(payload)
+        if prompt_id == "classify_barrier":
+            return self._classify_barrier(payload)
         raise ValueError(f"MockLLMProvider has no handler for prompt_id={prompt_id!r}")
 
     def _structure_transcript(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -190,6 +212,20 @@ class MockLLMProvider:
         # Only reached when a directive has no usable domain_hint. The mock
         # has no basis to pick a catalog action, so it never guesses.
         return {"catalog_code": "custom", "confidence": 0.0, "rationale": "mock: no classification"}
+
+    def _classify_barrier(self, payload: dict[str, Any]) -> dict[str, Any]:
+        text = payload["free_text"]
+        hits = [(code, len(pattern.findall(text))) for code, pattern in _BARRIER_CODE_PATTERNS]
+        best = max(n for _, n in hits)
+        if best == 0:
+            return {"code": None, "confidence": 0.0, "rationale": "mock: no keyword"}
+        leaders = [code for code, n in hits if n == best]
+        # A tie means the answer mixes reasons -> low confidence -> follow-up.
+        return {
+            "code": leaders[0],
+            "confidence": 0.9 if len(leaders) == 1 else 0.5,
+            "rationale": "mock: keyword match",
+        }
 
     def _clinical_enrichment(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Deterministic, rule-based stand-in for the real LLM (same spirit

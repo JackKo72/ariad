@@ -19,9 +19,10 @@ from typing import Any, Optional
 
 from app.domain.errors import LlmProviderFailed
 from app.domain.models import ClinicalEnrichment, ClinicalStructure, ExplanationDraft
-from app.domain.stage2 import DirectiveClassification
+from app.domain.stage2 import BarrierClassification, DirectiveClassification
 from app.observability import StageTimer
 from app.providers.mock import (
+    PROMPT_VERSION_CLASSIFY_BARRIER,
     PROMPT_VERSION_CLASSIFY_DIRECTIVE,
     PROMPT_VERSION_ENRICHMENT,
     PROMPT_VERSION_EXPLANATION,
@@ -43,6 +44,7 @@ _CALL_SPEC = {
         DirectiveClassification,
         PROMPT_VERSION_CLASSIFY_DIRECTIVE,
     ),
+    "classify_barrier": ("classify_barrier_llm", BarrierClassification, PROMPT_VERSION_CLASSIFY_BARRIER),
 }
 
 

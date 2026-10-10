@@ -70,6 +70,7 @@ eval:
 	apps/api/.venv/bin/python tests/evals/run_eval.py
 	apps/api/.venv/bin/python scripts/eval_clinical_enrichment.py
 	apps/api/.venv/bin/python scripts/eval_action_directives.py
+	apps/api/.venv/bin/python scripts/eval_barriers.py
 
 lint:
 	apps/api/.venv/bin/ruff check apps/api scripts

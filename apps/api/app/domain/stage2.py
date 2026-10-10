@@ -313,6 +313,12 @@ class BarrierReport(BaseModel):
     free_text: Optional[str] = None
     classifier_confidence: Optional[float] = Field(default=None, ge=0, le=1)
     red_flag: bool = False
+    # Step 5 additions: which config/red_flags.yaml categories matched, the
+    # guidance text shown to the respondent, and whether the clinician must
+    # be alerted (always true for a red flag).
+    red_flag_categories: list[str] = Field(default_factory=list)
+    guidance_text: Optional[str] = None
+    notify_clinician: bool = False
     follow_up_question: Optional[str] = None
     needs_review: bool = False
 
@@ -324,10 +330,87 @@ class BarrierReport(BaseModel):
     @model_validator(mode="after")
     def _red_flag_skips_classification(self) -> "BarrierReport":
         # Part 3-3: red flag is handled before (and instead of) classification.
-        if self.red_flag and self.code is not None:
-            raise ValueError("red_flag reports skip classification: code must be None")
-        if not self.red_flag and self.code is None:
-            raise ValueError("non-red-flag report requires a barrier code")
+        if self.red_flag:
+            if self.code is not None:
+                raise ValueError("red_flag reports skip classification: code must be None")
+            if not (self.red_flag_categories and self.guidance_text and self.notify_clinician):
+                raise ValueError("red_flag reports need categories, guidance_text and notify_clinician")
+        elif self.code is None and not self.needs_review:
+            # An unclassifiable answer is stored for review (CLAUDE.md stage 2 rule).
+            raise ValueError("non-red-flag report requires a barrier code unless needs_review")
+        elif self.red_flag_categories:
+            raise ValueError("red_flag_categories set without red_flag")
+        return self
+
+
+# ---------------------------------------------------------------- barrier classification (LLM output + config)
+
+
+class BarrierClassification(BaseModel):
+    """prompts/classify_barrier.md output. code is null when the answer
+    gives no basis for any category; barrier.py checks code membership
+    and confidence range itself (strict schema can't express them)."""
+
+    code: Optional[str]
+    confidence: float
+    rationale: str
+
+
+class RedFlagNumeric(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    value_pattern: str
+    lt: float
+
+
+class RedFlagCategory(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label_ko: str
+    patterns: list[str] = Field(min_length=1)
+    numeric: Optional[RedFlagNumeric] = None
+
+    @field_validator("patterns")
+    @classmethod
+    def _compiles(cls, patterns: list[str]) -> list[str]:
+        for pattern in patterns:
+            re.compile(pattern)
+        return patterns
+
+
+class RedFlagRules(BaseModel):
+    """config/red_flags.yaml."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rules_version: str
+    review_status: Literal["draft_unreviewed", "clinician_reviewed"]
+    categories: dict[str, RedFlagCategory] = Field(min_length=1)
+    guidance_template: str
+
+
+class BarrierCodeInfo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label_ko: str
+    default_response: str
+
+
+class BarrierConfig(BaseModel):
+    """config/barrier.yaml."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    config_version: str
+    min_confidence: float = Field(ge=0, le=1)
+    codes: dict[BarrierCode, BarrierCodeInfo]
+    follow_up_template: str
+    unclassified_follow_up: str
+
+    @model_validator(mode="after")
+    def _all_codes(self) -> "BarrierConfig":
+        if set(self.codes) != set(BarrierCode):
+            raise ValueError("config/barrier.yaml must describe every BarrierCode")
         return self
 
 

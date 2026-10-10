@@ -6,12 +6,14 @@ from pathlib import Path
 
 import yaml
 
-from app.domain.stage2 import CheckinConfig, JudgeConfig, QuestionBank
+from app.domain.stage2 import BarrierConfig, CheckinConfig, JudgeConfig, QuestionBank, RedFlagRules
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 JUDGE_CONFIG_PATH = REPO_ROOT / "config" / "judge.yaml"
 CHECKIN_CONFIG_PATH = REPO_ROOT / "config" / "checkin.yaml"
 QUESTIONS_PATH = REPO_ROOT / "catalog" / "questions.yaml"
+RED_FLAGS_PATH = REPO_ROOT / "config" / "red_flags.yaml"
+BARRIER_CONFIG_PATH = REPO_ROOT / "config" / "barrier.yaml"
 
 
 def _load_yaml(path: Path) -> dict:
@@ -28,3 +30,11 @@ def load_checkin_config(path: Path = CHECKIN_CONFIG_PATH) -> CheckinConfig:
 
 def load_question_bank(path: Path = QUESTIONS_PATH) -> QuestionBank:
     return QuestionBank.model_validate(_load_yaml(path))
+
+
+def load_red_flag_rules(path: Path = RED_FLAGS_PATH) -> RedFlagRules:
+    return RedFlagRules.model_validate(_load_yaml(path))
+
+
+def load_barrier_config(path: Path = BARRIER_CONFIG_PATH) -> BarrierConfig:
+    return BarrierConfig.model_validate(_load_yaml(path))
