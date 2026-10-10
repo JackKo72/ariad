@@ -93,6 +93,84 @@ def test_clinical_enrichment_source_spans_are_grounded_in_segment_text():
     assert enrichment.validator_violations == []
 
 
+# tasks/06_ASR_OUTPUT_VERIFICATION.md: vital-sign (BP/weight/glucose/
+# pulse/temperature) reading detection rules added to the mock provider.
+_VITAL_SIGN_SEGMENTS = [
+    DiarizedSegment(
+        id="v1", speaker="A", role="doctor", start=0.0, end=3.0,
+        text="혈압을 재보니 138에 86으로 나왔습니다.",
+    ),
+    DiarizedSegment(
+        id="v2", speaker="A", role="doctor", start=3.0, end=5.0,
+        text="혈압을 재볼까요?",
+    ),
+    DiarizedSegment(
+        id="v3", speaker="A", role="doctor", start=5.0, end=8.0,
+        text="오늘은 혈압이 백삼십이에 팔십사, 맥박은 칠십회였습니다.",
+    ),
+    DiarizedSegment(
+        id="v4", speaker="A", role="doctor", start=8.0, end=10.0,
+        text="체중을 확인해보니 72킬로그램이네요.",
+    ),
+]
+
+
+def test_vital_sign_reading_with_number_becomes_an_observation_candidate():
+    provider = MockLLMProvider()
+    enrichment = enrich_clinical_findings(_VITAL_SIGN_SEGMENTS, provider)
+    bp_findings = [e for e in enrichment.exam if e.raw_text.startswith("혈압을 재보니")]
+    assert len(bp_findings) == 1
+    finding = bp_findings[0]
+    assert finding.kind == "observation"
+    assert finding.value_candidates
+    assert finding.value_candidates[0].value == "혈압을 재보니 138에 86으로 나왔습니다."
+    assert finding.needs_review is True
+
+
+def test_vital_sign_keyword_alone_becomes_an_order_with_no_value_candidate():
+    """A vital-sign keyword with no number (an order/question) must never
+    produce a value_candidate -- the mock never guesses a reading that
+    wasn't actually stated."""
+    provider = MockLLMProvider()
+    enrichment = enrich_clinical_findings(_VITAL_SIGN_SEGMENTS, provider)
+    order_findings = [e for e in enrichment.exam if e.raw_text == "혈압을 재볼까요?"]
+    assert len(order_findings) == 1
+    assert order_findings[0].kind == "order"
+    assert order_findings[0].value_candidates == []
+
+
+def test_two_vital_signs_in_one_sentence_gets_low_confidence_not_a_guess():
+    """tasks/06's "ownership ambiguity" case (which number belongs to
+    which keyword) -- the mock still reports the candidate (so a
+    clinician can look) but never pairs a specific number to a specific
+    keyword, and flags it at low confidence."""
+    provider = MockLLMProvider()
+    enrichment = enrich_clinical_findings(_VITAL_SIGN_SEGMENTS, provider)
+    combined_findings = [e for e in enrichment.exam if e.raw_text.startswith("오늘은 혈압이")]
+    assert len(combined_findings) == 1
+    finding = combined_findings[0]
+    assert finding.value_candidates[0].confidence == "low"
+    assert {c.value for c in finding.test_name_candidates} == {"혈압", "맥박"}
+
+
+def test_vital_sign_reading_recognized_even_when_number_is_hangul_words():
+    """Real ASR output often renders a spoken number as Hangul syllables,
+    not digits -- the detection rule must not be digit-only."""
+    provider = MockLLMProvider()
+    enrichment = enrich_clinical_findings(_VITAL_SIGN_SEGMENTS, provider)
+    combined_findings = [e for e in enrichment.exam if e.raw_text.startswith("오늘은 혈압이")]
+    assert combined_findings and combined_findings[0].kind == "observation"
+
+
+def test_vital_sign_with_trailing_unit_word_becomes_an_observation():
+    provider = MockLLMProvider()
+    enrichment = enrich_clinical_findings(_VITAL_SIGN_SEGMENTS, provider)
+    weight_findings = [e for e in enrichment.exam if e.raw_text.startswith("체중을")]
+    assert len(weight_findings) == 1
+    assert weight_findings[0].kind == "observation"
+    assert weight_findings[0].value_candidates
+
+
 def test_structure_is_deterministic():
     provider = MockLLMProvider()
     first = structure_encounter(TRANSCRIPT, provider)

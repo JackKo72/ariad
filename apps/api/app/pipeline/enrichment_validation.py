@@ -19,8 +19,8 @@ from app.domain.models import (
     MedicationFinding,
     SourceSpan,
 )
+from app.pipeline.asr_normalize import contains_number_word
 
-_HAS_DIGIT_RE = re.compile(r"\d")
 _NEGATED_STOP_RE = re.compile(r"(끊지|중단하지|멈추지)\s*(마세요|말고|말아)")
 
 
@@ -79,12 +79,12 @@ def validate_enrichment(
             item.value_candidates,
             item.needs_review,
         )
-        if score_candidates and not any(_HAS_DIGIT_RE.search(s.quote) for s in spans):
+        if score_candidates and not any(contains_number_word(s.quote) for s in spans):
             violations.append(
                 f"exam {item.id}: score_candidates without a verbatim number in source -- cleared"
             )
             score_candidates, score_computable, needs_review = [], False, True
-        if value_candidates and not any(_HAS_DIGIT_RE.search(s.quote) for s in spans):
+        if value_candidates and not any(contains_number_word(s.quote) for s in spans):
             violations.append(
                 f"exam {item.id}: value_candidates without a verbatim number in source -- cleared"
             )
