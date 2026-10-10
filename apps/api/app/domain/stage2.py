@@ -210,6 +210,11 @@ class ActionItem(BaseModel):
     status: ActionStatus = ActionStatus.DRAFT
     approved_by: Optional[str] = None
     needs_review: bool = False
+    # Clinician's per-patient override of the catalog check cadence (e.g.
+    # walking asked 3x/week instead of daily so it fits a 2-question day,
+    # or 2 work-hour alerts instead of 3). None = catalog default. Used by
+    # both checkin.py (when to ask) and judge.py (responses expected).
+    check_cadence: Optional[Cadence] = None
 
     @model_validator(mode="after")
     def _post_draft_requires_approval(self) -> "ActionItem":

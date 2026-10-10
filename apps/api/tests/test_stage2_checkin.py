@@ -6,9 +6,9 @@ import datetime as dt
 
 import pytest
 
-from app.domain.stage2 import ActionItem, ActionPlan, CheckinConfig, Respondent
+from app.domain.stage2 import ActionItem, ActionPlan, Cadence, CheckinConfig, Respondent
 from app.stage2.catalog import load_catalog
-from app.stage2.checkin import daily_questions, is_due
+from app.stage2.checkin import daily_questions, is_due, never_asked_items
 from app.stage2.config import load_checkin_config, load_question_bank
 
 CATALOG = load_catalog()
@@ -150,3 +150,33 @@ def test_shared_part_codes_point_at_actions_using_that_question():
     for qid, template in BANK.questions.items():
         for part in template.parts:
             assert part.for_code is None or part.for_code in users.get(qid, set()), (qid, part.for_code)
+
+
+# ---------------------------------------------------------------- per-item cadence override
+
+
+def _with_cadence(plan, code, times, per):
+    items = [i.model_copy(update={"check_cadence": Cadence(times=times, per=per)}) if i.catalog_code == code else i for i in plan.items]
+    return ActionPlan.model_validate({**plan.model_dump(), "items": [i.model_dump() for i in items]})
+
+
+def test_cadence_override_moves_a_daily_item_to_scheduled_days():
+    plan = _with_cadence(_plan("P1"), "P1", 3, "week")
+    assert [q.question_id for q in _ask(plan, MON)] == ["Q-P1-01"]
+    assert _ask(plan, TUE) == []
+
+
+def test_never_asked_items_flags_starved_item():
+    two = CheckinConfig(max_questions_per_day=2, weekly_schedule=CONFIG.weekly_schedule)
+    plan = _plan("S1", "D2", "P1")
+    assert never_asked_items(plan, CATALOG, BANK, two, MON) == ["A-003"]
+    # moving P1 to 3x/week is not enough under a 2-question day...
+    assert never_asked_items(_with_cadence(plan, "P1", 3, "week"), CATALOG, BANK, two, MON) == ["A-003"]
+    # ...a 3-question day with P1 3x/week is
+    assert never_asked_items(_with_cadence(plan, "P1", 3, "week"), CATALOG, BANK, CONFIG, MON) == []
+
+
+def test_never_asked_ignores_alert_device_and_todo_items():
+    two = CheckinConfig(max_questions_per_day=1, weekly_schedule=CONFIG.weekly_schedule)
+    plan = _plan("S1", "P3", "H1", "D1", "P1")
+    assert never_asked_items(plan, CATALOG, BANK, two, MON, device_covered=frozenset({"A-005"})) == []

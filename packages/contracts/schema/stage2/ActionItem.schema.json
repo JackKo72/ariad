@@ -34,6 +34,30 @@
       "title": "ActionTarget",
       "type": "object"
     },
+    "Cadence": {
+      "additionalProperties": false,
+      "properties": {
+        "times": {
+          "minimum": 1,
+          "title": "Times",
+          "type": "integer"
+        },
+        "per": {
+          "enum": [
+            "day",
+            "week"
+          ],
+          "title": "Per",
+          "type": "string"
+        }
+      },
+      "required": [
+        "times",
+        "per"
+      ],
+      "title": "Cadence",
+      "type": "object"
+    },
     "Comparator": {
       "enum": [
         ">=",
@@ -111,6 +135,17 @@
       "default": false,
       "title": "Needs Review",
       "type": "boolean"
+    },
+    "check_cadence": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Cadence"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [

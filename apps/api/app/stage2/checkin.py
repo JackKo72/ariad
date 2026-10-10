@@ -23,6 +23,7 @@ import datetime as dt
 from typing import Union
 
 from app.domain.stage2 import (
+    ActionItem,
     ActionPlan,
     ActionStatus,
     Cadence,
@@ -48,9 +49,14 @@ def is_due(cadence: Union[Cadence, str], day: dt.date, config: CheckinConfig) ->
     return day.isoweekday() in config.weekly_schedule[cadence.times]
 
 
-def _scheduled_question_ids(action: CatalogAction) -> list[tuple[str, Union[Cadence, str]]]:
+def effective_cadence(item: ActionItem, action: CatalogAction) -> Union[Cadence, str]:
+    """The clinician's per-item override, else the catalog cadence."""
+    return item.check_cadence or action.check_method.cadence
+
+
+def _scheduled_question_ids(item: ActionItem, action: CatalogAction) -> list[tuple[str, Union[Cadence, str]]]:
     method = action.check_method
-    slots: list[tuple[str, Union[Cadence, str]]] = [(method.question_id, method.cadence)]
+    slots: list[tuple[str, Union[Cadence, str]]] = [(method.question_id, effective_cadence(item, action))]
     if method.secondary_question_id and method.secondary_cadence:
         slots.append((method.secondary_question_id, method.secondary_cadence))
     return slots
@@ -80,7 +86,7 @@ def daily_questions(
             continue
         if channel in DEVICE_CHANNELS and item.action_id in device_covered:
             continue
-        for question_id, cadence in _scheduled_question_ids(action):
+        for question_id, cadence in _scheduled_question_ids(item, action):
             if not is_due(cadence, day, config):
                 continue
             template = bank.questions.get(question_id)
@@ -111,3 +117,36 @@ def daily_questions(
                 )
                 asked.add((question_id, i))
     return selected
+
+
+def never_asked_items(
+    plan: ActionPlan,
+    catalog: Catalog,
+    bank: QuestionBank,
+    config: CheckinConfig,
+    week_start: dt.date,
+    device_covered: frozenset[str] = frozenset(),
+) -> list[str]:
+    """Active question-channel items that one full week of daily_questions
+    never selects -- e.g. a third daily item under a 2-question limit
+    (Step 7 scenario A). Run at approval time so the clinician can change
+    a cadence or the limit instead of finding 4 weeks of 판정 불가 later.
+    Items on alert/device/no-cadence channels are not expected here."""
+    asked = {
+        q.action_id
+        for offset in range(7)
+        for q in daily_questions(plan, catalog, bank, week_start + dt.timedelta(days=offset), config, device_covered)
+    }
+    actions = {a.catalog_code: a for a in catalog.actions}
+    expected = []
+    for item in plan.items:
+        action = actions.get(item.catalog_code)
+        if item.status != ActionStatus.ACTIVE or action is None or item.action_id in device_covered:
+            continue
+        if action.check_method.channel in NON_QUESTION_CHANNELS:
+            continue
+        template = bank.questions.get(action.check_method.question_id)
+        if isinstance(effective_cadence(item, action), str) or template is None or template.is_todo:
+            continue
+        expected.append(item.action_id)
+    return [a for a in expected if a not in asked]

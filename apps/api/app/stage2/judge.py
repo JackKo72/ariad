@@ -58,14 +58,14 @@ def weekly_target(value: float, unit: str) -> float:
     return value * 7 if unit.endswith("_per_day") else value
 
 
-def expected_responses(action: CatalogAction) -> Optional[int]:
+def expected_responses(action: CatalogAction, item: Optional[ActionItem] = None) -> Optional[int]:
     """Check-ins expected per week from the catalog cadence, or None when
     there is no fixed question cadence (H1/H2 measurement entry). For those
     a missing measurement *is* the non-adherence, so it must lower the
     rate rather than hide it behind an indeterminate label (Step 7 found
     this); only zero measurements stay indeterminate (could be a device
     problem)."""
-    cadence = action.check_method.cadence
+    cadence = (item.check_cadence if item is not None else None) or action.check_method.cadence
     if isinstance(cadence, Cadence):
         return cadence.times * (7 if cadence.per == "day" else 1)
     return None
@@ -123,7 +123,7 @@ def judge_week(
     target = weekly_target(item.target.value, item.target.unit)
     metric_type = MetricType(action.metric_type)
 
-    expected = expected_responses(action)
+    expected = expected_responses(action, item)
     if expected:
         response_rate = min(1.0, len(week_checkins) / expected)
     else:

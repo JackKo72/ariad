@@ -9,7 +9,7 @@ import inspect
 import pytest
 from pydantic import ValidationError
 
-from app.domain.stage2 import ActionItem, AdherenceLabel, CheckIn, JudgeConfig
+from app.domain.stage2 import ActionItem, AdherenceLabel, Cadence, CheckIn, JudgeConfig
 from app.stage2 import judge as judge_module
 from app.stage2.catalog import load_catalog
 from app.stage2.config import load_judge_config
@@ -219,3 +219,14 @@ def test_missed_measurements_lower_the_rate_instead_of_hiding_it():
 def test_zero_measurements_stay_indeterminate():
     j = _judge("H2", 7, "measurements_per_week", [])
     assert (j.label, j.rate) == (AdherenceLabel.INDETERMINATE, None)
+
+
+def test_cadence_override_changes_expected_responses():
+    # P3 with 2 alerts/day (Part 2-3 B): 14 expected, not the catalog's 21
+    item = _item("P3", 2, "prompted_breaks_per_day").model_copy(update={"check_cadence": Cadence(times=2, per="day")})
+    checkins = [
+        CheckIn(checkin_id=f"C{i}", action_id="A-P3", date=MONDAY + dt.timedelta(days=i // 2), value=1, source="self_report")
+        for i in range(14)
+    ]
+    j = judge_week(item, CATALOG["P3"], checkins, WEEK, CONFIG)
+    assert (j.rate, j.response_rate, j.label) == (1.0, 1.0, AdherenceLabel.ADHERENT)

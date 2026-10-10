@@ -52,20 +52,38 @@ def test_transcript_directives_become_the_approved_plan(scenario, codes):
 
 
 def test_daily_question_limit_is_respected():
-    limits = {"A": 2, "B": 3, "C": 3, "D": 3}
     for scenario, result in RESULTS.items():
-        assert result.questions_asked <= 28 * limits[scenario]
+        assert result.questions_asked <= 28 * 3
     # A has no alert/device channels, so every check-in is an answered question
-    assert max(Counter(c.date for c in RESULTS["A"].checkins).values()) <= limits["A"]
+    per_day = Counter(c.date for c in RESULTS["A"].checkins)
+    assert max(per_day.values()) <= 3
+    # ...and only walking days (Mon/Wed/Fri) can reach 3
+    assert all(day.isoweekday() in (1, 3, 5) for day, n in per_day.items() if n == 3)
 
 
-def test_scenario_a_question_limit_starves_walking():
-    """Part 2-3 A: S1 and D2 are daily and the day holds 2 questions, so P1
-    (also daily, lowest priority) is never asked -> 판정 불가. A real design
-    conflict the report surfaces instead of hiding."""
-    p1 = _row("A", "P1")
-    assert p1.overall_label == AdherenceLabel.INDETERMINATE
-    assert not [c for c in RESULTS["A"].checkins if c.action_id == "A-003"]
+def test_scenario_a_two_question_limit_is_caught_at_approval():
+    """Step 7 finding: with the design's 2-question limit, S1 and D2 (daily)
+    fill every day and P1 is never asked. never_asked_items blocks that
+    plan at approval instead of yielding 4 weeks of 판정 불가."""
+    settings = SIM.load_scenarios()
+    scenario_a = dict(next(s for s in settings["scenarios"] if s["id"] == "A"), max_questions_per_day=2)
+    with pytest.raises(ValueError, match=r"\['A-003'\] would never be asked"):
+        SIM.run_scenario(scenario_a, settings, MockLLMProvider())
+
+
+def test_scenario_a_walking_is_asked_three_times_a_week_and_judged():
+    p1_item = next(i for i in RESULTS["A"].plan.items if i.catalog_code == "P1")
+    assert (p1_item.check_cadence.times, p1_item.check_cadence.per) == (3, "week")
+    assert {c.date.isoweekday() for c in RESULTS["A"].checkins if c.action_id == p1_item.action_id} <= {1, 3, 5}
+    assert _row("A", "P1").overall_label != AdherenceLabel.INDETERMINATE
+
+
+def test_scenario_b_work_alerts_limited_to_two_per_day():
+    p3_item = next(i for i in RESULTS["B"].plan.items if i.catalog_code == "P3")
+    assert p3_item.check_cadence.times == 2 and p3_item.target.value == 2
+    per_day = Counter(c.date for c in RESULTS["B"].checkins if c.action_id == p3_item.action_id)
+    assert max(per_day.values()) <= 2
+    assert all(j.response_rate <= 1.0 for j in RESULTS["B"].judgments if j.action_id == p3_item.action_id)
 
 
 def test_scenario_c_is_answered_by_the_caregiver_and_raises_a_red_flag():

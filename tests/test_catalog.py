@@ -158,6 +158,19 @@ def test_todo_report_lists_unfilled_clinician_values(capsys):
     assert total == len(find_todos(load_catalog()["actions"]))
 
 
+
+def test_every_todo_is_listed_in_the_clinician_review_doc():
+    """docs/clinician_review.md is the single place a clinician decides
+    these values; keep it in sync with the catalog."""
+    doc = (CATALOG_PATH.parents[1] / "docs" / "clinician_review.md").read_text(encoding="utf-8")
+    missing = [
+        f"{code}.{path}"
+        for code, paths in todo_report(load_catalog()).items()
+        for path in paths
+        if f"`{code}.{path}`" not in doc
+    ]
+    assert missing == []
+
 if __name__ == "__main__":
     for code, paths in todo_report(load_catalog()).items():
         print(f"{code}: {', '.join(paths)}")

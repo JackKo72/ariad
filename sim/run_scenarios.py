@@ -52,7 +52,7 @@ from app.domain.stage2 import (  # noqa: E402
 from app.providers.base import LLMProvider  # noqa: E402
 from app.stage2.barrier import build_barrier_report, detect_red_flags  # noqa: E402
 from app.stage2.catalog import load_catalog  # noqa: E402
-from app.stage2.checkin import NON_QUESTION_CHANNELS, daily_questions  # noqa: E402
+from app.stage2.checkin import NON_QUESTION_CHANNELS, daily_questions, effective_cadence, never_asked_items  # noqa: E402
 from app.stage2.config import (  # noqa: E402
     load_barrier_config,
     load_checkin_config,
@@ -78,6 +78,7 @@ class ScenarioResult:
     judgments: list[AdherenceJudgment] = field(default_factory=list)
     barriers: list[BarrierReport] = field(default_factory=list)
     questions_asked: int = 0
+    dropped: list[str] = field(default_factory=list)
     report: Optional[ClinicianReport] = None
     markdown: str = ""
 
@@ -88,23 +89,31 @@ def load_scenarios(path: Path = SCENARIOS_PATH) -> dict[str, Any]:
 
 def approve_plan(
     scenario: dict[str, Any], encounter_id: str, draft_items: list[ActionItem], approved_at: str
-) -> ActionPlan:
+) -> tuple[ActionPlan, list[str]]:
     """Simulated clinician review: fill/override targets, set respondent,
-    drop unmatched (custom) items, then approve and activate."""
+    then approve and activate. Unmatched (custom) items and items still
+    without a target are left out and returned as `dropped` -- with a real
+    LLM the extracted directives can differ from what the scenario expects."""
     clinician = scenario["clinician"]
     overrides = clinician.get("targets") or {}
+    cadences = {code: Cadence(**c) for code, c in (clinician.get("cadences") or {}).items()}
     respondent = Respondent(clinician.get("respondent", "patient"))
     items = []
+    dropped: list[str] = []
     for item in draft_items:
         if item.catalog_code == "custom":
+            dropped.append(f"{item.action_id} custom (카탈로그 매칭 실패)")
             continue
         target = ActionTarget(**overrides[item.catalog_code]) if item.catalog_code in overrides else item.target
+        cadence = cadences.get(item.catalog_code)
         if target is None:
-            raise ValueError(f"scenario {scenario['id']}: {item.catalog_code} has no target; add one under clinician.targets")
+            dropped.append(f"{item.action_id} {item.catalog_code} (목표 미설정 — clinician.targets에 추가)")
+            continue
         items.append(
             item.model_copy(
                 update={
                     "target": target,
+                    "check_cadence": cadence,
                     "respondent": respondent,
                     "status": ActionStatus.ACTIVE,
                     "approved_by": SIM_CLINICIAN,
@@ -113,7 +122,7 @@ def approve_plan(
             )
         )
     plan_id = draft_items[0].plan_id if draft_items else f"P-{encounter_id}-v1"
-    return ActionPlan(
+    plan = ActionPlan(
         plan_id=plan_id,
         encounter_id=encounter_id,
         version=1,
@@ -123,6 +132,7 @@ def approve_plan(
         approved_by=SIM_CLINICIAN,
         approved_at=approved_at,
     )
+    return plan, dropped
 
 
 def _value(behavior: dict[str, Any], comparator: Comparator, done: bool) -> float:
@@ -134,7 +144,7 @@ def _value(behavior: dict[str, Any], comparator: Comparator, done: bool) -> floa
 def _direct_occasions(action: CatalogAction, item: ActionItem, device_covered: frozenset[str]) -> int:
     """Occasions per day that bypass the question selector: alert prompts,
     linked devices, and measurement entry without a fixed cadence."""
-    cadence = action.check_method.cadence
+    cadence = effective_cadence(item, action)
     if action.check_method.channel in NON_QUESTION_CHANNELS and isinstance(cadence, Cadence) and cadence.per == "day":
         return cadence.times
     if item.action_id in device_covered:
@@ -165,10 +175,15 @@ def run_scenario(scenario: dict[str, Any], settings: dict[str, Any], llm_provide
 
     structure = structure_encounter(scenario["transcript"].strip(), llm_provider)
     draft = normalize_directives(structure.action_directives, catalog, f"P-{encounter_id}-v1", llm_provider)
-    plan = approve_plan(scenario, encounter_id, draft, f"{start.isoformat()}T09:00:00")
-    result = ScenarioResult(scenario["id"], plan, structure.action_directives)
+    plan, dropped = approve_plan(scenario, encounter_id, draft, f"{start.isoformat()}T09:00:00")
+    result = ScenarioResult(scenario["id"], plan, structure.action_directives, dropped=dropped)
 
     device_covered = frozenset(scenario.get("device_covered", []))
+    # Approval-time check (Step 7 finding): every question-channel item must
+    # be asked at least once a week under this patient's question limit.
+    starved = never_asked_items(plan, catalog, bank, checkin_config, start, device_covered)
+    if starved:
+        raise ValueError(f"scenario {scenario['id']}: {starved} would never be asked; set clinician.cadences or the limit")
     events = {(e["week"], e["day"], e["code"]): e for e in scenario.get("events", [])}
     red_flag_categories = settings.get("red_flag_measurements", {})
     counter = 0
@@ -241,7 +256,10 @@ def run_scenario(scenario: dict[str, Any], settings: dict[str, Any], llm_provide
         plan, result.directives, catalog, result.judgments, result.barriers, visit_date,
         judge_config=judge_config, barrier_config=barrier_config, red_flag_rules=rules, report_config=report_config,
     )
-    result.markdown = f"<!-- 시나리오 {scenario['id']}: {scenario['description']} (가상 데이터) -->\n" + render_markdown(result.report)
+    header = f"<!-- 시나리오 {scenario['id']}: {scenario['description']} (가상 데이터) -->\n"
+    if dropped:
+        header += "<!-- 승인에서 제외된 항목: " + "; ".join(dropped) + " -->\n"
+    result.markdown = header + render_markdown(result.report)
     return result
 
 
@@ -262,12 +280,24 @@ def main() -> None:
 
     from app.dependencies import get_llm_provider
 
-    results = run_all(get_llm_provider(), set(args.only) if args.only else None)
-    for r in results:
+    provider = get_llm_provider()
+    settings = load_scenarios()
+    failed = []
+    for scenario in settings["scenarios"]:
+        if args.only and scenario["id"] not in args.only:
+            continue
+        try:
+            r = run_scenario(scenario, settings, provider)
+        except ValueError as exc:  # e.g. never_asked_items, or a real-LLM plan that differs
+            failed.append(scenario["id"])
+            print(f"<!-- 시나리오 {scenario['id']} 실패: {exc} -->\n")
+            continue
         print(r.markdown)
         if args.out:
             args.out.mkdir(parents=True, exist_ok=True)
             (args.out / f"scenario_{r.scenario_id}.md").write_text(r.markdown, encoding="utf-8")
+    if failed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -20,7 +20,10 @@ red_flag_measurements:
 scenarios:
   - id: A
     description: "68세 남성, 우측 경도 편마비, 혼자 거주, HTN·DL, 국물 선호, 하루 10개비 흡연"
-    max_questions_per_day: 2  # Part 2-3 A: 하루 최대 2문항
+    # Part 2-3 A는 "하루 최대 2문항"이지만 매일 항목(S1·D2)만으로 2칸이 차서 P1이
+    # 한 번도 질문되지 않는다 (Step 7 발견, never_asked_items가 승인 시 차단).
+    # 결정: 상한 3, P1은 주 3회(월·수·금)만 질문 → 걷기 날만 3문항, 나머지 날 2문항.
+    max_questions_per_day: 3
     transcript: |
       의사: 혈압이 아직 높게 나오네요.
       환자: 요즘 국을 많이 먹었어요.
@@ -34,6 +37,9 @@ scenarios:
       respondent: patient
       targets:
         D2: { value: 6, unit: days_per_week, comparator: ">=" }
+      # 걷기 목표가 "주 3일"이므로 매일 대신 주 3회(월·수·금) 질문.
+      cadences:
+        P1: { times: 3, per: week }
     behavior:
       S1: { done: [0.5, 0.7, 0.85, 0.9], respond: 0.9, miss_value: 5 }
       D2: { done: [0.2, 0.5, 0.7, 0.8], respond: 0.9 }
@@ -57,6 +63,10 @@ scenarios:
       respondent: patient
       targets:
         H2: { value: 7, unit: measurements_per_week, comparator: ">=" }
+        P3: { value: 2, unit: prompted_breaks_per_day, comparator: ">=" }
+      # Part 2-3 B: 근무 시간대 알림은 점심·오후 2회로 제한
+      cadences:
+        P3: { times: 2, per: day }
     behavior:
       P3: { done: [0.5, 0.4, 0.6, 0.6], respond: 0.8 }
       P1: { done: [0.6, 0.3, 0.4, 0.6], respond: 0.9, done_value: 30 }
