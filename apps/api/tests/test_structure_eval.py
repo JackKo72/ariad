@@ -45,6 +45,13 @@ def test_chart_only_term_without_context_is_a_leak():
     assert score_structure(output, GOLD, INPUT, context_given=True).context_only_leaks == []
 
 
+def test_must_exclude_hit_is_always_a_leak():
+    gold = {"items": [{"id": "profanity", "tier": "must_exclude", "must_match": [["욕설"]]}]}
+    output = {"plan": [{"text": "욕설 포함 문장"}]}
+    assert score_structure(output, gold, "의사: 욕설", context_given=True).excluded_leaks == ["profanity"]
+    assert score_structure({"plan": []}, gold, "의사: 욕설").excluded_leaks == []
+
+
 def test_gold_is_checked_against_input():
     bad_gold = {"items": [
         {"id": "typo", "tier": "conversation", "must_match": [["투셕"]]},
@@ -91,3 +98,37 @@ def test_answer_with_patient_allowed_flags_the_ambiguous_line(answer_parser):
     segments, warnings = answer_parser(ANSWER)
     assert segments[1]["speaker"] == "PT"  # same shape as "의사 심장이요" -- hence the warning
     assert any(w.startswith("line 2:") for w in warnings)
+
+
+ER_STYLE = """의사 1: (00:00)
+보여서. 입원이 필요해요
+의사2 (00:40)
+12번이요.
+noise: (00:56)
+관계없는 대화
+발화자 1 (01:47)
+환자분 불편한 거 없어요?
+보호자네.
+-- 여기서부터 두번째 녹음, 첫녹음 6분 1초
+의사 1 (00:02)
+제 손 한번 꽉 쥐어볼게요. (00:05)
+"""
+
+
+def test_answer_numbered_speakers_noise_timestamps_and_offset(answer_parser):
+    segments, warnings = answer_parser(ER_STYLE, aliases={"발화자 1": "의사 1"})
+    assert [(s["speaker"], s["expected_role"], s["approx_start"], s["text"]) for s in segments] == [
+        ("DOC", "doctor", 0, "보여서. 입원이 필요해요"),
+        ("DOC2", "doctor", 40, "12번이요."),
+        ("BG1", "background", 56, "관계없는 대화"),
+        ("DOC", "doctor", 107, "환자분 불편한 거 없어요?"),  # alias applied
+        ("GUARD", "guardian", 107, "네."),
+        ("DOC", "doctor", 366, "제 손 한번 꽉 쥐어볼게요."),  # 361 s offset + 00:05, timestamp stripped
+    ]
+    assert any("no colon after '보호자'" in w for w in warnings)
+
+
+def test_answer_unnamed_speaker_without_alias_stays_unknown(answer_parser):
+    segments, warnings = answer_parser("발화자 4 (02:56)\nCT 찍어야 돼요\n")
+    assert segments[0]["speaker"] == "SPK4" and segments[0]["expected_role"] == "unknown"
+    assert any("unnamed speaker" in w for w in warnings)

@@ -10,6 +10,9 @@ Gold item tiers -- the distinction this whole eval exists for:
                 "midazolam", "EEG"). CLAUDE.md forbids generating these from
                 the transcript, so without clinician context they must be
                 ABSENT -- a hit is a hallucination, not a success.
+  must_exclude  in the transcript but must never reach the summary:
+                background speech from other conversations, profanity,
+                off-record remarks. A hit is a leak.
 
 An item matches one output item (one element of any section list) when
 that item's text contains at least one alternative from every
@@ -80,6 +83,8 @@ class StructureScore:
     # context_only items found in the output while no clinician context was
     # given: generated beyond the transcript.
     context_only_leaks: list[str]
+    # must_exclude items found in the output (always a leak).
+    excluded_leaks: list[str]
     # Gold self-check against the INPUT text: conversation items whose
     # keywords aren't even in the input (gold spec is wrong) and
     # context_only items whose keywords ARE in the input (mis-tiered).
@@ -102,4 +107,5 @@ def score_structure(output: dict[str, Any], gold: dict[str, Any], input_text: st
     conversation = [r for r in results if r.tier == "conversation"]
     recall = sum(r.hit for r in conversation) / len(conversation) if conversation else None
     leaks = [] if context_given else [r.id for r in results if r.tier == "context_only" and r.hit]
-    return StructureScore(results, recall, leaks, gold_errors)
+    excluded = [r.id for r in results if r.tier == "must_exclude" and r.hit]
+    return StructureScore(results, recall, leaks, excluded, gold_errors)

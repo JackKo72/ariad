@@ -18,6 +18,10 @@ TRANSCRIPT is any {"segments": [...]} file: the clinician answer
 (answer_to_transcript.py) = "oracle ASR", measuring structuring alone; a
 real ASR run's segments = end to end. Segments without timestamps get
 pseudo-times (index order) -- only their order matters to these stages.
+Background segments (role "background", the answer's "noise:" lines) are
+dropped by default, as a clinician would mark them 배경 at role
+confirmation; INCLUDE_BACKGROUND=1 feeds them too, to test whether the LLM
+pulls other people's talk into the summary.
 
 Default is the mock LLM, which echoes transcript lines: its recall only
 shows the gold keywords are reachable, it is not a quality score. REAL=1
@@ -83,6 +87,8 @@ def main() -> int:
     provider, label = _build_provider(args.real or os.environ.get("REAL") == "1")
 
     segments = load_segments(transcript_path)
+    if os.environ.get("INCLUDE_BACKGROUND") != "1":
+        segments = [s for s in segments if s.role != "background"]
     text = transcript_text(segments)
     gold = json.loads(gold_path.read_text(encoding="utf-8"))
 
@@ -99,18 +105,19 @@ def main() -> int:
     score = score_structure(output, gold, text)
 
     print(f"\ncase={gold.get('case')} provider={label} segments={len(segments)}")
-    print(f"{'item':<32}{'tier':<14}{'result':<8}sections")
+    print(f"{'item':<34}{'tier':<14}{'result':<8}sections")
     print("-" * 78)
     for item in score.items:
-        expected_absent = item.tier == "context_only"
+        expected_absent = item.tier in ("context_only", "must_exclude")
         if expected_absent:
             result = "LEAK" if item.hit else "absent"
         else:
             result = "HIT" if item.hit else "miss"
-        print(f"{item.id:<32}{item.tier:<14}{result:<8}{', '.join(item.sections)}")
+        print(f"{item.id:<34}{item.tier:<14}{result:<8}{', '.join(item.sections)}")
     print()
     recall = "-" if score.conversation_recall is None else f"{100 * score.conversation_recall:.0f}%"
     print(f"conversation recall: {recall}  |  context_only leaks: {len(score.context_only_leaks)}  |  "
+          f"must_exclude leaks: {len(score.excluded_leaks)}  |  "
           f"enrichment validator violations: {len(enrichment.validator_violations)}")
     print(f"latency: enrichment {enrichment_s:.1f}s + structure {structure_s:.1f}s = {enrichment_s + structure_s:.1f}s")
     if score.gold_errors:
