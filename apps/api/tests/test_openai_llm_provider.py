@@ -44,6 +44,7 @@ def test_structure_transcript_returns_schema_valid_dict():
     call_kwargs = provider._client.chat.completions.parse.call_args.kwargs
     assert call_kwargs["response_format"] is ClinicalStructure
     assert call_kwargs["model"] == "gpt-4o-mini"
+    assert call_kwargs["temperature"] == 0  # extraction, not creative writing
 
 
 def test_patient_explanation_returns_schema_valid_dict():

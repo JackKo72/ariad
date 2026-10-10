@@ -25,6 +25,13 @@ that item's text contains at least one alternative from every
 LLM spacing varies: "할 수도" == "할수도"); ASCII alternatives must stand as
 whole words, so "CIN" never matches inside "medicine".
 
+Term-candidate quotes (tasks/13-c): `term_candidates[].spoken_text` is a
+verbatim copy of the transcript, so it contains conversation keywords
+without the summary having kept anything. A conversation item found ONLY
+there is not a hit (its sections still list it, so it shows as
+"miss  structure.term_candidates"). Leak tiers and frame_term still look
+at every section, term candidates included.
+
 Pure -- see apps/api/tests/test_structure_eval.py.
 """
 
@@ -100,13 +107,21 @@ class StructureScore:
     gold_errors: list[str]
 
 
+TERM_CANDIDATE_SECTION = "term_candidates"
+
+
+def _counts_for(tier: str, section: str) -> bool:
+    return tier != "conversation" or not section.endswith(TERM_CANDIDATE_SECTION)
+
+
 def score_structure(output: dict[str, Any], gold: dict[str, Any], input_text: str,
                     context_given: bool = False, frames: frozenset[str] = frozenset()) -> StructureScore:
     items = output_items(output)
     results, gold_errors = [], []
     for item in gold["items"]:
         sections = tuple(sorted({section for section, text in items if matches(text, item["must_match"])}))
-        results.append(ItemResult(item["id"], item["tier"], bool(sections), sections))
+        hit = any(_counts_for(item["tier"], section) for section in sections)
+        results.append(ItemResult(item["id"], item["tier"], hit, sections))
         in_input = matches(input_text, item["must_match"])
         if item["tier"] == "conversation" and not in_input:
             gold_errors.append(f"{item['id']}: conversation item not found in input")

@@ -45,6 +45,23 @@ def test_chart_only_term_without_context_is_a_leak():
     assert score_structure(output, GOLD, INPUT, context_given=True).context_only_leaks == []
 
 
+def test_term_candidate_quote_alone_is_not_a_conversation_hit():
+    # spoken_text copies the transcript verbatim -- tasks/13-c
+    quote = {"structure": {"term_candidates": [{"spoken_text": "투석을 해야 할 수도", "term": "dialysis"}]}}
+    result = score_structure(quote, GOLD, INPUT).items[0]
+    assert (result.hit, result.sections) == (False, ("structure.term_candidates",))
+    kept = {"structure": {**quote["structure"], "plan": [{"text": "투석 가능성"}]}}
+    assert score_structure(kept, GOLD, INPUT).items[0].hit is True
+
+
+def test_term_candidates_still_count_for_leaks_and_frame_terms():
+    gold = {"items": [{"id": "evt", "tier": "frame_term", "frame": "stroke", "must_match": [["evt"]]},
+                      {"id": "ctx_drug", "tier": "context_only", "must_match": [["midazolam"]]}]}
+    output = {"structure": {"term_candidates": [{"term": "EVT"}, {"term": "midazolam"}]}}
+    score = score_structure(output, gold, INPUT, frames=frozenset({"stroke"}))
+    assert (score.frame_recall, score.context_only_leaks) == (1.0, ["ctx_drug"])
+
+
 def test_must_exclude_hit_is_always_a_leak():
     gold = {"items": [{"id": "profanity", "tier": "must_exclude", "must_match": [["욕설"]]}]}
     output = {"plan": [{"text": "욕설 포함 문장"}]}

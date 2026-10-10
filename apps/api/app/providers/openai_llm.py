@@ -35,6 +35,11 @@ PROMPTS_DIR = Path(__file__).resolve().parents[4] / "prompts"
 # override (e.g. gpt-4o-mini for cost).
 DEFAULT_TEXT_MODEL = "gpt-4o"
 
+# Every call here extracts or rewrites what the transcript says; none needs
+# variety. With the API default (1.0) the 13-c REPEAT=3 eval returned 1, 4
+# and 10 term candidates for the same MG transcript.
+TEMPERATURE = 0
+
 # prompt_id -> (pipeline stage name, response schema, prompt version).
 # tasks/03_SPEAKER_MERGE_AND_LATENCY.md Phase 1 names the pipeline stages
 # structure_llm/explanation_llm; prompt_id names the prompt file instead --
@@ -97,6 +102,7 @@ class OpenAILLMProvider:
                         {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
                     ],
                     response_format=schema,
+                    temperature=TEMPERATURE,
                 )
             except OpenAIError as exc:
                 # Never include the request/response body in the error --

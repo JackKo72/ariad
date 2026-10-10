@@ -30,6 +30,9 @@ frame; the first one listed is sent.
 REPEAT=3 runs the same input 3 times (LLM output varies run to run): per-item
 hit counts (e.g. "HIT 2/3"), recall as mean (min-max), outputs saved as
 <case>.<provider>.runK.output.json.
+A conversation item found only in a term candidate's verbatim quote is a
+miss (tasks/13-c; app/eval/structure_eval.py); the summary line counts them
+as "found only in term-candidate quotes".
 Gold items with a "note" are printed as a clinician review checklist:
 keyword matching cannot judge polarity ("clopi loading 안 함").
 
@@ -157,6 +160,10 @@ def main() -> int:
           f"context_only leaks: {sum(len(r['score'].context_only_leaks) for r in runs)}  |  "
           f"must_exclude leaks: {sum(len(r['score'].excluded_leaks) for r in runs)}  |  "
           f"enrichment validator violations: {sum(r['violations'] for r in runs)}  (leak/violation counts summed over runs)")
+    quote_only = [float(sum(r_.tier == "conversation" and not r_.hit and bool(r_.sections) for r_ in r["score"].items))
+                  for r in runs]
+    print(f"conversation items found only in term-candidate quotes (not counted): "
+          f"{spread(quote_only, '{:.1f}' if repeat > 1 else '{:.0f}')}")
     print(f"frame-term recall: {spread(frame_r, pct)}  |  frame-term leaks: {sum(len(r['score'].frame_leaks) for r in runs)}")
     slots = ("treatments_given", "findings", "decisions", "consents", "disposition", "prognosis_and_goals",
              "family_statements", "term_candidates")
