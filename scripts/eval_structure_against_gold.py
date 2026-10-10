@@ -23,6 +23,12 @@ dropped by default, as a clinician would mark them 배경 at role
 confirmation; INCLUDE_BACKGROUND=1 feeds them too, to test whether the LLM
 pulls other people's talk into the summary.
 
+FRAMES=stroke (or seizure, comma-separated) scores as if the clinician had
+picked that clinical frame: its frame_term items become expected instead
+of leaks. Scoring only -- the pipeline does not receive a frame yet.
+Gold items with a "note" are printed as a clinician review checklist:
+keyword matching cannot judge polarity ("clopi loading 안 함").
+
 Default is the mock LLM, which echoes transcript lines: its recall only
 shows the gold keywords are reachable, it is not a quality score. REAL=1
 (--real) uses OPENAI_API_KEY after a y/N prompt (costs money). Output JSON
@@ -103,13 +109,16 @@ def main() -> int:
     output = {"enrichment": enrichment.model_dump(), "structure": structure.model_dump()}
     out_path = gold_path.with_name(f"{gold.get('case', gold_path.stem)}.{label.replace(':', '_')}.output.json")
     out_path.write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
-    score = score_structure(output, gold, text)
+    frames = frozenset(f.strip() for f in os.environ.get("FRAMES", "").split(",") if f.strip())
+    score = score_structure(output, gold, text, frames=frames)
 
-    print(f"\ncase={gold.get('case')} provider={label} segments={len(segments)}")
+    frame_of = {item["id"]: item.get("frame") for item in gold["items"]}
+    print(f"\ncase={gold.get('case')} provider={label} segments={len(segments)} frames={sorted(frames) or '-'}")
     print(f"{'item':<34}{'tier':<14}{'result':<8}sections")
     print("-" * 78)
     for item in score.items:
-        expected_absent = item.tier in ("context_only", "must_exclude")
+        expected_absent = item.tier in ("context_only", "must_exclude") or (
+            item.tier == "frame_term" and frame_of[item.id] not in frames)
         if expected_absent:
             result = "LEAK" if item.hit else "absent"
         else:
@@ -120,6 +129,13 @@ def main() -> int:
     print(f"conversation recall: {recall}  |  context_only leaks: {len(score.context_only_leaks)}  |  "
           f"must_exclude leaks: {len(score.excluded_leaks)}  |  "
           f"enrichment validator violations: {len(enrichment.validator_violations)}")
+    frame_recall = "-" if score.frame_recall is None else f"{100 * score.frame_recall:.0f}%"
+    print(f"frame-term recall: {frame_recall}  |  frame-term leaks: {len(score.frame_leaks)}")
+    notes = [item for item in gold["items"] if item.get("note")]
+    if notes:
+        print("clinician review checklist (read these in the output JSON):")
+        for item in notes:
+            print(f"  [ ] {item['id']}: {item['note']}")
     print(f"latency: enrichment {enrichment_s:.1f}s + structure {structure_s:.1f}s = {enrichment_s + structure_s:.1f}s")
     if score.gold_errors:
         print("gold check FAILED (fix the gold before reading the scores):")

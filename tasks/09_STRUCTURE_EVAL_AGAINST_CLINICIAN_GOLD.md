@@ -110,3 +110,26 @@ ER 녹음(13분 15초 = 첫 녹음 6분 1초 + 두 번째 녹음)의 답안 177�
 - mock 실행 결과: gold 자체 검증을 통과했다. 의사의 욕설은 must_exclude 누출로 잡히고,
   `INCLUDE_BACKGROUND=1`이면 배경 대화도 누출로 잡힌다. mock은 전사를 그대로
   복사하므로 이 결과는 예상대로이며, 실제 LLM이 이를 걸러내는지가 측정 대상이다.
+
+## 추가 (2026-10-10): 진료 틀(frame)과 의사 검수 체크리스트
+
+사용자 결정:
+
+- 용어 변환은 의료진이 고른 큰 틀(seizure, stroke)이 있을 때만 허용한다.
+- 부정 표현(예: "clopi loading 안 함")은 의사가 직접 검수한다.
+
+변경 내용:
+
+- 새 등급 `frame_term`과 항목 필드 `"frame"`. `FRAMES=stroke`로 채점하면 그 틀의
+  용어는 기대 항목(frame-term recall)이 되고, 틀을 지정하지 않았는데 나오면
+  누출(frame-term leak)이다.
+- gold 항목의 `note`는 의사 검수 체크리스트로 출력한다.
+- ER gold에 사용자 핵심 구조를 반영했다: EVT 여부 고민, 결정의 어려움과
+  위험·이득 판단, perfusion이 버티는 소견, 운동 검사, argatroban(의사 2와 상의),
+  clopi loading 안 함. NIHSS, EVT, PFO, TEE는 `frame_term`(stroke)으로 옮겼다.
+  tPA는 녹음에서 언급되지 않아 context_only로 남겼다.
+- ICU gold: status epilepticus와 ASM을 `frame_term`(seizure)으로 옮겼다.
+  midazolam, EEG, SCMP, CAG, CIN, 당직 cardio는 틀만으로는 알 수 없어
+  context_only로 남겼다.
+- 파이프라인은 아직 진료 틀을 입력으로 받지 않는다. 지금의 frame-term recall은
+  기능을 넣기 전 기준선이다.

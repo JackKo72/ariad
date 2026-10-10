@@ -52,6 +52,16 @@ def test_must_exclude_hit_is_always_a_leak():
     assert score_structure({"plan": []}, gold, "의사: 욕설").excluded_leaks == []
 
 
+def test_frame_term_expected_with_frame_leak_without():
+    gold = {"items": [{"id": "evt", "tier": "frame_term", "frame": "stroke", "must_match": [["evt"]]},
+                      {"id": "asm", "tier": "frame_term", "frame": "seizure", "must_match": [["asm"]]}]}
+    output = {"plan": [{"text": "EVT 보류 (용어 후보, 검수 필요)"}]}
+    with_frame = score_structure(output, gold, INPUT, frames=frozenset({"stroke"}))
+    assert (with_frame.frame_recall, with_frame.frame_leaks) == (1.0, [])
+    without = score_structure(output, gold, INPUT)
+    assert (without.frame_recall, without.frame_leaks) == (None, ["evt"])
+
+
 def test_gold_is_checked_against_input():
     bad_gold = {"items": [
         {"id": "typo", "tier": "conversation", "must_match": [["투셕"]]},

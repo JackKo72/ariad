@@ -10,6 +10,11 @@ Gold item tiers -- the distinction this whole eval exists for:
                 "midazolam", "EEG"). CLAUDE.md forbids generating these from
                 the transcript, so without clinician context they must be
                 ABSENT -- a hit is a hallucination, not a success.
+  frame_term    a clinical term for something said in lay words ("혈전을
+                끄집어내는 시술" -> EVT), allowed only when the clinician picked
+                the matching clinical frame (item "frame": "stroke"). With
+                that frame it is expected (frame recall); without it a hit
+                is a leak, like context_only.
   must_exclude  in the transcript but must never reach the summary:
                 background speech from other conversations, profanity,
                 off-record remarks. A hit is a leak.
@@ -85,6 +90,10 @@ class StructureScore:
     context_only_leaks: list[str]
     # must_exclude items found in the output (always a leak).
     excluded_leaks: list[str]
+    # frame_term items of the selected frames: share found (None if none
+    # selected); frame_term items of unselected frames that appeared leak.
+    frame_recall: float | None
+    frame_leaks: list[str]
     # Gold self-check against the INPUT text: conversation items whose
     # keywords aren't even in the input (gold spec is wrong) and
     # context_only items whose keywords ARE in the input (mis-tiered).
@@ -92,7 +101,7 @@ class StructureScore:
 
 
 def score_structure(output: dict[str, Any], gold: dict[str, Any], input_text: str,
-                    context_given: bool = False) -> StructureScore:
+                    context_given: bool = False, frames: frozenset[str] = frozenset()) -> StructureScore:
     items = output_items(output)
     results, gold_errors = [], []
     for item in gold["items"]:
@@ -101,11 +110,15 @@ def score_structure(output: dict[str, Any], gold: dict[str, Any], input_text: st
         in_input = matches(input_text, item["must_match"])
         if item["tier"] == "conversation" and not in_input:
             gold_errors.append(f"{item['id']}: conversation item not found in input")
-        if item["tier"] == "context_only" and in_input:
+        if item["tier"] in ("context_only", "frame_term") and in_input:
             gold_errors.append(f"{item['id']}: context_only item is present in input")
 
     conversation = [r for r in results if r.tier == "conversation"]
     recall = sum(r.hit for r in conversation) / len(conversation) if conversation else None
     leaks = [] if context_given else [r.id for r in results if r.tier == "context_only" and r.hit]
     excluded = [r.id for r in results if r.tier == "must_exclude" and r.hit]
-    return StructureScore(results, recall, leaks, excluded, gold_errors)
+    frame_of = {item["id"]: item.get("frame") for item in gold["items"]}
+    in_frame = [r for r in results if r.tier == "frame_term" and frame_of[r.id] in frames]
+    frame_recall = sum(r.hit for r in in_frame) / len(in_frame) if in_frame else None
+    frame_leaks = [r.id for r in results if r.tier == "frame_term" and frame_of[r.id] not in frames and r.hit]
+    return StructureScore(results, recall, leaks, excluded, frame_recall, frame_leaks, gold_errors)
