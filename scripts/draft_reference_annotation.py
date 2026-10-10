@@ -69,11 +69,12 @@ def to_label_lines(turns: list[tuple[float, float, str, str]]) -> list[str]:
 def main() -> int:
     from app.providers.sherpa_onnx_asr import models_available
 
-    audio = os.environ.get("AUDIO")
-    if not audio or not Path(audio).exists():
-        print("Usage: AUDIO=path/to/recording [NUM_SPEAKERS=2] python3 scripts/draft_reference_annotation.py")
+    from env_paths import require_files
+
+    paths = require_files(["AUDIO"], "AUDIO=path/to/recording [NUM_SPEAKERS=2] python3 scripts/draft_reference_annotation.py")
+    if paths is None:
         return 1
-    audio_path = Path(audio)
+    audio_path = paths[0]
     models_dir = os.environ.get("ARIAD_SHERPA_MODELS_DIR", "./models")
     num_speakers = int(os.environ.get("NUM_SPEAKERS", "0"))
     out_dir = Path(os.environ.get("OUT_DIR", REPO_ROOT / "data" / "annotations"))

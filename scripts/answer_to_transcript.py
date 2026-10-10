@@ -103,11 +103,12 @@ def parse_answer(text: str, speakers: tuple[str, ...] = tuple(ROLES),
 
 
 def main() -> int:
-    answer = os.environ.get("ANSWER")
-    if not answer or not Path(answer).exists():
-        print("Usage: ANSWER=path/to/answer.txt python3 scripts/answer_to_transcript.py")
+    from env_paths import require_files
+
+    paths = require_files(["ANSWER"], "ANSWER=path/to/answer.txt python3 scripts/answer_to_transcript.py")
+    if paths is None:
         return 1
-    answer_path = Path(answer)
+    answer_path = paths[0]
     speakers = tuple(s.strip() for s in os.environ.get("SPEAKERS", ",".join(ROLES)).split(","))
     unknown = [s for s in speakers if s not in ROLES]
     if unknown:

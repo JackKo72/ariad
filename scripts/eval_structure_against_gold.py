@@ -44,6 +44,7 @@ sys.path.insert(0, str(REPO_ROOT / "apps" / "api"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from compare_asr_engines import _load_env_local  # noqa: E402
+from env_paths import require_files  # noqa: E402
 from eval_clinical_enrichment import _build_provider  # noqa: E402
 
 from app.domain.models import DiarizedSegment  # noqa: E402
@@ -78,11 +79,11 @@ def main() -> int:
     parser.add_argument("--real", action="store_true", help="use OPENAI_API_KEY instead of the mock provider")
     args = parser.parse_args()
 
-    transcript_path = Path(os.environ.get("TRANSCRIPT", ""))
-    gold_path = Path(os.environ.get("GOLD", ""))
-    if not transcript_path.is_file() or not gold_path.is_file():
-        print("Usage: TRANSCRIPT=x.transcript.json GOLD=x.gold.json python3 scripts/eval_structure_against_gold.py")
+    paths = require_files(["TRANSCRIPT", "GOLD"],
+                          "TRANSCRIPT=x.transcript.json GOLD=x.gold.json python3 scripts/eval_structure_against_gold.py")
+    if paths is None:
         return 1
+    transcript_path, gold_path = paths
     _load_env_local()
     provider, label = _build_provider(args.real or os.environ.get("REAL") == "1")
 

@@ -69,11 +69,12 @@ def parse_labels(text: str) -> tuple[list[dict], list[str]]:
 
 
 def main() -> int:
-    labels = os.environ.get("LABELS")
-    if not labels or not Path(labels).exists():
-        print("Usage: LABELS=path/to/corrected.txt python3 scripts/labels_to_reference.py")
+    from env_paths import require_files
+
+    paths = require_files(["LABELS"], "LABELS=path/to/corrected.txt python3 scripts/labels_to_reference.py")
+    if paths is None:
         return 1
-    labels_path = Path(labels)
+    labels_path = paths[0]
     segments, errors = parse_labels(labels_path.read_text(encoding="utf-8"))
     if errors:
         print(f"{len(errors)} problem(s), nothing written:")
