@@ -25,14 +25,15 @@ pulls other people's talk into the summary.
 
 FRAMES=stroke (or seizure, comma-separated) scores as if the clinician had
 picked that clinical frame: its frame_term items become expected instead
-of leaks. Scoring only -- the pipeline does not receive a frame yet.
+of leaks, AND passes that frame to the structure stage (tasks/10) -- a single
+frame; the first one listed is sent.
 Gold items with a "note" are printed as a clinician review checklist:
 keyword matching cannot judge polarity ("clopi loading 안 함").
 
 Default is the mock LLM, which echoes transcript lines: its recall only
 shows the gold keywords are reachable, it is not a quality score. REAL=1
 (--real) uses OPENAI_API_KEY after a y/N prompt (costs money). Output JSON
-goes next to the gold (data/, gitignored). Prints item ids and section
+goes next to the TRANSCRIPT (data/, gitignored). Prints item ids and section
 names only, never transcript text.
 """
 
@@ -56,6 +57,7 @@ from eval_clinical_enrichment import _build_provider  # noqa: E402
 from app.domain.models import DiarizedSegment  # noqa: E402
 from app.eval.structure_eval import score_structure  # noqa: E402
 from app.pipeline.enrichment import enrich_clinical_findings  # noqa: E402
+from app.pipeline.review_checklist import build_review_checklist  # noqa: E402
 from app.pipeline.structure import structure_encounter  # noqa: E402
 from app.routes.encounters import _ROLE_LABELS_KO  # noqa: E402
 
@@ -103,13 +105,16 @@ def main() -> int:
     enrichment = enrich_clinical_findings(segments, provider)
     enrichment_s = time.perf_counter() - start
     start = time.perf_counter()
-    structure = structure_encounter(text, provider)
+    frames = frozenset(f.strip() for f in os.environ.get("FRAMES", "").split(",") if f.strip())
+    pipeline_frame = os.environ.get("FRAMES", "").split(",")[0].strip() or None
+    structure = structure_encounter(text, provider, clinical_frame=pipeline_frame)
     structure_s = time.perf_counter() - start
 
     output = {"enrichment": enrichment.model_dump(), "structure": structure.model_dump()}
-    out_path = gold_path.with_name(f"{gold.get('case', gold_path.stem)}.{label.replace(':', '_')}.output.json")
+    # Next to the TRANSCRIPT (gitignored data/), never next to the gold --
+    # gold lives in the repo (tests/evals/gold/) and outputs quote transcript text.
+    out_path = transcript_path.with_name(f"{gold.get('case', gold_path.stem)}.{label.replace(':', '_')}.output.json")
     out_path.write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
-    frames = frozenset(f.strip() for f in os.environ.get("FRAMES", "").split(",") if f.strip())
     score = score_structure(output, gold, text, frames=frames)
 
     frame_of = {item["id"]: item.get("frame") for item in gold["items"]}
@@ -131,6 +136,10 @@ def main() -> int:
           f"enrichment validator violations: {len(enrichment.validator_violations)}")
     frame_recall = "-" if score.frame_recall is None else f"{100 * score.frame_recall:.0f}%"
     print(f"frame-term recall: {frame_recall}  |  frame-term leaks: {len(score.frame_leaks)}")
+    filled = {k: len(getattr(structure, k)) for k in ("treatments_given", "decisions", "consents", "disposition",
+                                                       "prognosis_and_goals", "family_statements", "term_candidates")}
+    print("tasks/10 slots filled: " + ", ".join(f"{k} {v}" for k, v in filled.items())
+          + f"  |  review checklist items: {len(build_review_checklist(structure))}")
     notes = [item for item in gold["items"] if item.get("note")]
     if notes:
         print("clinician review checklist (read these in the output JSON):")

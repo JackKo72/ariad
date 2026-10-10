@@ -61,6 +61,7 @@ def _row_to_version(row: sqlite3.Row) -> EncounterVersion:
         prompt_version_structure=row["prompt_version_structure"],
         prompt_version_explanation=row["prompt_version_explanation"],
         prompt_version_enrichment=row["prompt_version_enrichment"],
+        clinical_frame=row["clinical_frame"],
         created_at=row["created_at"],
         approved_at=row["approved_at"],
     )
@@ -201,6 +202,7 @@ class EncounterRepository:
         prompt_version_explanation: str,
         enrichment: Optional[ClinicalEnrichment] = None,
         prompt_version_enrichment: Optional[str] = None,
+        clinical_frame: Optional[str] = None,
     ) -> Encounter:
         encounter = self.get_encounter(encounter_id)
         ensure_status(encounter.status, {EncounterStatus.PROCESSING}, "complete_processing")
@@ -209,7 +211,7 @@ class EncounterRepository:
             """UPDATE encounter_versions
                SET structure_json = ?, explanation_json = ?, enrichment_json = ?,
                    prompt_version_structure = ?, prompt_version_explanation = ?,
-                   prompt_version_enrichment = ?
+                   prompt_version_enrichment = ?, clinical_frame = ?
                WHERE id = ?""",
             (
                 structure.model_dump_json(),
@@ -218,6 +220,7 @@ class EncounterRepository:
                 prompt_version_structure,
                 prompt_version_explanation,
                 prompt_version_enrichment,
+                clinical_frame,
                 encounter.current_draft_version_id,
             ),
         )
@@ -273,8 +276,8 @@ class EncounterRepository:
                    (id, encounter_id, version_number, status, transcript_text,
                     structure_json, explanation_json, enrichment_json,
                     prompt_version_structure, prompt_version_explanation,
-                    prompt_version_enrichment, created_at, approved_at)
-                   VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, NULL)""",
+                    prompt_version_enrichment, clinical_frame, created_at, approved_at)
+                   VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)""",
                 (
                     new_version_id,
                     encounter_id,
@@ -289,6 +292,7 @@ class EncounterRepository:
                     approved.prompt_version_structure,
                     approved.prompt_version_explanation,
                     approved.prompt_version_enrichment,
+                    approved.clinical_frame,
                     now,
                 ),
             )

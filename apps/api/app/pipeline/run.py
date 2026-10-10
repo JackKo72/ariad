@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from app.domain.models import PipelineResult
+from app.domain.models import ClinicalFrameId, PipelineResult
 from app.observability import StageTimer
 from app.pipeline.explanation import generate_patient_explanation
 from app.pipeline.structure import structure_encounter
@@ -19,8 +19,11 @@ from app.providers.base import LLMProvider
 
 
 def run_pipeline(
-    transcript_text: str, llm_provider: LLMProvider, stage_timer: Optional[StageTimer] = None
+    transcript_text: str,
+    llm_provider: LLMProvider,
+    stage_timer: Optional[StageTimer] = None,
+    clinical_frame: Optional[ClinicalFrameId] = None,
 ) -> PipelineResult:
-    structure = structure_encounter(transcript_text, llm_provider, stage_timer)
+    structure = structure_encounter(transcript_text, llm_provider, stage_timer, clinical_frame)
     explanation = generate_patient_explanation(structure, llm_provider, stage_timer)
     return PipelineResult(success=True, structure=structure, explanation=explanation)

@@ -59,6 +59,39 @@ class PlanItem(BaseModel):
     source_segment_ids: list[str] = Field(default_factory=list)
 
 
+# tasks/10_CLINICAL_FRAME_AND_REVIEW.md: slots real ICU/ER role-play evals
+# showed the LLM dropping for lack of a place to put them (tasks/09).
+class Decision(BaseModel):
+    """A clinical decision as said, including "decided NOT to" -- e.g. "EVT
+    지금은 안 함", "clopi loading 안 함" -- so a negative decision is never
+    squeezed into a positive slot (medications.action=start)."""
+
+    text: str
+    status: Literal["decided_to_do", "decided_not_to_do", "conditional", "undecided"]
+    condition: str = ""
+    rationale: str = ""
+    source_segment_ids: list[str] = Field(default_factory=list)
+    needs_confirmation: bool = False
+
+
+class FamilyStatement(BaseModel):
+    text: str
+    speaker_role: Literal["guardian", "patient", "unknown"]
+    kind: Literal["report", "question", "request"]
+    source_segment_ids: list[str] = Field(default_factory=list)
+
+
+class TermCandidate(BaseModel):
+    """A clinical term for something said in lay words, allowed only from
+    the clinician-selected clinical frame's vocabulary (prompts/frames/) and
+    always routed to clinician review -- never a confirmed finding."""
+
+    spoken_text: str
+    term: str
+    frame: str
+    source_segment_ids: list[str] = Field(default_factory=list)
+
+
 class SourceMapEntry(BaseModel):
     field: str
     source_segment_ids: list[str] = Field(default_factory=list)
@@ -72,6 +105,29 @@ class ClinicalStructure(BaseModel):
     warnings: list[PlanItem] = Field(default_factory=list)
     follow_up: list[PlanItem] = Field(default_factory=list)
     questions_or_conflicts: list[str] = Field(default_factory=list)
+    # tasks/10 additions -- default empty so versions stored before them
+    # still load.
+    treatments_given: list[PlanItem] = Field(default_factory=list)
+    decisions: list[Decision] = Field(default_factory=list)
+    consents: list[PlanItem] = Field(default_factory=list)
+    disposition: list[PlanItem] = Field(default_factory=list)
+    prognosis_and_goals: list[PlanItem] = Field(default_factory=list)
+    family_statements: list[FamilyStatement] = Field(default_factory=list)
+    term_candidates: list[TermCandidate] = Field(default_factory=list)
+
+
+ClinicalFrameId = Literal["stroke", "seizure"]
+
+
+class ReviewItem(BaseModel):
+    """One thing a clinician must explicitly check before approval
+    (app/pipeline/review_checklist.py). `id` is derived from the item's
+    content, so editing the item invalidates an earlier acknowledgment."""
+
+    id: str
+    kind: Literal["decision", "term_candidate", "medication"]
+    text: str
+    source_segment_ids: list[str] = Field(default_factory=list)
 
 
 class ExplanationDraft(BaseModel):
@@ -104,6 +160,9 @@ class EncounterVersion(BaseModel):
     # speaker/time metadata to anchor findings to) -- additive field, never
     # required, so it never breaks existing API consumers.
     enrichment: Optional[ClinicalEnrichment] = None
+    # tasks/10: the clinical frame the clinician selected for this run, if
+    # any -- part of the reproducibility record (docs/AI_PIPELINE.md 6).
+    clinical_frame: Optional[ClinicalFrameId] = None
     prompt_version_structure: Optional[str] = None
     prompt_version_explanation: Optional[str] = None
     prompt_version_enrichment: Optional[str] = None
@@ -304,6 +363,9 @@ class EncounterDetail(BaseModel):
     draft_version: Optional[EncounterVersion] = None
     approved_version: Optional[EncounterVersion] = None
     active_pipeline_run: Optional[PipelineRun] = None
+    # tasks/10: computed from the current draft's structure; approval
+    # requires every id to be acknowledged.
+    review_checklist: list[ReviewItem] = Field(default_factory=list)
 
 
 class AudioAsset(BaseModel):

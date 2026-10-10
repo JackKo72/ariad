@@ -59,6 +59,18 @@ class ValidationUnsupportedClaim(AriadError):
         )
 
 
+class ReviewChecklistIncomplete(AriadError):
+    """tasks/10: approval attempted with review items not acknowledged."""
+
+    def __init__(self, missing_count: int):
+        super().__init__(
+            code="REVIEW_CHECKLIST_INCOMPLETE",
+            message=f"{missing_count} review item(s) must be checked by a clinician before approval.",
+            http_status=409,
+            retryable=False,
+        )
+
+
 class NotFoundError(AriadError):
     def __init__(self, entity: str):
         super().__init__(

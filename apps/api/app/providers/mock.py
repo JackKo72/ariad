@@ -14,7 +14,7 @@ from typing import Any, Optional
 
 from app.observability import StageTimer
 
-PROMPT_VERSION_STRUCTURE = "structure_transcript@0.1.0"
+PROMPT_VERSION_STRUCTURE = "structure_transcript@0.2.0"
 PROMPT_VERSION_EXPLANATION = "patient_explanation@0.1.0"
 PROMPT_VERSION_ENRICHMENT = "clinical_enrichment@0.1.0"
 
@@ -71,6 +71,15 @@ class MockLLMProvider:
             "warnings": [],
             "follow_up": [],
             "questions_or_conflicts": [],
+            # tasks/10 slots: the mock never interprets, so it never fills
+            # decisions or proposes frame terms.
+            "treatments_given": [],
+            "decisions": [],
+            "consents": [],
+            "disposition": [],
+            "prognosis_and_goals": [],
+            "family_statements": [],
+            "term_candidates": [],
         }
 
     def _clinical_enrichment(self, payload: dict[str, Any]) -> dict[str, Any]:

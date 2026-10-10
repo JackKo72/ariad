@@ -8,9 +8,10 @@ from typing import Optional
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from app.domain.errors import NotFoundError, ValidationUnsupportedClaim
+from app.domain.errors import NotFoundError, ReviewChecklistIncomplete, ValidationUnsupportedClaim
 from app.domain.models import (
     ClinicalEnrichment,
+    ClinicalFrameId,
     ClinicalStructure,
     Encounter,
     EncounterDetail,
@@ -20,6 +21,7 @@ from app.domain.models import (
 from app.ids import new_id
 from app.observability import StageTimer
 from app.pipeline.enrichment import enrich_clinical_findings
+from app.pipeline.review_checklist import build_review_checklist, missing_acknowledgments
 from app.pipeline.run import run_pipeline
 from app.pipeline.validation import validate_grounding
 from app.providers.base import LLMProvider
@@ -64,6 +66,14 @@ class UpdateDraftRequest(BaseModel):
 
 class ApproveRequest(BaseModel):
     expected_version_number: int
+    # tasks/10: ids from EncounterDetail.review_checklist the clinician
+    # has checked. Empty is fine only when the checklist is empty.
+    acknowledged_review_item_ids: list[str] = Field(default_factory=list)
+
+
+class ProcessRequest(BaseModel):
+    # tasks/10: optional clinician-selected clinical frame.
+    clinical_frame: Optional[ClinicalFrameId] = None
 
 
 def _to_detail(repo: EncounterRepository, encounter: Encounter) -> EncounterDetail:
@@ -81,6 +91,7 @@ def _to_detail(repo: EncounterRepository, encounter: Encounter) -> EncounterDeta
         draft_version=draft_version,
         approved_version=approved_version,
         active_pipeline_run=active_pipeline_run,
+        review_checklist=build_review_checklist(draft_version.structure) if draft_version else [],
     )
 
 
@@ -137,9 +148,11 @@ def set_speaker_roles(
 @router.post("/{encounter_id}/process", response_model=EncounterDetail)
 def process_encounter(
     encounter_id: str,
+    body: Optional[ProcessRequest] = None,
     repo: EncounterRepository = Depends(get_repository),
     llm_provider: LLMProvider = Depends(get_llm_provider),
 ) -> EncounterDetail:
+    clinical_frame = body.clinical_frame if body is not None else None
     active_run = repo.get_active_pipeline_run(encounter_id)
 
     if active_run is not None and active_run.status == "needs_role_confirmation":
@@ -172,7 +185,9 @@ def process_encounter(
                     # either way (purely additive stage).
                     if active_run is not None and active_run.segments:
                         enrichment = enrich_clinical_findings(active_run.segments, llm_provider, stage_timer=timer)
-                    result = run_pipeline(draft.transcript_text, llm_provider, stage_timer=timer)
+                    result = run_pipeline(
+                        draft.transcript_text, llm_provider, stage_timer=timer, clinical_frame=clinical_frame
+                    )
                     structure, explanation = result.structure, result.explanation  # type: ignore[assignment]
             except Exception as exc:
                 # The transcript itself lives on encounter_versions and is
@@ -209,6 +224,7 @@ def process_encounter(
                     prompt_version_explanation=EXPLANATION_PROMPT_VERSION,
                     enrichment=enrichment,
                     prompt_version_enrichment=ENRICHMENT_PROMPT_VERSION if enrichment is not None else None,
+                    clinical_frame=clinical_frame,
                 )
                 if active_run is not None:
                     repo.complete_pipeline_run(active_run.id)
@@ -249,6 +265,9 @@ def approve_encounter(
     report = validate_grounding(draft.explanation, draft.transcript_text)
     if not report.valid:
         raise ValidationUnsupportedClaim("; ".join(report.issues))
+    missing = missing_acknowledgments(draft.structure, body.acknowledged_review_item_ids)
+    if missing:
+        raise ReviewChecklistIncomplete(len(missing))
 
     encounter = repo.approve(encounter_id, expected_version_number=body.expected_version_number)
     return _to_detail(repo, encounter)

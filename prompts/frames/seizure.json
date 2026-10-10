@@ -1,0 +1,55 @@
+{
+  "id": "seizure",
+  "label_ko": "경련/발작",
+  "version": "0.1.0",
+  "rules": [
+    "용어 후보는 term_candidates에만 쓴다. 다른 칸에는 대화에서 실제로 쓴 말을 그대로 쓴다.",
+    "약 이름은 대화에 나온 경우에만 쓴다. '항발작제'는 ASM 후보이지 특정 약 이름이 아니다.",
+    "status epilepticus는 의사가 그 말을 하지 않았다면 후보로만 쓴다."
+  ],
+  "terms": [
+    {
+      "term": "ASM (antiseizure medication)",
+      "spoken_examples": [
+        "항경련제",
+        "발작을 막는 약",
+        "항발작제"
+      ]
+    },
+    {
+      "term": "continuous sedation",
+      "spoken_examples": [
+        "진정제로 계속 재우고 있다",
+        "수면 상태를 유지하고 있다"
+      ]
+    },
+    {
+      "term": "status epilepticus 의심",
+      "spoken_examples": [
+        "발작이 멈추지 않고 계속됐다",
+        "경련이 오래 지속됐다"
+      ]
+    },
+    {
+      "term": "endotracheal intubation",
+      "spoken_examples": [
+        "숨관에 관을 넣었다",
+        "기관 내 삽관"
+      ]
+    },
+    {
+      "term": "hyperglycemia-related seizure 의심",
+      "spoken_examples": [
+        "혈당이 너무 높아서 경련이 왔다"
+      ]
+    },
+    {
+      "term": "life-sustaining treatment decision (연명의료결정)",
+      "spoken_examples": [
+        "연명치료를 할지 결정",
+        "심폐소생술을 할지 말지"
+      ]
+    }
+  ],
+  "note": "spoken_examples are generic phrasings written for this file, deliberately NOT copied from the tasks/09 eval transcripts (that would inflate eval scores)."
+}

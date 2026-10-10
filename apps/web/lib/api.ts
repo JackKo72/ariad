@@ -5,6 +5,7 @@ import type {
   ApiErrorBody,
   AudioAsset,
   Capabilities,
+  ClinicalFrameId,
   ClinicalStructure,
   Encounter,
   EncounterDetail,
@@ -68,8 +69,11 @@ export function submitInput(id: string, transcriptText: string): Promise<Encount
   });
 }
 
-export function processEncounter(id: string): Promise<EncounterDetail> {
-  return request<EncounterDetail>(`/encounters/${id}/process`, { method: "POST" });
+export function processEncounter(id: string, clinicalFrame: ClinicalFrameId | null = null): Promise<EncounterDetail> {
+  return request<EncounterDetail>(`/encounters/${id}/process`, {
+    method: "POST",
+    body: JSON.stringify({ clinical_frame: clinicalFrame }),
+  });
 }
 
 export function updateDraft(
@@ -88,10 +92,17 @@ export function updateDraft(
   });
 }
 
-export function approveEncounter(id: string, expectedVersionNumber: number): Promise<EncounterDetail> {
+export function approveEncounter(
+  id: string,
+  expectedVersionNumber: number,
+  acknowledgedReviewItemIds: string[] = [],
+): Promise<EncounterDetail> {
   return request<EncounterDetail>(`/encounters/${id}/approve`, {
     method: "POST",
-    body: JSON.stringify({ expected_version_number: expectedVersionNumber }),
+    body: JSON.stringify({
+      expected_version_number: expectedVersionNumber,
+      acknowledged_review_item_ids: acknowledgedReviewItemIds,
+    }),
   });
 }
 

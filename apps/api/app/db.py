@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS encounter_versions (
     prompt_version_structure TEXT,
     prompt_version_explanation TEXT,
     prompt_version_enrichment TEXT,
+    -- tasks/10_CLINICAL_FRAME_AND_REVIEW.md: clinician-selected frame.
+    clinical_frame TEXT,
     created_at TEXT NOT NULL,
     approved_at TEXT
 );
@@ -132,6 +134,7 @@ _COLUMN_MIGRATIONS: list[tuple[str, str, str]] = [
         "prompt_version_enrichment",
         "ALTER TABLE encounter_versions ADD COLUMN prompt_version_enrichment TEXT",
     ),
+    ("encounter_versions", "clinical_frame", "ALTER TABLE encounter_versions ADD COLUMN clinical_frame TEXT"),
 ]
 
 

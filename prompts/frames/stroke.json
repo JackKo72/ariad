@@ -1,0 +1,93 @@
+{
+  "id": "stroke",
+  "label_ko": "뇌졸중",
+  "version": "0.1.0",
+  "rules": [
+    "용어 후보는 term_candidates에만 쓴다. 다른 칸에는 대화에서 실제로 쓴 말을 그대로 쓴다.",
+    "NIHSS는 '항목 검사를 했다'는 후보로만 쓴다. 점수(숫자)는 원문에 숫자가 있을 때만 쓴다.",
+    "시술을 하지 않기로 했으면 decisions에 decided_not_to_do로 쓰고, 다시 고려할 조건을 condition에 쓴다."
+  ],
+  "terms": [
+    {
+      "term": "EVT (endovascular thrombectomy)",
+      "spoken_examples": [
+        "혈관 안으로 관을 넣어 혈전을 빼내는 시술",
+        "막힌 혈관을 뚫는 시술"
+      ]
+    },
+    {
+      "term": "NIHSS 항목 검사",
+      "spoken_examples": [
+        "손을 쥐어 보세요",
+        "팔을 들어 보세요",
+        "이 물건 이름이 뭐예요",
+        "제 말을 따라 해 보세요"
+      ]
+    },
+    {
+      "term": "aphasia (실어증)",
+      "spoken_examples": [
+        "말이 어눌해요",
+        "단어가 안 떠올라요",
+        "말을 알아듣지 못해요"
+      ]
+    },
+    {
+      "term": "CT angiography",
+      "spoken_examples": [
+        "조영제를 넣고 혈관을 찍는 CT",
+        "혈관 CT"
+      ]
+    },
+    {
+      "term": "multiphase CT",
+      "spoken_examples": [
+        "시간 차를 두고 여러 번 찍는 CT",
+        "멀티페이스 CT"
+      ]
+    },
+    {
+      "term": "CT perfusion",
+      "spoken_examples": [
+        "뇌로 가는 피의 양을 보는 CT",
+        "관류 CT"
+      ]
+    },
+    {
+      "term": "stroke unit",
+      "spoken_examples": [
+        "뇌졸중 집중치료실",
+        "뇌졸중 전용 병실"
+      ]
+    },
+    {
+      "term": "cardioembolic stroke 의심",
+      "spoken_examples": [
+        "심장에서 생긴 피떡이 뇌로 갔다",
+        "원인이 심장 쪽 같다"
+      ]
+    },
+    {
+      "term": "PFO 의심",
+      "spoken_examples": [
+        "심장 벽에 구멍이 있다",
+        "심장 안 구멍을 막는 시술"
+      ]
+    },
+    {
+      "term": "TEE (경식도 심초음파)",
+      "spoken_examples": [
+        "식도로 넣는 심장 초음파",
+        "내시경 초음파"
+      ]
+    },
+    {
+      "term": "M2 occlusion",
+      "spoken_examples": [
+        "큰 가지에서 갈라진 다음 혈관이 막혔다",
+        "가는 분지 혈관 폐색"
+      ]
+    }
+  ],
+  "note": "spoken_examples are generic phrasings written for this file, deliberately NOT copied from the tasks/09 eval transcripts (that would inflate eval scores)."
+}

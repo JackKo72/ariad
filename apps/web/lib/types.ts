@@ -20,6 +20,44 @@ export interface ClinicalStructure {
   warnings: Array<{ text: string; source_segment_ids: string[] }>;
   follow_up: Array<{ text: string; source_segment_ids: string[] }>;
   questions_or_conflicts: string[];
+  // tasks/10 slots
+  treatments_given: Array<{ text: string; source_segment_ids: string[] }>;
+  decisions: Decision[];
+  consents: Array<{ text: string; source_segment_ids: string[] }>;
+  disposition: Array<{ text: string; source_segment_ids: string[] }>;
+  prognosis_and_goals: Array<{ text: string; source_segment_ids: string[] }>;
+  family_statements: Array<{
+    text: string;
+    speaker_role: "guardian" | "patient" | "unknown";
+    kind: "report" | "question" | "request";
+    source_segment_ids: string[];
+  }>;
+  term_candidates: Array<{ spoken_text: string; term: string; frame: string; source_segment_ids: string[] }>;
+}
+
+export type DecisionStatus = "decided_to_do" | "decided_not_to_do" | "conditional" | "undecided";
+
+export interface Decision {
+  text: string;
+  status: DecisionStatus;
+  condition: string;
+  rationale: string;
+  source_segment_ids: string[];
+  needs_confirmation: boolean;
+}
+
+export type ClinicalFrameId = "stroke" | "seizure";
+
+export const CLINICAL_FRAME_LABELS: Record<ClinicalFrameId, string> = {
+  stroke: "뇌졸중 (stroke)",
+  seizure: "경련/발작 (seizure)",
+};
+
+export interface ReviewItem {
+  id: string;
+  kind: "decision" | "term_candidate" | "medication";
+  text: string;
+  source_segment_ids: string[];
 }
 
 export interface ExplanationDraft {
@@ -43,6 +81,7 @@ export interface EncounterVersion {
   transcript_text: string;
   structure: ClinicalStructure;
   explanation: ExplanationDraft;
+  clinical_frame: ClinicalFrameId | null;
   prompt_version_structure: string | null;
   prompt_version_explanation: string | null;
   created_at: string;
@@ -92,6 +131,7 @@ export interface EncounterDetail {
   draft_version: EncounterVersion | null;
   approved_version: EncounterVersion | null;
   active_pipeline_run: PipelineRun | null;
+  review_checklist: ReviewItem[];
 }
 
 export interface AudioAsset {

@@ -3,7 +3,9 @@
   "title": "ClinicalStructure",
   "description": "Output contract for prompts/structure_transcript.md (prompt_id=structure_transcript). Mirrors apps/api/app/domain/models.py:ClinicalStructure.",
   "type": "object",
-  "required": ["problems", "tests", "medications", "plan", "warnings", "follow_up", "questions_or_conflicts"],
+  "required": ["problems", "tests", "medications", "plan", "warnings", "follow_up", "questions_or_conflicts",
+               "treatments_given", "decisions", "consents", "disposition", "prognosis_and_goals",
+               "family_statements", "term_candidates"],
   "additionalProperties": false,
   "properties": {
     "problems": {
@@ -83,6 +85,91 @@
     "questions_or_conflicts": {
       "type": "array",
       "items": {"type": "string"}
+    },
+    "treatments_given": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["text", "source_segment_ids"],
+        "properties": {
+          "text": {"type": "string"},
+          "source_segment_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["text", "status", "condition", "rationale", "source_segment_ids", "needs_confirmation"],
+        "properties": {
+          "text": {"type": "string"},
+          "status": {"enum": ["decided_to_do", "decided_not_to_do", "conditional", "undecided"]},
+          "condition": {"type": "string"},
+          "rationale": {"type": "string"},
+          "source_segment_ids": {"type": "array", "items": {"type": "string"}},
+          "needs_confirmation": {"type": "boolean"}
+        }
+      }
+    },
+    "consents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["text", "source_segment_ids"],
+        "properties": {
+          "text": {"type": "string"},
+          "source_segment_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "disposition": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["text", "source_segment_ids"],
+        "properties": {
+          "text": {"type": "string"},
+          "source_segment_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "prognosis_and_goals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["text", "source_segment_ids"],
+        "properties": {
+          "text": {"type": "string"},
+          "source_segment_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "family_statements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["text", "speaker_role", "kind", "source_segment_ids"],
+        "properties": {
+          "text": {"type": "string"},
+          "speaker_role": {"enum": ["guardian", "patient", "unknown"]},
+          "kind": {"enum": ["report", "question", "request"]},
+          "source_segment_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "term_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["spoken_text", "term", "frame", "source_segment_ids"],
+        "properties": {
+          "spoken_text": {"type": "string"},
+          "term": {"type": "string"},
+          "frame": {"enum": ["stroke", "seizure"]},
+          "source_segment_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
     }
   }
 }

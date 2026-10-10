@@ -22,6 +22,22 @@ describe("buildStructureFromText", () => {
     warnings: [],
     follow_up: [],
     questions_or_conflicts: [],
+    treatments_given: [],
+    decisions: [
+      {
+        text: "시술",
+        status: "decided_not_to_do",
+        condition: "",
+        rationale: "",
+        source_segment_ids: ["seg-2"],
+        needs_confirmation: false,
+      },
+    ],
+    consents: [],
+    disposition: [],
+    prognosis_and_goals: [],
+    family_statements: [],
+    term_candidates: [],
   };
 
   it("preserves certainty/source ids for lines that still exist", () => {
@@ -63,5 +79,38 @@ describe("buildExplanationFromText", () => {
     expect(result.draft_notice).toBe("검토 전 초안");
     expect(result.current_situation).toEqual(["혈압이 높습니다"]);
     expect(result.warning_signs).toEqual(["두통", "어지러움"]);
+  });
+});
+
+describe("buildStructureFromText keeps tasks/10 slots", () => {
+  it("does not drop decisions when only problems are edited", () => {
+    const original: ClinicalStructure = {
+      problems: [],
+      tests: [],
+      medications: [],
+      plan: [],
+      warnings: [],
+      follow_up: [],
+      questions_or_conflicts: [],
+      treatments_given: [{ text: "재워놓음", source_segment_ids: ["seg-3"] }],
+      decisions: [
+        {
+          text: "시술",
+          status: "decided_not_to_do",
+          condition: "많이 나빠지면",
+          rationale: "",
+          source_segment_ids: ["seg-2"],
+          needs_confirmation: false,
+        },
+      ],
+      consents: [],
+      disposition: [],
+      prognosis_and_goals: [],
+      family_statements: [],
+      term_candidates: [],
+    };
+    const result = buildStructureFromText(original, "새 문제");
+    expect(result.decisions).toEqual(original.decisions);
+    expect(result.treatments_given).toEqual(original.treatments_given);
   });
 });

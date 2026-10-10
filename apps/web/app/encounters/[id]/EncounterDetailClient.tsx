@@ -12,9 +12,16 @@ import {
   submitInput,
   updateDraft,
 } from "@/lib/api";
-import { STATUS_LABELS, type EncounterDetail, type ExplanationDraft } from "@/lib/types";
+import {
+  CLINICAL_FRAME_LABELS,
+  STATUS_LABELS,
+  type ClinicalFrameId,
+  type EncounterDetail,
+  type ExplanationDraft,
+} from "@/lib/types";
 import { arrayToText, buildExplanationFromText, buildStructureFromText } from "@/lib/textFields";
 import AudioUploadPanel from "./AudioUploadPanel";
+import ClinicalReviewPanel from "./ClinicalReviewPanel";
 import SampleAudioPanel from "./SampleAudioPanel";
 import SpeakerRoleConfirmation from "./SpeakerRoleConfirmation";
 
@@ -42,6 +49,8 @@ export default function EncounterDetailClient({ id }: { id: string }) {
   const [problemsText, setProblemsText] = useState("");
   const [draftNotice, setDraftNotice] = useState("");
   const [fieldTexts, setFieldTexts] = useState<Record<string, string>>({});
+  const [clinicalFrame, setClinicalFrame] = useState<ClinicalFrameId | "">("");
+  const [checkedReviewIds, setCheckedReviewIds] = useState<Set<string>>(new Set());
 
   const reload = useCallback(() => {
     setLoadError(null);
@@ -95,7 +104,35 @@ export default function EncounterDetailClient({ id }: { id: string }) {
       );
     }
     setFieldTexts(next);
+    setCheckedReviewIds(new Set());
   }
+
+  function toggleReviewItem(itemId: string) {
+    setCheckedReviewIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }
+
+  const frameSelect = (
+    <label>
+      진료 틀 (선택하면 그 틀의 의학용어를 &quot;용어 후보&quot;로 제안하고 의사 검수 항목에 올립니다)
+      <select
+        data-testid="clinical-frame-select"
+        value={clinicalFrame}
+        onChange={(e) => setClinicalFrame(e.target.value as ClinicalFrameId | "")}
+      >
+        <option value="">선택 안 함</option>
+        {(Object.keys(CLINICAL_FRAME_LABELS) as ClinicalFrameId[]).map((frameId) => (
+          <option key={frameId} value={frameId}>
+            {CLINICAL_FRAME_LABELS[frameId]}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 
   async function runAction<T>(action: () => Promise<T>) {
     setActionLoading(true);
@@ -209,11 +246,12 @@ export default function EncounterDetailClient({ id }: { id: string }) {
           ) : (
             <>
               <p>전사문이 제출되었습니다. 처리를 시작하세요.</p>
+              {frameSelect}
               <div className="actions">
                 <button
                   data-testid="process-button"
                   disabled={actionLoading}
-                  onClick={() => runAction(() => processEncounter(id))}
+                  onClick={() => runAction(() => processEncounter(id, clinicalFrame || null))}
                 >
                   {actionLoading ? "처리 중..." : "처리 시작"}
                 </button>
@@ -232,8 +270,9 @@ export default function EncounterDetailClient({ id }: { id: string }) {
       {encounter.status === "PROCESSING_FAILED" && (
         <div className="card">
           <div className="error-box">처리 실패: {encounter.error_code ?? "알 수 없는 오류"}</div>
+          {frameSelect}
           <div className="actions">
-            <button disabled={actionLoading} onClick={() => runAction(() => processEncounter(id))}>
+            <button disabled={actionLoading} onClick={() => runAction(() => processEncounter(id, clinicalFrame || null))}>
               다시 처리하기
             </button>
           </div>
@@ -256,6 +295,15 @@ export default function EncounterDetailClient({ id }: { id: string }) {
             rows={4}
             value={problemsText}
             onChange={(e) => setProblemsText(e.target.value)}
+          />
+
+          <ClinicalReviewPanel
+            structure={editableVersion.structure}
+            clinicalFrame={editableVersion.clinical_frame}
+            checklist={encounter.status === "REVIEW_REQUIRED" ? detail.review_checklist : []}
+            checkedIds={checkedReviewIds}
+            onToggle={toggleReviewItem}
+            readOnly={encounter.status !== "REVIEW_REQUIRED"}
           />
 
           <label>환자용 설명 안내문</label>
@@ -294,7 +342,7 @@ export default function EncounterDetailClient({ id }: { id: string }) {
             {encounter.status === "REVIEW_REQUIRED" && (
               <button
                 data-testid="approve-button"
-                disabled={actionLoading}
+                disabled={actionLoading || !detail.review_checklist.every((item) => checkedReviewIds.has(item.id))}
                 onClick={() =>
                   runAction(async () => {
                     await updateDraft(
@@ -306,7 +354,12 @@ export default function EncounterDetailClient({ id }: { id: string }) {
                     const latest = await getEncounter(id);
                     const latestDraft = latest.draft_version;
                     if (latestDraft) {
-                      await approveEncounter(id, latestDraft.version_number);
+                      // Ids hash item content, so only acknowledgments of
+                      // items still present after the save count.
+                      const acknowledged = latest.review_checklist
+                        .map((item) => item.id)
+                        .filter((itemId) => checkedReviewIds.has(itemId));
+                      await approveEncounter(id, latestDraft.version_number, acknowledged);
                     }
                   })
                 }
