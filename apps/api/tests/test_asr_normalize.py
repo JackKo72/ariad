@@ -6,7 +6,27 @@ word that happens to start with a digit-reading syllable) and the
 documented out-of-scope case (a bare number with no unit-word neighbor).
 """
 
-from app.pipeline.asr_normalize import _parse_sino_korean_number, normalize_korean_number_words
+from app.pipeline.asr_normalize import (
+    _parse_sino_korean_number,
+    contains_number_word,
+    normalize_korean_number_words,
+)
+
+
+class TestContainsNumberWord:
+    def test_ascii_digit_is_detected(self):
+        assert contains_number_word("혈압이 138에 86으로 나왔습니다")
+
+    def test_hangul_number_word_is_detected(self):
+        # Real ASR output rendering "138" as spoken Hangul syllables
+        # rather than digits (tasks/06's real example).
+        assert contains_number_word("백사십오에구십이초금")
+
+    def test_plain_text_with_no_number_is_not_detected(self):
+        assert not contains_number_word("다리 들어보세요")
+
+    def test_empty_string_is_not_detected(self):
+        assert not contains_number_word("")
 
 
 class TestParseSinoKoreanNumber:

@@ -121,6 +121,31 @@ def test_value_candidates_with_verbatim_number_is_kept():
     assert fixed.validator_violations == []
 
 
+def test_value_candidates_grounded_by_a_hangul_number_word_is_kept():
+    # Real ASR output often renders a spoken number as Hangul syllables,
+    # not digits (tasks/06's "백사십오에구십이초금" example) -- the
+    # grounding check must recognize that as a number too, or a real
+    # vital-sign candidate silently gets cleared just because it has no
+    # ASCII digit.
+    segments = _SEGMENTS + [
+        DiarizedSegment(id="s12", speaker="A", role="doctor", start=22.0, end=24.0, text="혈압이 백삼십팔에 팔십육으로 나왔습니다")
+    ]
+    enrichment = ClinicalEnrichment(
+        exam=[
+            ExamFinding(
+                id="e6",
+                raw_text="혈압이 백삼십팔에 팔십육으로 나왔습니다",
+                kind="observation",
+                value_candidates=[{"value": "백삼십팔/팔십육", "confidence": "medium"}],
+                source_spans=[_span("s12", "혈압이 백삼십팔에 팔십육으로 나왔습니다", "A", "doctor")],
+            )
+        ]
+    )
+    fixed = validate_enrichment(enrichment, segments)
+    assert fixed.exam[0].value_candidates
+    assert fixed.validator_violations == []
+
+
 def test_grounded_numeric_exam_candidate_forces_needs_review_even_if_provider_said_false():
     # tasks/06_ASR_OUTPUT_VERIFICATION.md: ASR frequently drops/garbles
     # numbers -- a provider explicitly setting needs_review=False must

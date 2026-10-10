@@ -13,12 +13,13 @@ import re
 from typing import Any, Optional
 
 from app.observability import StageTimer
+from app.pipeline.asr_normalize import contains_number_word
 
 PROMPT_VERSION_STRUCTURE = "structure_transcript@0.3.0"
 PROMPT_VERSION_EXPLANATION = "patient_explanation@0.1.0"
 PROMPT_VERSION_ENRICHMENT = "clinical_enrichment@0.1.0"
 
-_DOSE_UNIT_RE = re.compile(r"(밀리그램|mg|그램)")
+_DOSE_UNIT_RE = re.compile(r"(밀리그램|mg|(?<!킬로)그램)")
 _MEDICATION_MENTION_RE = re.compile(r"약")
 _MEDICATION_ACTION_HINT_RE = re.compile(r"(끊|중단|시작|드시|복용)")
 _QUESTION_RE = re.compile(r"(나요|까요|습니까)\s*[?？]?\s*$|\?\s*$")
@@ -28,6 +29,14 @@ _EXAM_ORDER_RE = re.compile(r"(들어보세요|해보세요|보여주세요|해�
 # copied verbatim, so grounding is guaranteed by construction.
 _EXPLICIT_SCORE_RE = re.compile(r"(NIHSS|mRS|MRC).{0,12}\d+\s*점")
 _EXPLICIT_DIAGNOSIS_RE = re.compile(r"진단은")
+# tasks/06_ASR_OUTPUT_VERIFICATION.md: vital-sign (blood pressure, weight,
+# temperature, pulse, blood glucose) reading detection. Mentioning the
+# keyword alone (an order/question, e.g. "혈압을 재볼까요?") never
+# produces a value_candidate -- only a sentence that also already has a
+# number does, and the candidate is the whole segment text verbatim (same
+# convention _EXPLICIT_SCORE_RE already uses), never a value the mock
+# parses/computes out of it.
+_VITAL_SIGN_KEYWORD_RE = re.compile(r"(혈압|체중|체온|맥박|혈당)")
 _STOP_WORD_RE = re.compile(r"(끊|중단)")
 _NEGATED_STOP_RE = re.compile(r"(끊지|중단하지|멈추지)\s*(마세요|말고|말아)")
 _PATIENT_SYMPTOM_RE = re.compile(r"(증상|아프|힘들|못\s*자|저리|어지럽)")
@@ -171,6 +180,43 @@ class MockLLMProvider:
                     }
                 )
                 continue
+
+            if role == "doctor":
+                vital_keywords = _VITAL_SIGN_KEYWORD_RE.findall(text)
+                if vital_keywords:
+                    distinct_keywords = list(dict.fromkeys(vital_keywords))
+                    has_number = contains_number_word(text)
+                    # Two+ different vital-sign keywords with numbers in
+                    # one sentence is exactly the "ownership ambiguity"
+                    # case tasks/06 flagged (which number belongs to which
+                    # keyword) -- still reported so a clinician sees it,
+                    # but at low confidence; mock never guesses the pairing.
+                    confidence = "low" if len(distinct_keywords) > 1 else "medium"
+                    exam.append(
+                        {
+                            "id": f"exam-{seg['id']}",
+                            "raw_text": text,
+                            "kind": "observation" if has_number else "order",
+                            "test_name_candidates": [
+                                {"value": k, "confidence": "medium"} for k in distinct_keywords
+                            ],
+                            "score_computable": False,
+                            "score_candidates": [],
+                            "value_candidates": (
+                                [{"value": text, "confidence": confidence}] if has_number else []
+                            ),
+                            "rationale": (
+                                "생체 신호 키워드와 숫자가 같은 문장에 있어 관찰값 후보로 표시 (mock, 규칙 기반)"
+                                if has_number and confidence == "medium"
+                                else "생체 신호 키워드가 2개 이상이라 어느 숫자가 어느 항목인지 불확실 (mock, 규칙 기반)"
+                                if has_number
+                                else "생체 신호 키워드만 있고 숫자 없음 -- 지시/질문으로 처리 (mock, 규칙 기반)"
+                            ),
+                            "needs_review": True,
+                            "source_spans": source_span(seg),
+                        }
+                    )
+                    continue
 
             if role == "doctor" and _EXPLICIT_DIAGNOSIS_RE.search(text):
                 diagnoses.append(

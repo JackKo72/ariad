@@ -99,3 +99,22 @@ def normalize_korean_number_words(text: str) -> str:
         if value is not None:
             tokens[i] = str(value)
     return " ".join(tokens)
+
+
+def contains_number_word(text: str) -> bool:
+    """True if `text` has an ASCII digit or at least one Sino-Korean
+    number-word character (일/이/삼/.../백/천/만). A bare `\\d`-only check
+    misses real ASR output that renders a spoken number as Hangul words
+    instead of digits (tasks/06_ASR_OUTPUT_VERIFICATION.md's real
+    "백사십오에구십이초금" example) -- callers that need this (mock
+    provider vital-sign detection, enrichment_validation.py's grounding
+    check) would otherwise silently clear/ignore a real number just
+    because it wasn't spelled with digits.
+
+    Deliberately loose (a single matching character anywhere, not the
+    whole-token purity normalize_korean_number_words() requires) --
+    callers use this only as "does some evidence of a number exist here",
+    never to auto-apply a value, so an occasional false positive (an
+    ordinary word that happens to contain one of these syllables) costs
+    nothing once needs_review is forced True regardless."""
+    return any(ch.isdigit() for ch in text) or any(ch in _NUMBER_CHARS for ch in text)

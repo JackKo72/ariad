@@ -588,3 +588,51 @@ task로 분리할 만큼 크다. 어느 방향으로 진행할지 알려주면 �
 여전히 미구현 — 이번 변경은 "있다면 믿지 않는다"이지 "더 잘 뽑아낸다"가
 아니다. 프론트엔드에 이 `needs_review`/`value_candidates`를 보여주는
 UI도 없음(Phase 04 때부터 알려진 제한, 그대로 유지).
+
+## mock provider에 생체 신호 숫자 추출 규칙 추가 (2026-10-10)
+
+위에서 "미구현"이라고 적었던 부분(실제 수치 추출)을 사용자가 요청해
+구현했다.
+
+- `apps/api/app/providers/mock.py`: `_VITAL_SIGN_KEYWORD_RE`(혈압/체중/
+  체온/맥박/혈당) 추가. 의사 발화에 이 키워드가 있으면:
+  - **숫자가 같이 있으면** → `ExamFinding(kind="observation",
+    value_candidates=[{"value": 전체 문장, ...}])` — 기존 `_EXPLICIT_
+    SCORE_RE` 규칙과 같은 관례로, 숫자를 따로 뽑아 정규화하지 않고
+    **문장 전체를 그대로** 후보값으로 복사한다(계산/추론 없음).
+  - **숫자가 없으면**(예: "혈압을 재볼까요?") → `kind="order"`,
+    `value_candidates=[]` — 지시/질문만으로 수치를 만들지 않는다
+    (CLAUDE.md 금지 패턴과 같은 원칙).
+  - **키워드가 2개 이상 섞이면**(예: "혈압이 132에 84, 맥박은 70회였습니다",
+    tasks/06에서 실측으로 확인한 "소유권 모호성" 사례) → 후보는 여전히
+    보고하지만 `confidence="low"`로 내리고, 어느 숫자가 어느 키워드에
+    속하는지는 추측하지 않는다(`test_name_candidates`에 두 키워드를 모두
+    담아 모호함 자체를 보이게 함).
+- **실제 버그를 테스트 작성 중 발견·수정**: 기존 `_DOSE_UNIT_RE`(약물
+  용량 단위 감지, `그램` 포함)가 `킬로그램`(체중 단위) 안의 `그램`에도
+  매칭돼서, 체중 문장이 약물 용량 문장으로 잘못 분류되고 있었다 —
+  `(?<!킬로)그램`으로 수정(밀리그램/순수 그램은 그대로 매칭, 킬로그램만
+  제외).
+- **Hangul 숫자 단어 인식 확장**: 실제 ASR 출력은 숫자를 "138"이 아니라
+  "백삼십팔"처럼 한글 음절로 낼 수 있다(tasks/06에서 이미 실측 확인).
+  `app/pipeline/asr_normalize.py`에 `contains_number_word()`(ASCII 숫자
+  OR Sino-Korean 숫자 음절 하나라도 있으면 True) 추가, mock의 새 규칙과
+  `enrichment_validation.py`의 숫자 grounding 검사(`score_candidates`/
+  `value_candidates` 둘 다) 양쪽에서 재사용 — 그렇지 않으면 mock이 한글
+  숫자로 만든 후보를 validator가 "숫자 없음"으로 오판해 즉시 지워버렸을
+  것이다.
+- 테스트: `test_asr_normalize.py`(+4, `contains_number_word`),
+  `test_enrichment_validation.py`(+1, 한글 숫자 grounding 통과 확인),
+  `test_mock_provider.py`(+5: 숫자 있는 관찰/숫자 없는 지시/키워드 2개
+  모호성/한글 숫자 인식/trailing-unit 체중 — 이 마지막 테스트가 위
+  `그램`/`킬로그램` 버그를 직접 잡아냈다). 전체 232개 통과, ruff clean.
+  `make eval`/`scripts/eval_clinical_enrichment.py` 재실행해 회귀 없음도
+  확인(둘 다 기존과 동일한 pass/fail 결과).
+- **의도적으로 하지 않은 것**: 혈당처럼 키워드와 숫자 사이 거리가 먼
+  경우(leading anchor가 멀리 있는 경우)는 지금 규칙이 "문장 전체에 키워드
+  + 숫자가 있으면"으로 느슨하게 처리하므로 이미 커버된다(토큰 거리를
+  따지지 않는 전체-문장 검사라서 tasks/06에서 걱정했던 "거리 문제"가
+  여기서는 발생하지 않음 — mock은 문장 단위로만 동작하기 때문). 다만
+  여전히 "숫자 자체가 ASR에서 아예 사라지는" 문제(tasks/06의 핵심 발견)
+  는 이 규칙으로 해결되지 않는다 — 텍스트에 숫자가 없으면 추출할 게
+  없다. 날짜 단위(월/일/년)나 다른 패턴으로의 확장은 하지 않았다.
