@@ -192,6 +192,15 @@ class ExamFinding(BaseModel):
     # source_span quote -- "다리 들어보세요" alone must never produce an
     # mRS/NIHSS/MRC score (enrichment_validation.py enforces this).
     score_candidates: list[NormalizedCandidate] = Field(default_factory=list)
+    # tasks/06_ASR_OUTPUT_VERIFICATION.md: a general numeric observation
+    # (blood pressure, weight, glucose, pulse, temperature -- anything
+    # measured, not a graded score like score_candidates above). Same
+    # grounding rule applies: only ever populated when the number appears
+    # verbatim in a source_span quote. Real-hardware measurement found
+    # ASR frequently drops or garbles exactly this kind of number, so
+    # enrichment_validation.py forces needs_review=True whenever this is
+    # non-empty, regardless of what the provider set.
+    value_candidates: list[NormalizedCandidate] = Field(default_factory=list)
     rationale: str = ""
     needs_review: bool = True
     source_spans: list[SourceSpan] = Field(default_factory=list)

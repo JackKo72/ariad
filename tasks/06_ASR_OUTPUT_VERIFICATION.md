@@ -382,3 +382,209 @@ make diagnose-asr AUDIO=tests/fixtures/audio/vital_signs_isolated.wav
 
 **leading-keyword anchor 설계는 이 결과가 나올 때까지 보류한다** — 숫자
 텍스트가 ASR 출력에 없는 상태에서 "앵커 규칙"을 설계하는 건 의미가 없다.
+
+## `vital_signs_isolated.wav` 실측 결과 — 부분 개선, 가설 부분 반증 (2026-10-09)
+
+`make diagnose-asr`가 실제로 **6개 구간을 따로 디코딩**했음을 확인시켜줬다
+(2.0초 간격이 `merge_diarization_turns`의 0.8초 병합 임계값을 성공적으로
+이겼다는 뜻):
+
+```
+turn  duration_s   ko_fired     ko_ms
+0     5.906        True         13429.7
+1     4.050        True         13773.7
+2     5.754        True         14849.3
+3     4.792        True         12992.5
+4     6.986        True         15893.5
+5     4.219        True          8637.7
+```
+
+**결과는 "완전 반증"도 "완전 확인"도 아니다 — 부분적으로만 개선됐다.**
+짧게 격리된 구간에서도 숫자 6개 중 다수(138/86, 72, 118)는 여전히
+완전히 사라졌다. 하지만 이번엔 숫자 조각이 **처음으로 일부 등장**했다 —
+"팔십사"(84, seg_005의 "132에 84" 중 84 — **정확히 맞음**), "십 회"(seg_005
+"70회였습니다" 중 단위 구조는 맞지만 값은 틀림), "삼십"(seg_006 "37.5도"의
+"37" 일부 — 소수점·단위 소실). 긴 병합 구간(53.34초 전체가 2조각)에서는
+숫자 음절이 **하나도** 안 나왔던 것과 비교하면, 짧은 구간(개별 4~7초)이
+일부 숫자를 복구하긴 했다 — 즉 디코딩 구간 길이가 **원인 중 하나이긴
+하지만 유일한 원인은 아니다.** 나머지 소실(138/86/72/118)은 구간을
+짧게 해도 안 고쳐지는, 더 근본적인(양자화? 모델 자체?) 문제로 보인다.
+
+**속도는 개선되지 않았다**: `diagnose-asr`의 `ko_fallback` 총
+79576.5ms/31.71s 입력 = 순수 decode RTF **2.51** — 오히려 이전(merged,
+긴 구간)보다 나쁘거나 비슷하다. 짧게 쪼개는 게 속도 이득은 없다 —
+있다면 정확도 이득뿐인데, 그마저 부분적이다.
+
+**별개로 확인한 것**: 이 fixture는 전부 의사(A) 화자만 담아서
+"speaker/diarization consistency: 6/6(100%)"가 나왔는데, 이건 비교
+대상이 전부 같은 라벨이라 trivially 100%인 것 — 화자분리 자체가
+좋아졌다는 뜻은 아니다(설계상 이 fixture는 화자 구분을 테스트하지
+않음). `auto_then_ko` vs `ko_only` RTF가 이번에도 비슷했다(2.12 vs
+1.96) — 지난번과 같은 이유(`_NON_KOREAN_RE`가 라틴 문자를 못 잡아서
+ko fallback이 안 일어남)로 재확인됨, 이 설명이 반복 재현된다는 뜻.
+
+### 다음 진단: faster-whisper(다른 런타임/정밀도)로 같은 fixture 교차 확인
+
+숫자 소실이 구간 길이와 무관하게 일부 남는다는 건, sherpa-onnx CPU int8
+large-v3 양자화 모델 자체의 한계일 가능성을 시사한다. 이를 가르기 위해
+**새 코드 없이 기존 도구로** 바로 확인 가능하다 —
+`scripts/check_faster_whisper_accuracy.py`는 faster-whisper가 자체
+세그먼트 경계를 쓰므로(diarization/merge_diarization_turns 영향을 전혀
+안 받음) sherpa-onnx의 청크 분할 로직과 완전히 독립적으로 같은 질문을
+던질 수 있다. `AUDIO=`/`GROUND_TRUTH=` 오버라이드도 이미 지원한다
+(오늘 사용 중 발견: 이 스크립트도 `compare_asr_accuracy.py`와 같은 "다른
+ground truth 파일의 미해당 anchor는 FAIL이 아니라 SKIPPED로 표시" 버그가
+있어서 같이 고쳤다).
+
+**사용자가 직접 실행할 것**:
+```bash
+FASTER_WHISPER_MODEL=large-v3 \
+AUDIO=tests/fixtures/audio/vital_signs_isolated.wav \
+GROUND_TRUTH=tests/fixtures/audio/vital_signs_isolated.transcript.json \
+make check-faster-whisper-accuracy
+```
+(약명/부정/날짜 anchor 4개는 이 fixture에 없어 전부 SKIPPED로 나올 것 —
+정상. 중요한 건 per-segment expected/predicted 텍스트에 숫자가 보이는지다.)
+
+**결과 해석**:
+- faster-whisper(CUDA, large-v3)에서 숫자가 **잘 나오면** → sherpa-onnx
+  CPU int8 양자화 특유의 문제일 가능성이 커진다 — 다만 tasks/05에서
+  이미 faster-whisper large-v3가 부정 표현("않")을 삭제하는 별도 안전
+  문제가 확인됐으므로, "숫자는 되는데 부정은 안 되는" 트레이드오프를
+  어떻게 다룰지 결정이 필요해진다.
+- faster-whisper에서도 숫자가 **마찬가지로 빠지면** → 모델/엔진에
+  무관하게 자연스러운 문장에 섞인 한국어 숫자 인식 자체가 현재 ASR
+  스택 공통의 약점이라는 뜻 — 이 경우 post-ASR 텍스트 보정(leading/
+  trailing anchor 등)으로는 해결할 수 없다(없는 텍스트를 보정할 수
+  없음). 그 경우의 현실적인 다음 전략은 "숫자가 포함된 생체 신호
+  필드는 ASR 결과를 신뢰하지 않고 항상 `needs_review`로 보낸다"는
+  하류 안전장치 쪽으로 방향을 바꾸는 것이 될 것이다(CLAUDE.md의
+  "불확실한 임상 사실은 검토 필요 상태로 보낸다" 원칙과 직접 부합).
+
+**leading-keyword anchor 설계는 여전히 보류** — 위 교차 확인 결과가
+나온 뒤, "post-ASR 보정으로 해결 가능한 문제인지" 자체를 먼저 판단해야
+한다.
+
+## 교차 확인 결과 — faster-whisper가 숫자를 거의 다 복구함 (2026-10-09)
+
+사용자가 `FASTER_WHISPER_MODEL=large-v3`로 같은 `vital_signs_isolated.wav`
+를 돌린 결과, **질문에 명확한 답이 나왔다**: 숫자 소실은 Whisper/한국어
+숫자 인식 자체의 근본 한계가 아니라 **sherpa-onnx의 CPU int8 양자화
+경로 특유의 문제**였다.
+
+| 구간 | 기대 | sherpa-onnx(CPU int8, 격리) | faster-whisper(CUDA fp16, large-v3) |
+|---|---|---|---|
+| 138/86 | 백삼십팔에 팔십육으로 | (완전 소실) | "백삼 씹 파레팔 씹 유크로" — **백/삼/십/팔 + 십/육 전부 등장**(십→씹 오철자) |
+| 72 | 칠십이 | (완전 소실) | "칠 씹 이" — **정확히 칠/십/이**(씹=십) |
+| 118 | 백십팔 | (완전 소실) | "씹 파로" — 부분적(백 소실, 나머지 흔적) |
+| 76 | 칠십육 | (완전 소실) | "칠 씹" — 부분적 |
+| 132/84 | 백삼십이에 팔십사 | "팔십사"만 등장 | "백삼 씹 이에팔 씹사" — **거의 완벽**(백/삼/십/이/에/팔/십/사 전부) |
+| 37.5 | 삼십칠점오도 | "삼십"만 등장 | "삼 씹 칠 오도" — **삼/십/칠 + 오도**(점은 소실, 숫자 둘 다 보존) |
+
+**흥미로운 일관된 오류**: "십"이 거의 매번 "씹"으로 나온다(음이 비슷한
+다른 한국어 단어로 대체됨) — 숫자 자체가 사라지는 게 아니라 한 음절이
+동음이의어 비슷한 다른 글자로 바뀌는 수준의 오류다. sherpa-onnx의
+"완전 소실"과는 질적으로 다르다.
+
+**anchor 체크 "0/3 pass"는 의미 없는 신호다** — 주의할 점: 이 fixture는
+`seg_003`/`seg_005`라는 segment id를 sample_consultation과 우연히
+공유하지만 내용은 전혀 다르다(혈당/혈압 수치 문장이지 약명·부정 표현이
+아님). 내가 고친 "SKIPPED" 처리는 **segment id가 ground truth에 없을
+때만** 작동하므로, 이번처럼 id는 있지만 내용이 다른 경우는 걸러지지
+않고 당연히 FAIL이 찍힌다(애초에 "리시노프릴"이 이 문장에 없으니까).
+혼란의 여지가 있어 짚어둔다 — **실제로 봐야 할 신호는 anchor pass
+개수가 아니라 위 표의 숫자 복구 여부다.**
+
+### 결론: 엔진 교체가 아니라 트레이드오프 문제
+
+faster-whisper(CUDA, large-v3)가 숫자 복구에는 훨씬 낫지만, tasks/05에서
+**이미 확인된 별개의 안전 문제**가 있다 — 부정 표현("시작하지 않습니다")의
+"않"이 통째로 사라지는 사례. 이 두 발견을 합치면:
+
+| | 숫자 복구 | 부정 표현 보존 |
+|---|---|---|
+| 현재 기본(sherpa-onnx CPU int8) | 나쁨(거의 소실) | 좋음(보존) |
+| faster-whisper CUDA large-v3 | 좋음(대부분 복구) | **나쁨(소실 확인됨)** |
+
+**부정 표현 소실("중단하지 마세요"가 사라지는 것)이 숫자 소실보다 임상적
+으로 더 위험하다** — 잘못된 혈압 수치는 의료진이 재확인하면 그치지만,
+약물 중단/계속 지시가 반대로 읽히면 직접적 위해로 이어질 수 있다. 그래서
+**이번 발견이 엔진 교체를 정당화하지는 않는다** — 오히려 "숫자든 부정이든
+ASR 출력을 그대로 신뢰하지 않는다"는 쪽으로 결론이 기운다.
+
+**post-ASR 텍스트 보정(leading/trailing anchor 등)은 여전히 설계하지
+않는다** — sherpa-onnx 기본 경로에서는 숫자 텍스트가 대부분 없어서
+보정할 대상이 없고, faster-whisper로 바꾸면 숫자는 있지만 부정 표현
+문제가 새로 생긴다. 어느 쪽이든 "텍스트 패턴으로 고치기"보다 "신뢰하지
+않고 검토로 보낸다"가 더 안전한 결론이다.
+
+### 제안하는 다음 방향 (선택 필요 — 구현 전 확인)
+
+1. **(낮은 리스크, 추천) 두 엔진 모두에서 숫자/수치 필드는 항상
+   `needs_review`로 보낸다** — 어느 엔진을 쓰든 숫자 추출을 자동 신뢰하지
+   않는다. 지금 바로 적용 가능하고(엔진 교체 불필요), CLAUDE.md의
+   "불확실한 임상 사실은 검토 필요 상태로 보낸다" 원칙과 정확히 부합한다.
+   `apps/api/app/pipeline/enrichment_validation.py`의 기존 숫자 관련
+   검사를 확장하는 선에서 구현 가능해 보인다.
+2. **(중간 리스크) faster-whisper의 부정 표현 소실 자체를 먼저 고친다**
+   (예: 부정 조사/어미 패턴이 포함된 구간만 sherpa-onnx로 재확인하는
+   하이브리드, 또는 dictionary 기반 "않"-포함 어미 사전과 비교) — 이게
+   성공하면 faster-whisper의 숫자 복구 이점을 안전하게 가져올 길이
+   열린다. 구현 난도와 검증 비용이 크다.
+3. 둘 다 당장 보류하고 여기서 tasks/06을 정리 — 사용자가 이미 충분한
+   실측을 얻었다고 판단하면.
+
+**추천은 1번이다** — 당장 구현 가능하고 리스크가 낮으며, 어느 엔진을
+최종 선택하든(또는 둘 다 안 바꾸든) 유효하다. 2번은 가치 있지만 별도
+task로 분리할 만큼 크다. 어느 방향으로 진행할지 알려주면 이어서
+진행하겠다.
+
+## 1번 구현 완료: 숫자/수치 필드 강제 needs_review (2026-10-09)
+
+사용자가 1번(엔진 교체 없이, 숫자/수치 필드를 항상 검토 필요로 보낸다)을
+선택해 구현했다.
+
+- `apps/api/app/domain/models.py`: `ExamFinding`에 `value_candidates:
+  list[NormalizedCandidate]` 신규 필드 추가 — 기존 `score_candidates`
+  (mRS/NIHSS/MRC 등 등급 전용)와 별도로, 혈압/체중/혈당/맥박/체온 같은
+  **일반 수치 관찰**을 담는다. `score_candidates`의 기존 설계(원문에
+  숫자가 그대로 있을 때만 채움)를 그대로 일반화한 것 — 새 패턴을 만들지
+  않고 기존 메커니즘을 재사용했다.
+- `apps/api/app/pipeline/enrichment_validation.py`: 두 가지 강제 규칙
+  추가.
+  1. **grounding 확장**: `value_candidates`도 `score_candidates`와 같은
+     방식으로 source_span에 숫자가 실제로 있는지 검사하고, 없으면
+     비운다(+ violation 기록).
+  2. **신규: 무조건 `needs_review=True` 강제** — `MedicationFinding.
+     dose_candidates`가 비어있지 않거나, `ExamFinding.score_candidates`/
+     `value_candidates`가 비어있지 않으면(grounding 통과분만), provider가
+     `needs_review=False`를 줬더라도 **무조건 `True`로 덮어쓴다**. 이게
+     이번 요청의 핵심 — "어느 엔진을 쓰든" 숫자가 있으면 검토 필요를
+     보장하는 지점이다(provider가 뭘 주든 이 레이어에서 강제).
+- `prompts/clinical_enrichment.md`: `value_candidates`와 `dose_candidates`
+  관련 안내 추가 — 모델이 `needs_review`를 낮추려 해도 시스템이 무시한다는
+  점을 명시(실제 LLM provider가 이 규칙에 맞춰 불필요한 확신을 표현하지
+  않도록).
+- 테스트(`apps/api/tests/test_enrichment_validation.py`, 6개 추가):
+  - `value_candidates` grounding 통과/실패 각각.
+  - **provider가 명시적으로 `needs_review=False`를 줘도** 숫자 후보가
+    있으면(exam value, medication dose 각각) 강제로 `True`가 되는지.
+  - **역방향 확인**: 숫자 후보가 전혀 없는 medication은 provider가 준
+    `needs_review=False`가 그대로 유지되는지(과잉 강제 없음 확인).
+- `apps/api/app/providers/mock.py`는 수정하지 않았다 — mock은 아직
+  `value_candidates`를 채우는 규칙이 없어서(혈압/체중 등 수치 관찰을
+  감지하는 규칙 자체가 미구현) 이 변경의 영향을 받지 않는다. 실제 수치를
+  추출하는 새 규칙(leading-keyword anchor 포함)은 여전히 보류 상태다 —
+  이번 변경은 "추출된 숫자를 신뢰하지 않는다"는 안전장치이고, "숫자를
+  더 잘 추출한다"는 별개의(아직 하지 않은) 작업이다.
+- `apps/api/app/providers/openai_llm.py`는 수정 불필요 — `ClinicalEnrichment`
+  pydantic 모델을 그대로 structured output 스키마로 쓰므로 새 필드가
+  자동으로 반영된다.
+- 전체 테스트 222개 통과(기존 217 + 신규 6 — 1개는 "과잉 강제 없음"
+  역방향 테스트), ruff clean.
+
+**의도적으로 하지 않은 것**: 실제 혈압/체중/혈당 수치를 ASR 텍스트에서
+추출하는 규칙(leading-keyword anchor, mock provider 규칙 추가 등)은
+여전히 미구현 — 이번 변경은 "있다면 믿지 않는다"이지 "더 잘 뽑아낸다"가
+아니다. 프론트엔드에 이 `needs_review`/`value_candidates`를 보여주는
+UI도 없음(Phase 04 때부터 알려진 제한, 그대로 유지).
