@@ -7,7 +7,9 @@ approval is refused until every listed id is acknowledged (routes/
 encounters.py approve). Items:
   - decisions that are not a plain "do it" (decided_not_to_do, conditional,
     undecided) or that the LLM itself flagged needs_confirmation
-  - every term candidate (frame vocabulary guesses, never confirmed)
+  - term candidates with risk "inference" (suspected diagnosis/procedure).
+    "exam" candidates (exam/observation records) are shown but need no
+    sign-off -- tasks/12, clinician decision, to keep the list short.
   - medications flagged needs_confirmation
 Ids hash the item's content: editing an item changes its id, so an
 acknowledgment given before the edit no longer counts.
@@ -44,6 +46,8 @@ def build_review_checklist(structure: ClinicalStructure) -> list[ReviewItem]:
         items.append(ReviewItem(id=_item_id("decision", d.model_dump()), kind="decision", text=text,
                                 source_segment_ids=d.source_segment_ids))
     for c in structure.term_candidates:
+        if c.risk != "inference":
+            continue
         items.append(ReviewItem(id=_item_id("term_candidate", c.model_dump()), kind="term_candidate",
                                 text=f'"{c.spoken_text}" → {c.term} (용어 후보, {c.frame})',
                                 source_segment_ids=c.source_segment_ids))

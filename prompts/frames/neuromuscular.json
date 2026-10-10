@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "note": "spoken_examples are generic phrasings written for this file, NOT copied from the tasks/09 eval transcripts (that would inflate eval scores). Real phrasings get added from development recordings, never from evaluation recordings (tasks/11).",
   "includes": [
-    "neuro_exam"
+    "neuro_exam",
+    "general_medicine"
   ],
   "rules": [
     "용어 후보는 term_candidates에만 쓴다. 다른 칸에는 대화에서 실제로 쓴 말을 그대로 쓴다.",
@@ -13,42 +14,49 @@
   "terms": [
     {
       "term": "fatigable weakness (피로성 근력저하)",
+      "risk": "exam",
       "spoken_examples": [
         "오후가 되면 눈꺼풀이 처지고 힘이 빠져요"
       ]
     },
     {
       "term": "proximal weakness (근위부 근력저하)",
+      "risk": "exam",
       "spoken_examples": [
         "계단 오르기나 일어서기가 힘들어요"
       ]
     },
     {
       "term": "peripheral neuropathy (말초신경병증)",
+      "risk": "inference",
       "spoken_examples": [
         "손발이 저리고 감각이 둔해요"
       ]
     },
     {
       "term": "ascending weakness (상행성 근력저하)",
+      "risk": "exam",
       "spoken_examples": [
         "다리부터 힘이 빠져서 위로 올라와요"
       ]
     },
     {
       "term": "CK (근육효소 수치)",
+      "risk": "exam",
       "spoken_examples": [
         "근육 효소 피검사"
       ]
     },
     {
       "term": "repetitive nerve stimulation (반복신경자극검사)",
+      "risk": "exam",
       "spoken_examples": [
         "신경을 반복해서 자극하는 검사"
       ]
     },
     {
       "term": "respiratory weakness (호흡근 약화)",
+      "risk": "exam",
       "spoken_examples": [
         "숨이 차서 누워 있기 힘들어요"
       ]

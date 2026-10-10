@@ -11,6 +11,7 @@
   "terms": [
     {
       "term": "level of consciousness (의식 수준)",
+      "risk": "exam",
       "spoken_examples": [
         "눈 떠 보세요",
         "불러도 반응이 없어요",
@@ -19,6 +20,7 @@
     },
     {
       "term": "orientation (지남력)",
+      "risk": "exam",
       "spoken_examples": [
         "오늘이 며칠이에요",
         "여기가 어디예요"
@@ -26,6 +28,7 @@
     },
     {
       "term": "attention test (주의력 검사)",
+      "risk": "exam",
       "spoken_examples": [
         "100에서 7씩 빼 보세요",
         "숫자를 거꾸로 말해 보세요"
@@ -33,6 +36,7 @@
     },
     {
       "term": "memory recall test (기억력 검사)",
+      "risk": "exam",
       "spoken_examples": [
         "세 단어를 기억해 두세요",
         "아까 말한 단어가 뭐였죠"
@@ -40,6 +44,7 @@
     },
     {
       "term": "cognitive screening (MMSE/MoCA, 인지선별검사)",
+      "risk": "exam",
       "spoken_examples": [
         "인지 검사",
         "치매 선별 검사"
@@ -47,6 +52,7 @@
     },
     {
       "term": "aphasia (실어증)",
+      "risk": "exam",
       "spoken_examples": [
         "말이 어눌해요",
         "단어가 안 떠올라요",
@@ -55,24 +61,28 @@
     },
     {
       "term": "naming test (이름 대기)",
+      "risk": "exam",
       "spoken_examples": [
         "이 물건 이름이 뭐예요"
       ]
     },
     {
       "term": "repetition test (따라 말하기)",
+      "risk": "exam",
       "spoken_examples": [
         "제 말을 따라 해 보세요"
       ]
     },
     {
       "term": "comprehension test (명령 수행)",
+      "risk": "exam",
       "spoken_examples": [
         "눈 감고 주먹 쥐어 보세요"
       ]
     },
     {
       "term": "dysarthria (구음장애)",
+      "risk": "exam",
       "spoken_examples": [
         "발음이 새요",
         "혀가 꼬여요"
@@ -80,6 +90,7 @@
     },
     {
       "term": "visual field test (시야 검사)",
+      "risk": "exam",
       "spoken_examples": [
         "손가락 몇 개예요",
         "옆에서 움직이는 게 보이세요"
@@ -87,24 +98,28 @@
     },
     {
       "term": "visual acuity (시력)",
+      "risk": "exam",
       "spoken_examples": [
         "글씨가 잘 보이세요"
       ]
     },
     {
       "term": "pupillary light reflex (동공 반사)",
+      "risk": "exam",
       "spoken_examples": [
         "불빛 비춰 볼게요"
       ]
     },
     {
       "term": "extraocular movement (안구 운동 검사)",
+      "risk": "exam",
       "spoken_examples": [
         "제 손가락을 눈으로만 따라오세요"
       ]
     },
     {
       "term": "diplopia (복시)",
+      "risk": "exam",
       "spoken_examples": [
         "두 개로 보여요",
         "겹쳐 보여요"
@@ -112,18 +127,21 @@
     },
     {
       "term": "nystagmus (안진)",
+      "risk": "exam",
       "spoken_examples": [
         "눈동자가 흔들려요"
       ]
     },
     {
       "term": "ptosis (안검하수)",
+      "risk": "exam",
       "spoken_examples": [
         "눈꺼풀이 처져요"
       ]
     },
     {
       "term": "facial palsy (안면마비)",
+      "risk": "exam",
       "spoken_examples": [
         "이가 보이게 웃어 보세요",
         "눈을 꼭 감아 보세요",
@@ -132,18 +150,21 @@
     },
     {
       "term": "facial sensation test (안면 감각)",
+      "risk": "exam",
       "spoken_examples": [
         "얼굴 양쪽 느낌이 같아요"
       ]
     },
     {
       "term": "hearing test (청력)",
+      "risk": "exam",
       "spoken_examples": [
         "손가락 비비는 소리 들리세요"
       ]
     },
     {
       "term": "dysphagia (삼킴곤란)",
+      "risk": "exam",
       "spoken_examples": [
         "삼키기 힘들어요",
         "물 마실 때 사레가 들려요"
@@ -151,12 +172,14 @@
     },
     {
       "term": "tongue deviation (혀 편위)",
+      "risk": "exam",
       "spoken_examples": [
         "혀를 쭉 내밀어 보세요"
       ]
     },
     {
       "term": "motor strength test (근력 검사)",
+      "risk": "exam",
       "spoken_examples": [
         "힘 주고 버텨 보세요",
         "제 손을 밀어 보세요"
@@ -164,18 +187,21 @@
     },
     {
       "term": "pronator drift (회내 표류)",
+      "risk": "exam",
       "spoken_examples": [
         "팔을 앞으로 뻗고 눈 감고 계세요"
       ]
     },
     {
       "term": "hemiparesis (편마비)",
+      "risk": "exam",
       "spoken_examples": [
         "한쪽 팔다리에 힘이 빠져요"
       ]
     },
     {
       "term": "rigidity (강직)",
+      "risk": "exam",
       "spoken_examples": [
         "힘 빼세요 제가 움직여 볼게요",
         "뻣뻣해요"
@@ -183,12 +209,14 @@
     },
     {
       "term": "spasticity (경직)",
+      "risk": "exam",
       "spoken_examples": [
         "다리가 뻗쳐요"
       ]
     },
     {
       "term": "atrophy / fasciculation (근위축 / 근섬유다발수축)",
+      "risk": "exam",
       "spoken_examples": [
         "근육이 빠졌어요",
         "근육이 실룩거려요"
@@ -196,12 +224,14 @@
     },
     {
       "term": "tremor (진전)",
+      "risk": "exam",
       "spoken_examples": [
         "손이 떨려요"
       ]
     },
     {
       "term": "bradykinesia test (서동 검사)",
+      "risk": "exam",
       "spoken_examples": [
         "손가락을 빨리 붙였다 떼 보세요",
         "동작이 느려졌어요"
@@ -209,30 +239,35 @@
     },
     {
       "term": "deep tendon reflex (심부건반사)",
+      "risk": "exam",
       "spoken_examples": [
         "무릎을 망치로 두드려 볼게요"
       ]
     },
     {
       "term": "Babinski sign (바빈스키 징후)",
+      "risk": "exam",
       "spoken_examples": [
         "발바닥을 긁어 볼게요"
       ]
     },
     {
       "term": "Hoffmann sign (호프만 징후)",
+      "risk": "exam",
       "spoken_examples": [
         "손가락 끝을 튕겨 볼게요"
       ]
     },
     {
       "term": "ankle clonus (발목 간대성 경련)",
+      "risk": "exam",
       "spoken_examples": [
         "발목을 위로 젖혀 볼게요"
       ]
     },
     {
       "term": "pain / temperature sensation (통각 / 온도감각)",
+      "risk": "exam",
       "spoken_examples": [
         "뾰족한 게 느껴지세요",
         "차가운 느낌이 같아요"
@@ -240,6 +275,7 @@
     },
     {
       "term": "vibration / proprioception (진동감각 / 위치감각)",
+      "risk": "exam",
       "spoken_examples": [
         "떨리는 게 느껴지세요",
         "발가락이 위인지 아래인지 말해 보세요"
@@ -247,36 +283,42 @@
     },
     {
       "term": "sensory level (감각 레벨)",
+      "risk": "exam",
       "spoken_examples": [
         "어디서부터 느낌이 달라져요"
       ]
     },
     {
       "term": "glove-stocking sensory loss (장갑-양말형 감각저하)",
+      "risk": "exam",
       "spoken_examples": [
         "손발 끝이 저려요"
       ]
     },
     {
       "term": "finger-to-nose test (손가락-코 검사)",
+      "risk": "exam",
       "spoken_examples": [
         "제 손가락 찍고 코 찍어 보세요"
       ]
     },
     {
       "term": "heel-to-shin test (발뒤꿈치-정강이 검사)",
+      "risk": "exam",
       "spoken_examples": [
         "발뒤꿈치로 반대쪽 정강이를 쓸어내려 보세요"
       ]
     },
     {
       "term": "dysdiadochokinesia (교대운동장애)",
+      "risk": "exam",
       "spoken_examples": [
         "손바닥을 빨리 뒤집어 보세요"
       ]
     },
     {
       "term": "ataxia (운동실조)",
+      "risk": "exam",
       "spoken_examples": [
         "비틀거려요",
         "균형이 안 잡혀요"
@@ -284,6 +326,7 @@
     },
     {
       "term": "gait examination (보행 검사)",
+      "risk": "exam",
       "spoken_examples": [
         "걸어 보세요",
         "저쪽까지 걸어갔다 오세요"
@@ -291,18 +334,21 @@
     },
     {
       "term": "tandem gait (일자 보행)",
+      "risk": "exam",
       "spoken_examples": [
         "발을 붙여서 일자로 걸어 보세요"
       ]
     },
     {
       "term": "Romberg test (롬버그 검사)",
+      "risk": "exam",
       "spoken_examples": [
         "발 모으고 눈 감고 서 보세요"
       ]
     },
     {
       "term": "heel / toe walking (발뒤꿈치 / 발끝 보행)",
+      "risk": "exam",
       "spoken_examples": [
         "발뒤꿈치로 걸어 보세요",
         "까치발로 걸어 보세요"
@@ -310,6 +356,7 @@
     },
     {
       "term": "shuffling gait (끌리는 보행)",
+      "risk": "exam",
       "spoken_examples": [
         "발을 끌면서 걸어요",
         "종종걸음"
@@ -317,24 +364,28 @@
     },
     {
       "term": "straight leg raise test (하지직거상 검사)",
+      "risk": "exam",
       "spoken_examples": [
         "누워서 다리를 쭉 펴고 들어 볼게요"
       ]
     },
     {
       "term": "Spurling test (스펄링 검사)",
+      "risk": "exam",
       "spoken_examples": [
         "고개를 옆으로 젖히고 눌러 볼게요"
       ]
     },
     {
       "term": "spinal tenderness (척추 압통)",
+      "risk": "exam",
       "spoken_examples": [
         "허리를 누르면 아프세요"
       ]
     },
     {
       "term": "meningeal sign / neck stiffness (수막자극징후 / 경부강직)",
+      "risk": "exam",
       "spoken_examples": [
         "고개를 숙여 보세요",
         "목이 뻣뻣해요"
@@ -342,6 +393,7 @@
     },
     {
       "term": "bladder / bowel dysfunction (배뇨 / 배변 장애)",
+      "risk": "exam",
       "spoken_examples": [
         "소변 보기가 어려워요",
         "대변 실수를 해요"
@@ -349,6 +401,7 @@
     },
     {
       "term": "radicular pain (방사통)",
+      "risk": "exam",
       "spoken_examples": [
         "다리로 뻗치는 통증",
         "팔로 저리게 내려가요"
@@ -356,6 +409,7 @@
     },
     {
       "term": "brain MRI (뇌 MRI)",
+      "risk": "exam",
       "spoken_examples": [
         "자기공명영상",
         "엠알아이"
@@ -363,12 +417,14 @@
     },
     {
       "term": "EEG (뇌파 검사)",
+      "risk": "exam",
       "spoken_examples": [
         "뇌파 검사"
       ]
     },
     {
       "term": "lumbar puncture / CSF study (요추천자 / 뇌척수액 검사)",
+      "risk": "exam",
       "spoken_examples": [
         "허리에서 물을 빼는 검사",
         "척수액 검사"
@@ -376,6 +432,7 @@
     },
     {
       "term": "EMG / NCS (근전도 / 신경전도 검사)",
+      "risk": "exam",
       "spoken_examples": [
         "근전도",
         "신경 전기 검사"
@@ -383,12 +440,14 @@
     },
     {
       "term": "carotid ultrasound (경동맥 초음파)",
+      "risk": "exam",
       "spoken_examples": [
         "목 혈관 초음파"
       ]
     },
     {
       "term": "neuropsychological test (신경심리검사)",
+      "risk": "exam",
       "spoken_examples": [
         "기억력 정밀 검사"
       ]

@@ -8,7 +8,9 @@ vocabulary, that recording's frame-term score is inflated and stops
 measuring anything. This fails when any spoken_example of 3+ words appears
 (whitespace-insensitive) in the transcript of a gold marked "split": "eval".
 1-2 word examples are standard term names ("내시경 초음파") and may
-legitimately occur anywhere.
+legitimately occur anywhere. Quoted Korean examples in prompts/*.md are
+checked too, from 4 Hangul characters up -- a short prompt example
+("재워놨어요") can still hand the model an eval answer (tasks/12).
 
 Reads gold from tests/evals/gold/, transcripts from DIR/<case>.transcript.json
 (gitignored data/). Prints only the overlapping vocabulary phrase.
@@ -25,6 +27,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 FRAMES_DIR = REPO_ROOT / "prompts" / "frames"
 GOLD_DIR = REPO_ROOT / "tests" / "evals" / "gold"
 MIN_WORDS = 3
+PROMPTS_DIR = REPO_ROOT / "prompts"
+MIN_PROMPT_HANGUL = 4
 
 
 def vocabulary_phrases(frames_dir: Path = FRAMES_DIR) -> list[tuple[str, str]]:
@@ -37,6 +41,18 @@ def vocabulary_phrases(frames_dir: Path = FRAMES_DIR) -> list[tuple[str, str]]:
     return phrases
 
 
+def prompt_phrases(prompts_dir: Path = PROMPTS_DIR) -> list[tuple[str, str]]:
+    """(file, quoted example) for Korean strings quoted in prompt markdown."""
+    import re
+
+    phrases = []
+    for path in sorted(prompts_dir.glob("*.md")):
+        for quote in re.findall(r'"([^"\n]+)"', path.read_text(encoding="utf-8")):
+            if sum("\uac00" <= ch <= "\ud7a3" for ch in quote) >= MIN_PROMPT_HANGUL:
+                phrases.append((path.name, quote))
+    return phrases
+
+
 def find_overlaps(phrases: list[tuple[str, str]], transcript_text: str) -> list[tuple[str, str]]:
     squashed = "".join(transcript_text.split())
     return [(f, ex) for f, ex in phrases if "".join(ex.split()) in squashed]
@@ -44,7 +60,7 @@ def find_overlaps(phrases: list[tuple[str, str]], transcript_text: str) -> list[
 
 def main() -> int:
     data_dir = Path(os.environ.get("DIR", REPO_ROOT / "apps" / "api" / "data" / "annotations"))
-    phrases = vocabulary_phrases()
+    phrases = vocabulary_phrases() + prompt_phrases()
     failed = checked = 0
     for gold_path in sorted(GOLD_DIR.glob("*.gold.json")):
         gold = json.loads(gold_path.read_text(encoding="utf-8"))
@@ -59,7 +75,7 @@ def main() -> int:
         for frame_file, example in find_overlaps(phrases, " ".join(s["text"] for s in segments)):
             failed += 1
             print(f"[{gold['case']}] eval phrase copied into {frame_file}: {example}")
-    print(f"{checked} eval transcript(s) checked against {len(phrases)} vocabulary phrases: "
+    print(f"{checked} eval transcript(s) checked against {len(phrases)} vocabulary/prompt phrases: "
           f"{'FAIL' if failed else 'OK'}")
     return 1 if failed else 0
 

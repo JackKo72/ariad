@@ -77,12 +77,19 @@ export default function ClinicalReviewPanel({
         items={structure.prognosis_and_goals.map((t) => t.text)}
       />
       <TextList title="환자·보호자 발화" testId="slot-family" items={family} />
+      <TextList
+        title="진찰·소견 기록 (용어 후보, 확인 불필요)"
+        testId="slot-exam-terms"
+        items={structure.term_candidates
+          .filter((c) => c.risk === "exam")
+          .map((c) => `"${c.spoken_text}" → ${c.term}`)}
+      />
 
       {checklist.length > 0 && (
         <div className="notice-box" data-testid="review-checklist">
           <strong>의사 검수 체크리스트 ({checklist.filter((i) => checkedIds.has(i.id)).length}/{checklist.length})</strong>
           <p style={{ margin: "4px 0" }}>
-            하지 않기로 한 결정, 조건부 결정, 용어 후보는 원문과 대조해 확인한 뒤 체크하세요. 모두 체크해야 승인할 수 있습니다.
+            하지 않기로 한 결정, 조건부 결정, 추정 진단·시술 용어 후보는 원문과 대조해 확인한 뒤 체크하세요. 모두 체크해야 승인할 수 있습니다.
           </p>
           {checklist.map((item) => (
             <label key={item.id} style={{ display: "block" }}>

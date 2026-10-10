@@ -162,12 +162,13 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["spoken_text", "term", "frame", "source_segment_ids"],
+        "required": ["spoken_text", "term", "frame", "source_segment_ids", "risk"],
         "properties": {
           "spoken_text": {"type": "string"},
           "term": {"type": "string"},
-          "frame": {"enum": ["general_neuro", "stroke", "seizure", "headache", "dizziness", "movement", "cognitive", "neuromuscular", "spine"]},
-          "source_segment_ids": {"type": "array", "items": {"type": "string"}}
+          "frame": {"enum": ["general_neuro", "stroke", "seizure", "headache", "dizziness", "movement", "cognitive", "neuromuscular", "spine", "icu"]},
+          "source_segment_ids": {"type": "array", "items": {"type": "string"}},
+          "risk": {"enum": ["exam", "inference"]}
         }
       }
     }

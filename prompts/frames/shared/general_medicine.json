@@ -1,0 +1,437 @@
+{
+  "id": "general_medicine",
+  "label_ko": "ICU·내과 공통",
+  "version": "0.1.0",
+  "note": "spoken_examples are generic phrasings written for this file, NOT copied from the tasks/09 eval transcripts (that would inflate eval scores). Real phrasings get added from development recordings, never from evaluation recordings (tasks/11).",
+  "rules": [
+    "수치(산소포화도, 혈압, 체온, 검사 수치)는 원문에 숫자가 있을 때만 쓴다.",
+    "'~의심' 용어는 의사가 그 가능성을 말했을 때만 후보로 쓴다. 증상 하나만으로 만들지 않는다.",
+    "심폐소생술·연명의료 관련 결정은 decisions에도 반드시 따로 쓴다."
+  ],
+  "terms": [
+    {
+      "term": "dyspnea (호흡곤란)",
+      "risk": "exam",
+      "spoken_examples": [
+        "숨이 차요",
+        "숨쉬기 힘들어요"
+      ]
+    },
+    {
+      "term": "tachypnea (빈호흡)",
+      "risk": "exam",
+      "spoken_examples": [
+        "숨을 가쁘게 쉬어요"
+      ]
+    },
+    {
+      "term": "increased sputum (객담 증가)",
+      "risk": "exam",
+      "spoken_examples": [
+        "가래가 많아요",
+        "가래가 늘었어요"
+      ]
+    },
+    {
+      "term": "hemoptysis (객혈)",
+      "risk": "exam",
+      "spoken_examples": [
+        "가래에 피가 섞여 나와요"
+      ]
+    },
+    {
+      "term": "cough (기침)",
+      "risk": "exam",
+      "spoken_examples": [
+        "기침을 계속해요"
+      ]
+    },
+    {
+      "term": "wheezing (천명음)",
+      "risk": "exam",
+      "spoken_examples": [
+        "숨쉴 때 쌕쌕 소리가 나요"
+      ]
+    },
+    {
+      "term": "desaturation (산소포화도 저하)",
+      "risk": "exam",
+      "spoken_examples": [
+        "산소 수치가 떨어져요"
+      ]
+    },
+    {
+      "term": "oxygen therapy (산소 치료)",
+      "risk": "exam",
+      "spoken_examples": [
+        "코에 산소 줄을 끼웠어요",
+        "산소를 올렸어요"
+      ]
+    },
+    {
+      "term": "airway suction (흡인)",
+      "risk": "exam",
+      "spoken_examples": [
+        "가래를 기계로 뽑아요"
+      ]
+    },
+    {
+      "term": "pneumonia 의심 (폐렴 의심)",
+      "risk": "inference",
+      "spoken_examples": [
+        "폐에 염증이 생긴 것 같아요"
+      ]
+    },
+    {
+      "term": "aspiration 의심 (흡인 의심)",
+      "risk": "inference",
+      "spoken_examples": [
+        "음식이 폐로 넘어간 것 같아요"
+      ]
+    },
+    {
+      "term": "chest pain (흉통)",
+      "risk": "exam",
+      "spoken_examples": [
+        "가슴이 아파요",
+        "가슴이 조여요"
+      ]
+    },
+    {
+      "term": "palpitation (두근거림)",
+      "risk": "exam",
+      "spoken_examples": [
+        "가슴이 두근거려요"
+      ]
+    },
+    {
+      "term": "hypotension (저혈압)",
+      "risk": "exam",
+      "spoken_examples": [
+        "혈압이 떨어졌어요"
+      ]
+    },
+    {
+      "term": "hypertension (고혈압)",
+      "risk": "exam",
+      "spoken_examples": [
+        "혈압이 높게 나와요"
+      ]
+    },
+    {
+      "term": "tachycardia (빈맥)",
+      "risk": "exam",
+      "spoken_examples": [
+        "맥박이 빨라요"
+      ]
+    },
+    {
+      "term": "edema (부종)",
+      "risk": "exam",
+      "spoken_examples": [
+        "다리가 부었어요",
+        "몸이 퉁퉁 부었어요"
+      ]
+    },
+    {
+      "term": "syncope (실신)",
+      "risk": "exam",
+      "spoken_examples": [
+        "쓰러지면서 의식을 잃었어요"
+      ]
+    },
+    {
+      "term": "vasopressor (승압제)",
+      "risk": "exam",
+      "spoken_examples": [
+        "혈압 올리는 약을 쓰고 있어요"
+      ]
+    },
+    {
+      "term": "hematuria (혈뇨)",
+      "risk": "exam",
+      "spoken_examples": [
+        "소변이 빨개요",
+        "소변에 피가 섞여 나와요"
+      ]
+    },
+    {
+      "term": "oliguria (핍뇨)",
+      "risk": "exam",
+      "spoken_examples": [
+        "소변 양이 줄었어요"
+      ]
+    },
+    {
+      "term": "urinary retention (요폐)",
+      "risk": "exam",
+      "spoken_examples": [
+        "소변이 차 있는데 안 나와요"
+      ]
+    },
+    {
+      "term": "dysuria (배뇨통)",
+      "risk": "exam",
+      "spoken_examples": [
+        "소변 볼 때 아파요"
+      ]
+    },
+    {
+      "term": "Foley catheter (도뇨관)",
+      "risk": "exam",
+      "spoken_examples": [
+        "소변줄을 끼웠어요"
+      ]
+    },
+    {
+      "term": "acute kidney injury 의심 (급성 신손상 의심)",
+      "risk": "inference",
+      "spoken_examples": [
+        "콩팥 수치가 갑자기 올랐어요"
+      ]
+    },
+    {
+      "term": "CRRT (지속적 신대체요법)",
+      "risk": "exam",
+      "spoken_examples": [
+        "하루 종일 하는 투석"
+      ]
+    },
+    {
+      "term": "nausea / vomiting (구역 / 구토)",
+      "risk": "exam",
+      "spoken_examples": [
+        "속이 메스꺼워요",
+        "토했어요"
+      ]
+    },
+    {
+      "term": "melena (흑색변)",
+      "risk": "exam",
+      "spoken_examples": [
+        "변이 까맣게 나와요"
+      ]
+    },
+    {
+      "term": "hematochezia (혈변)",
+      "risk": "exam",
+      "spoken_examples": [
+        "변에 빨간 피가 묻어 나와요"
+      ]
+    },
+    {
+      "term": "diarrhea (설사)",
+      "risk": "exam",
+      "spoken_examples": [
+        "설사를 해요"
+      ]
+    },
+    {
+      "term": "constipation (변비)",
+      "risk": "exam",
+      "spoken_examples": [
+        "며칠째 변을 못 봤어요"
+      ]
+    },
+    {
+      "term": "abdominal distension (복부 팽만)",
+      "risk": "exam",
+      "spoken_examples": [
+        "배가 빵빵하게 불렀어요"
+      ]
+    },
+    {
+      "term": "poor oral intake (경구섭취 저하)",
+      "risk": "exam",
+      "spoken_examples": [
+        "식사를 거의 못 하세요"
+      ]
+    },
+    {
+      "term": "nasogastric tube feeding (비위관 영양)",
+      "risk": "exam",
+      "spoken_examples": [
+        "콧줄로 식사를 해요"
+      ]
+    },
+    {
+      "term": "GI bleeding 의심 (위장관 출혈 의심)",
+      "risk": "inference",
+      "spoken_examples": [
+        "위나 장에서 피가 나는 것 같아요"
+      ]
+    },
+    {
+      "term": "fever (발열)",
+      "risk": "exam",
+      "spoken_examples": [
+        "열이 나요",
+        "열이 올랐어요"
+      ]
+    },
+    {
+      "term": "chills (오한)",
+      "risk": "exam",
+      "spoken_examples": [
+        "춥고 덜덜 떨려요"
+      ]
+    },
+    {
+      "term": "infection 의심 (감염 의심)",
+      "risk": "inference",
+      "spoken_examples": [
+        "염증 수치가 올라서 균이 의심돼요"
+      ]
+    },
+    {
+      "term": "sepsis 의심 (패혈증 의심)",
+      "risk": "inference",
+      "spoken_examples": [
+        "균이 피로 퍼진 것 같아요"
+      ]
+    },
+    {
+      "term": "hyperglycemia (고혈당)",
+      "risk": "exam",
+      "spoken_examples": [
+        "혈당이 높게 나와요"
+      ]
+    },
+    {
+      "term": "hypoglycemia (저혈당)",
+      "risk": "exam",
+      "spoken_examples": [
+        "혈당이 떨어졌어요"
+      ]
+    },
+    {
+      "term": "hyponatremia (저나트륨혈증)",
+      "risk": "exam",
+      "spoken_examples": [
+        "피 속 염분이 낮아요"
+      ]
+    },
+    {
+      "term": "pressure ulcer (욕창)",
+      "risk": "exam",
+      "spoken_examples": [
+        "엉덩이에 욕창이 생겼어요"
+      ]
+    },
+    {
+      "term": "rash (발진)",
+      "risk": "exam",
+      "spoken_examples": [
+        "몸에 빨갛게 뭐가 올라왔어요"
+      ]
+    },
+    {
+      "term": "delirium 의심 (섬망 의심)",
+      "risk": "inference",
+      "spoken_examples": [
+        "밤에 헛소리를 하고 사람을 못 알아봐요"
+      ]
+    },
+    {
+      "term": "agitation (초조 / 불안정)",
+      "risk": "exam",
+      "spoken_examples": [
+        "안절부절 못 하세요",
+        "줄을 자꾸 뽑으려고 해요"
+      ]
+    },
+    {
+      "term": "fall (낙상)",
+      "risk": "exam",
+      "spoken_examples": [
+        "침대에서 떨어지셨어요"
+      ]
+    },
+    {
+      "term": "endotracheal intubation",
+      "risk": "exam",
+      "spoken_examples": [
+        "숨관에 관을 넣었다",
+        "기관 내 삽관"
+      ]
+    },
+    {
+      "term": "mechanical ventilation (인공호흡기)",
+      "risk": "exam",
+      "spoken_examples": [
+        "기계로 숨을 쉬게 하고 있어요"
+      ]
+    },
+    {
+      "term": "tracheostomy (기관절개)",
+      "risk": "exam",
+      "spoken_examples": [
+        "목에 구멍을 내서 관을 넣는 수술"
+      ]
+    },
+    {
+      "term": "central venous catheter (중심정맥관)",
+      "risk": "exam",
+      "spoken_examples": [
+        "큰 혈관에 주사 줄을 넣었어요"
+      ]
+    },
+    {
+      "term": "arterial line (동맥관)",
+      "risk": "exam",
+      "spoken_examples": [
+        "혈압을 계속 재는 줄"
+      ]
+    },
+    {
+      "term": "transfusion (수혈)",
+      "risk": "exam",
+      "spoken_examples": [
+        "피를 수혈해요"
+      ]
+    },
+    {
+      "term": "blood culture (혈액 배양 검사)",
+      "risk": "exam",
+      "spoken_examples": [
+        "피에서 균을 키워 보는 검사"
+      ]
+    },
+    {
+      "term": "chest X-ray (흉부 X선)",
+      "risk": "exam",
+      "spoken_examples": [
+        "가슴 사진을 찍었어요"
+      ]
+    },
+    {
+      "term": "arterial blood gas (동맥혈 가스 검사)",
+      "risk": "exam",
+      "spoken_examples": [
+        "동맥에서 피를 뽑는 검사"
+      ]
+    },
+    {
+      "term": "DNR 결정 (심폐소생술 거부)",
+      "risk": "inference",
+      "spoken_examples": [
+        "심장이 멈춰도 심폐소생술은 하지 않기로"
+      ]
+    },
+    {
+      "term": "life-sustaining treatment decision (연명의료결정)",
+      "risk": "exam",
+      "spoken_examples": [
+        "연명치료를 할지 결정",
+        "연명의료 상의"
+      ]
+    },
+    {
+      "term": "family meeting (가족 면담)",
+      "risk": "exam",
+      "spoken_examples": [
+        "가족분들과 다시 상의해 주세요"
+      ]
+    }
+  ]
+}

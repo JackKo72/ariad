@@ -28,3 +28,10 @@ def test_sentence_examples_are_checked_short_term_names_are_not(leakage, tmp_pat
 
 def test_repo_vocabulary_has_sentence_phrases_to_check(leakage):
     assert len(leakage.vocabulary_phrases()) > 50
+
+
+def test_prompt_quotes_are_checked_from_four_hangul(leakage, tmp_path):
+    (tmp_path / "p.md").write_text('예: "재워놨어요"는 원문대로, "네"는 무시, "abc def"도 무시', encoding="utf-8")
+    phrases = leakage.prompt_phrases(tmp_path)
+    assert [q for _f, q in phrases] == ["재워놨어요"]
+    assert leakage.find_overlaps(phrases, "의사: 항발작제를 넣고 재워놨어요") == [("p.md", "재워놨어요")]

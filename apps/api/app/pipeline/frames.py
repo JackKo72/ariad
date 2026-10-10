@@ -9,6 +9,7 @@ forbids generating those. So the LLM may only propose `term_candidates`,
 and this module mechanically drops any candidate that:
   - names a frame other than the selected one (or no frame was selected),
   - uses a term not in that frame's vocabulary (prompts/frames/<id>.json),
+    and sets each kept candidate's `risk` from the vocabulary (tasks/12),
   - quotes `spoken_text` that is not actually in the transcript.
 Every surviving candidate still goes to clinician review
 (app/pipeline/review_checklist.py).
@@ -60,14 +61,15 @@ def validate_term_candidates(
 ) -> ClinicalStructure:
     if not structure.term_candidates:
         return structure
-    allowed = {t["term"] for t in load_frame(frame_id)["terms"]} if frame_id else set()
+    risk_of = {t["term"]: t["risk"] for t in load_frame(frame_id)["terms"]} if frame_id else {}
     transcript = _norm(transcript_text)
     kept = [
-        c
+        # tasks/12: risk comes from the vocabulary, whatever the LLM said.
+        c.model_copy(update={"risk": risk_of[c.term]})
         for c in structure.term_candidates
         if frame_id is not None
         and c.frame == frame_id
-        and c.term in allowed
+        and c.term in risk_of
         and c.spoken_text.strip()
         and _norm(c.spoken_text) in transcript
     ]

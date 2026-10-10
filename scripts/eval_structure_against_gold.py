@@ -163,6 +163,11 @@ def main() -> int:
     print("tasks/10 slots filled: " + ", ".join(
         f"{k} {spread([float(len(getattr(r['structure'], k))) for r in runs], '{:.1f}' if repeat > 1 else '{:.0f}')}"
         for k in slots)
+        + "  |  term_candidates inference/exam: "
+        + spread([float(sum(c.risk == "inference" for c in r["structure"].term_candidates)) for r in runs],
+                 "{:.1f}" if repeat > 1 else "{:.0f}")
+        + "/" + spread([float(sum(c.risk == "exam" for c in r["structure"].term_candidates)) for r in runs],
+                       "{:.1f}" if repeat > 1 else "{:.0f}")
         + "  |  review checklist items: "
         + spread([float(len(build_review_checklist(r["structure"]))) for r in runs], "{:.1f}" if repeat > 1 else "{:.0f}"))
     enrichment_s = sum(r["enrichment_s"] for r in runs) / repeat

@@ -32,7 +32,13 @@ export interface ClinicalStructure {
     kind: "report" | "question" | "request";
     source_segment_ids: string[];
   }>;
-  term_candidates: Array<{ spoken_text: string; term: string; frame: string; source_segment_ids: string[] }>;
+  term_candidates: Array<{
+    spoken_text: string;
+    term: string;
+    frame: string;
+    source_segment_ids: string[];
+    risk: "exam" | "inference";
+  }>;
 }
 
 export type DecisionStatus = "decided_to_do" | "decided_not_to_do" | "conditional" | "undecided";
@@ -55,9 +61,10 @@ export type ClinicalFrameId =
   | "movement"
   | "cognitive"
   | "neuromuscular"
-  | "spine";
+  | "spine"
+  | "icu";
 
-// Every frame also includes the shared neurologic-exam vocabulary.
+// Every frame also includes the shared neurologic-exam and ICU/medicine vocabularies.
 export const CLINICAL_FRAME_LABELS: Record<ClinicalFrameId, string> = {
   general_neuro: "일반 신경과 (신경학적 진찰만)",
   stroke: "뇌졸중 (stroke)",
@@ -68,6 +75,7 @@ export const CLINICAL_FRAME_LABELS: Record<ClinicalFrameId, string> = {
   cognitive: "인지/치매 (cognitive)",
   neuromuscular: "신경근육 (neuromuscular)",
   spine: "척추·신경근 (spine)",
+  icu: "중환자/내과 일반 (ICU)",
 };
 
 export interface ReviewItem {

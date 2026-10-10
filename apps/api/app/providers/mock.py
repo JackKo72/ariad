@@ -14,7 +14,7 @@ from typing import Any, Optional
 
 from app.observability import StageTimer
 
-PROMPT_VERSION_STRUCTURE = "structure_transcript@0.2.0"
+PROMPT_VERSION_STRUCTURE = "structure_transcript@0.3.0"
 PROMPT_VERSION_EXPLANATION = "patient_explanation@0.1.0"
 PROMPT_VERSION_ENRICHMENT = "clinical_enrichment@0.1.0"
 

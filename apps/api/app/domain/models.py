@@ -90,6 +90,11 @@ class TermCandidate(BaseModel):
     term: str
     frame: str
     source_segment_ids: list[str] = Field(default_factory=list)
+    # tasks/12: "exam" = exam/observation record (shown, no sign-off);
+    # "inference" = suspected diagnosis/procedure (clinician must check).
+    # Always overwritten from the frame vocabulary by
+    # app/pipeline/frames.validate_term_candidates -- never trusted from the LLM.
+    risk: Literal["exam", "inference"] = "inference"
 
 
 class SourceMapEntry(BaseModel):
@@ -118,7 +123,8 @@ class ClinicalStructure(BaseModel):
 
 # One file per id in prompts/frames/ (test_clinical_frame checks they match).
 ClinicalFrameId = Literal[
-    "general_neuro", "stroke", "seizure", "headache", "dizziness", "movement", "cognitive", "neuromuscular", "spine"
+    "general_neuro", "stroke", "seizure", "headache", "dizziness", "movement", "cognitive", "neuromuscular", "spine",
+    "icu",
 ]
 
 

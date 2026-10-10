@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "note": "spoken_examples are generic phrasings written for this file, NOT copied from the tasks/09 eval transcripts (that would inflate eval scores). Real phrasings get added from development recordings, never from evaluation recordings (tasks/11).",
   "includes": [
-    "neuro_exam"
+    "neuro_exam",
+    "general_medicine"
   ],
   "rules": [
     "용어 후보는 term_candidates에만 쓴다. 다른 칸에는 대화에서 실제로 쓴 말을 그대로 쓴다.",
@@ -13,6 +14,7 @@
   "terms": [
     {
       "term": "migraine features (편두통 양상)",
+      "risk": "inference",
       "spoken_examples": [
         "한쪽이 욱신욱신 쑤셔요",
         "구역질이 같이 나요"
@@ -20,12 +22,14 @@
     },
     {
       "term": "visual aura (시각 전조)",
+      "risk": "exam",
       "spoken_examples": [
         "두통 전에 눈앞이 번쩍거려요"
       ]
     },
     {
       "term": "photophobia / phonophobia (빛·소리 과민)",
+      "risk": "exam",
       "spoken_examples": [
         "빛이 눈부셔요",
         "소리가 거슬려요"
@@ -33,6 +37,7 @@
     },
     {
       "term": "thunderclap headache (벼락두통)",
+      "risk": "inference",
       "spoken_examples": [
         "갑자기 벼락 치듯 아팠어요",
         "평생 처음 겪는 두통"
@@ -40,18 +45,21 @@
     },
     {
       "term": "medication overuse headache (약물과용두통)",
+      "risk": "inference",
       "spoken_examples": [
         "진통제를 거의 매일 먹어요"
       ]
     },
     {
       "term": "tension-type headache (긴장형 두통)",
+      "risk": "inference",
       "spoken_examples": [
         "머리를 조이는 것 같아요"
       ]
     },
     {
       "term": "headache diary (두통 일기)",
+      "risk": "exam",
       "spoken_examples": [
         "두통 일기를 써 오세요"
       ]

@@ -1,0 +1,66 @@
+{
+  "id": "icu",
+  "label_ko": "중환자/내과 일반",
+  "version": "0.1.0",
+  "note": "spoken_examples are generic phrasings written for this file, NOT copied from the tasks/09 eval transcripts (that would inflate eval scores). Real phrasings get added from development recordings, never from evaluation recordings (tasks/11).",
+  "includes": [
+    "neuro_exam",
+    "general_medicine"
+  ],
+  "rules": [
+    "용어 후보는 term_candidates에만 쓴다. 다른 칸에는 대화에서 실제로 쓴 말을 그대로 쓴다.",
+    "장기부전·쇼크 같은 진단명은 의사가 말한 경우에만 후보로 쓴다."
+  ],
+  "terms": [
+    {
+      "term": "ventilator weaning (인공호흡기 이탈)",
+      "risk": "exam",
+      "spoken_examples": [
+        "인공호흡기를 떼는 연습",
+        "기계를 조금씩 줄여 보고 있어요"
+      ]
+    },
+    {
+      "term": "spontaneous breathing trial (자발호흡 시험)",
+      "risk": "exam",
+      "spoken_examples": [
+        "혼자 숨 쉬는지 시험해 봐요"
+      ]
+    },
+    {
+      "term": "sedation interruption (진정 중단 평가)",
+      "risk": "exam",
+      "spoken_examples": [
+        "재우는 약을 잠깐 끊고 깨워 봐요"
+      ]
+    },
+    {
+      "term": "ARDS 의심 (급성호흡곤란증후군 의심)",
+      "risk": "inference",
+      "spoken_examples": [
+        "폐 전체가 하얗게 나빠졌어요"
+      ]
+    },
+    {
+      "term": "septic shock 의심 (패혈성 쇼크 의심)",
+      "risk": "inference",
+      "spoken_examples": [
+        "균 때문에 혈압이 계속 떨어져요"
+      ]
+    },
+    {
+      "term": "multi-organ failure 의심 (다발성 장기부전 의심)",
+      "risk": "inference",
+      "spoken_examples": [
+        "여러 장기가 같이 나빠지고 있어요"
+      ]
+    },
+    {
+      "term": "extubation (발관)",
+      "risk": "exam",
+      "spoken_examples": [
+        "숨관을 빼 보려고 해요"
+      ]
+    }
+  ]
+}

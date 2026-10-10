@@ -32,6 +32,9 @@ def test_frame_files_load_with_unique_terms_and_shared_exam(frame_id):
     assert frame["id"] == frame_id and len(terms) == len(set(terms))
     assert all(t["spoken_examples"] for t in frame["terms"])
     assert "diplopia (복시)" in terms and "tandem gait (일자 보행)" in terms  # shared neuro exam merged in
+    assert "hematuria (혈뇨)" in terms and "increased sputum (객담 증가)" in terms  # shared ICU/medicine
+    assert {t["risk"] for t in frame["terms"]} <= {"exam", "inference"}
+    assert all("risk" in t for t in frame["terms"])
     assert "includes" not in frame and "note" not in frame  # LLM gets the merged vocabulary only
 
 
@@ -131,3 +134,31 @@ def test_editing_an_item_invalidates_its_acknowledgment():
     assert missing_acknowledgments(before, ack) == []
     flipped = ClinicalStructure(decisions=[_decision("decided_to_do", needs_confirmation=True)])
     assert len(missing_acknowledgments(flipped, ack)) == 1
+
+
+def test_validator_sets_risk_from_vocabulary_not_from_llm():
+    transcript = "의사: 막힌 혈관을 뚫는 시술은 안 합니다. 손을 쥐어 보세요."
+    structure = ClinicalStructure(term_candidates=[
+        _candidate(risk="exam"),  # LLM claims "exam" for EVT -- vocabulary says inference
+        TermCandidate(spoken_text="손을 쥐어 보세요", term="motor strength test (근력 검사)", frame="stroke",
+                      risk="inference"),
+    ])
+    kept = validate_term_candidates(structure, "stroke", transcript).term_candidates
+    assert [(c.term, c.risk) for c in kept] == [(EVT, "inference"), ("motor strength test (근력 검사)", "exam")]
+
+
+def test_checklist_requires_only_inference_term_candidates():
+    structure = ClinicalStructure(term_candidates=[
+        _candidate(risk="inference"),
+        TermCandidate(spoken_text="손을 쥐어 보세요", term="motor strength test (근력 검사)", frame="stroke", risk="exam"),
+    ])
+    assert [i.text for i in build_review_checklist(structure)] == [
+        '"막힌 혈관을 뚫는 시술" → EVT (endovascular thrombectomy) (용어 후보, stroke)']
+
+
+def test_every_inference_term_is_explicitly_marked():
+    # "의심" in a term name means a suspected diagnosis -- must never be an exam record.
+    for frame_id in FRAME_IDS:
+        for term in load_frame(frame_id)["terms"]:
+            if "의심" in term["term"]:
+                assert term["risk"] == "inference", term["term"]

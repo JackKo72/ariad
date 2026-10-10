@@ -10,6 +10,7 @@
   "terms": [
     {
       "term": "ASM (antiseizure medication)",
+      "risk": "exam",
       "spoken_examples": [
         "항경련제",
         "발작을 막는 약",
@@ -18,6 +19,7 @@
     },
     {
       "term": "continuous sedation",
+      "risk": "exam",
       "spoken_examples": [
         "진정제로 계속 재우고 있다",
         "수면 상태를 유지하고 있다"
@@ -25,6 +27,7 @@
     },
     {
       "term": "status epilepticus 의심",
+      "risk": "inference",
       "spoken_examples": [
         "발작이 멈추지 않고 계속됐다",
         "경련이 오래 지속됐다"
@@ -32,6 +35,7 @@
     },
     {
       "term": "endotracheal intubation",
+      "risk": "exam",
       "spoken_examples": [
         "숨관에 관을 넣었다",
         "기관 내 삽관"
@@ -39,12 +43,14 @@
     },
     {
       "term": "hyperglycemia-related seizure 의심",
+      "risk": "inference",
       "spoken_examples": [
         "혈당이 너무 높아서 경련이 왔다"
       ]
     },
     {
       "term": "life-sustaining treatment decision (연명의료결정)",
+      "risk": "exam",
       "spoken_examples": [
         "연명치료를 할지 결정",
         "심폐소생술을 할지 말지"
@@ -52,6 +58,7 @@
     },
     {
       "term": "aura (전조)",
+      "risk": "exam",
       "spoken_examples": [
         "발작 전에 속이 울렁거리는 느낌이 올라와요",
         "이상한 냄새가 나요"
@@ -59,18 +66,21 @@
     },
     {
       "term": "postictal state (발작 후 상태)",
+      "risk": "exam",
       "spoken_examples": [
         "발작 끝나고 한참 멍해요"
       ]
     },
     {
       "term": "generalized tonic-clonic seizure 의심 (전신강직간대발작 의심)",
+      "risk": "inference",
       "spoken_examples": [
         "온몸이 뻣뻣해지면서 떨었어요"
       ]
     },
     {
       "term": "focal seizure 의심 (국소발작 의심)",
+      "risk": "inference",
       "spoken_examples": [
         "한쪽 손만 떨렸어요",
         "멍하게 입맛을 다셨어요"
@@ -78,6 +88,7 @@
     },
     {
       "term": "tongue bite / incontinence (혀 깨물림 / 실금)",
+      "risk": "exam",
       "spoken_examples": [
         "혀를 깨물었어요",
         "소변을 지렸어요"
@@ -85,6 +96,7 @@
     },
     {
       "term": "video-EEG monitoring (비디오 뇌파 감시)",
+      "risk": "exam",
       "spoken_examples": [
         "입원해서 며칠 뇌파를 찍는 검사"
       ]
@@ -92,6 +104,7 @@
   ],
   "note": "spoken_examples are generic phrasings written for this file, NOT copied from the tasks/09 eval transcripts (that would inflate eval scores). Real phrasings get added from development recordings, never from evaluation recordings (tasks/11).",
   "includes": [
-    "neuro_exam"
+    "neuro_exam",
+    "general_medicine"
   ]
 }
