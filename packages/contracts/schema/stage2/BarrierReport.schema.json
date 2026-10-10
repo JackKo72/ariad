@@ -1,0 +1,97 @@
+{
+  "$defs": {
+    "BarrierCode": {
+      "description": "Part 3-3 non-adherence reasons (COM-B + stroke-specific).",
+      "enum": [
+        "C-PHY",
+        "C-PSY",
+        "O-PHY",
+        "O-SOC",
+        "M-REF",
+        "M-AUT",
+        "M-EMO",
+        "MED",
+        "PLAN",
+        "MEAS"
+      ],
+      "title": "BarrierCode",
+      "type": "string"
+    }
+  },
+  "description": "free_text is patient-written content: store it, never log it.",
+  "properties": {
+    "action_id": {
+      "title": "Action Id",
+      "type": "string"
+    },
+    "week": {
+      "title": "Week",
+      "type": "string"
+    },
+    "code": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BarrierCode"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "free_text": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Free Text"
+    },
+    "classifier_confidence": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Classifier Confidence"
+    },
+    "red_flag": {
+      "default": false,
+      "title": "Red Flag",
+      "type": "boolean"
+    },
+    "follow_up_question": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Follow Up Question"
+    },
+    "needs_review": {
+      "default": false,
+      "title": "Needs Review",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "action_id",
+    "week"
+  ],
+  "title": "BarrierReport",
+  "type": "object"
+}

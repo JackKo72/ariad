@@ -288,3 +288,17 @@ llm_provider.generate_json("patient_explanation", {"structure": structure.model_
 
 - `ActionDirective`의 발화 참조 필드는 enrichment와 같은 이름(`segment_id`)·형식(`seg_001`)을 쓴다.
 - 설계의 `source_span.speaker: "doctor"`는 `role`로 저장한다. 리포에서 `speaker`는 A/B/C 라벨이라 이름을 그대로 쓰면 6번 문제가 재발한다.
+
+## 8. 7–11 해결 현황 (Step 2 완료 시점, 2026-10-10)
+
+Step 2는 **모델 정의**(`apps/api/app/domain/stage2.py`)만 만든다. 1단계 코드에 연결하는 작업은 Step 3이다.
+
+| # | Step 2에서 해결 (모델) | Step 3에서 해결 (1단계 코드 연결) |
+| --- | --- | --- |
+| 7 | `ActionDirective.source_spans`가 기존 `SourceSpan`을 재사용 → `segment_id`(`seg_003`)·`speaker`(A/B)·`role`(`doctor`)·`quote` 태그를 모두 유지 | structure payload에 `segments` 추가, 수동 텍스트 경로 `seg_001` 부여, mock `seg-1`→`seg_001`, "출력 ID ⊂ 입력 ID" 검증 |
+| 8 | 중첩 객체 전부 명시 모델. strict 호환 테스트를 강화(SDK가 자유형 dict를 오류 없이 빈 객체로 바꾸는 문제까지 검사) | `clinical_structure.schema.json`에 `action_directives` 정의 추가, `ClinicalStructure`에 필드 연결 |
+| 9 | — (모델과 무관) | `explanation.py`에서 `model_dump(exclude={"action_directives"})` |
+| 10 | `Agreement` Enum(4값)과 `needs_review: bool = True`를 별도 필드로 둠 | grounding 검증 통과 시에만 `needs_review=false` |
+| 11 | 발화 참조 이름·형식을 enrichment와 통일(`source_spans[].segment_id`, `role`) | — |
+
+설계와 달라진 이름: `visit_id` → `ActionPlan.encounter_id`, `source_span.utterance_ids` → `source_spans[].segment_id`, `source_span.speaker:"doctor"` → `source_spans[].role`, `patient_response.utterance_id` → `patient_response.source_spans`.

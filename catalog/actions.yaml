@@ -253,6 +253,7 @@ actions:
     outcome_target:
       value: TODO_CLINICIAN  # 5–10% 범위 중 개인 목표는 의료진 결정
       unit: pct_weight_loss_from_baseline
+      comparator: ">="
     check_method:
       channel: value_entry_or_device
       question_id: Q-W1-01
