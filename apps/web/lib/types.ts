@@ -22,6 +22,13 @@ export interface ClinicalStructure {
   questions_or_conflicts: string[];
   // tasks/10 slots
   treatments_given: Array<{ text: string; source_segment_ids: string[] }>;
+  findings: Array<{
+    test_or_exam: string;
+    result: string;
+    interpretation: string;
+    source_segment_ids: string[];
+    needs_confirmation: boolean;
+  }>;
   decisions: Decision[];
   consents: Array<{ text: string; source_segment_ids: string[] }>;
   disposition: Array<{ text: string; source_segment_ids: string[] }>;

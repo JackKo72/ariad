@@ -1,5 +1,5 @@
 # Prompt ID: structure_transcript
-Version: 0.3.0
+Version: 0.4.0
 
 ## Role
 
@@ -25,6 +25,12 @@ Version: 0.3.0
 ## Section rules
 
 - `treatments_given`: 이미 시행했거나 진행 중인 치료·처치. 앞으로 할 계획은 `plan`.
+- `findings`: 이미 나온 검사·진찰·영상의 **결과**를 의사가 말한 대로 쓴다. 검사를 하겠다는 오더나 계획은 `tests`에 쓰고, 결과는 여기에 쓴다.
+  - `test_or_exam`: 무엇을 봤는지 (예: "흉부 X선", "혈액검사", "손 쥐기 검사")
+  - `result`: 의사가 말한 결과를 그대로 쓴다 (예: "오른쪽 아래 폐가 하얗게 보임"). 정상이라고 말했으면 정상도 쓴다.
+  - `interpretation`: 의사가 결과를 어떻게 해석했는지 말했을 때만 쓴다 (예: "염증이 생긴 것으로 보임"). 말하지 않았으면 빈 문자열.
+  - 화면이나 사진을 보여주며 설명한 내용(색, 크기, 막힘·뚫림 등)도 결과다. 하나의 검사에서 결과를 여러 개 말했으면 결과마다 따로 쓴다.
+  - 수치는 원문에 숫자가 있을 때만 쓴다. 결과가 불확실하면 `needs_confirmation=true`.
 - `decisions`: 의료진이 내린 결정. 하지 않기로 한 것도 반드시 여기에 쓴다.
   - `status`: `decided_to_do` / `decided_not_to_do` / `conditional`(조건이 되면 함) / `undecided`(아직 고민 중)
   - `condition`: 조건부 결정의 조건 (예: "지금보다 많이 나빠지면")
@@ -64,6 +70,7 @@ JSON schema가 요구하는 필드만 반환한다.
   "follow_up": [{"text": "", "source_segment_ids": []}],
   "questions_or_conflicts": [],
   "treatments_given": [{"text": "", "source_segment_ids": []}],
+  "findings": [{"test_or_exam": "", "result": "", "interpretation": "", "source_segment_ids": [], "needs_confirmation": false}],
   "decisions": [{"text": "", "status": "decided_to_do|decided_not_to_do|conditional|undecided", "condition": "", "rationale": "", "source_segment_ids": [], "needs_confirmation": false}],
   "consents": [{"text": "", "source_segment_ids": []}],
   "disposition": [{"text": "", "source_segment_ids": []}],

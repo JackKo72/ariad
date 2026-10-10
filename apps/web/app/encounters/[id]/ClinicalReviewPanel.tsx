@@ -67,6 +67,13 @@ export default function ClinicalReviewPanel({
       <p>
         진료 틀: <span data-testid="clinical-frame-label">{clinicalFrame ? CLINICAL_FRAME_LABELS[clinicalFrame] : "선택 안 함"}</span>
       </p>
+      <TextList
+        title="검사 결과·소견"
+        testId="slot-findings"
+        items={structure.findings.map(
+          (f) => `${f.test_or_exam}: ${f.result}${f.interpretation ? ` (해석: ${f.interpretation})` : ""}`,
+        )}
+      />
       <TextList title="결정" testId="slot-decisions" items={decisions} />
       <TextList title="시행한 치료" testId="slot-treatments" items={structure.treatments_given.map((t) => t.text)} />
       <TextList title="동의서" testId="slot-consents" items={structure.consents.map((t) => t.text)} />

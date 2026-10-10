@@ -4,7 +4,7 @@
   "description": "Output contract for prompts/structure_transcript.md (prompt_id=structure_transcript). Mirrors apps/api/app/domain/models.py:ClinicalStructure.",
   "type": "object",
   "required": ["problems", "tests", "medications", "plan", "warnings", "follow_up", "questions_or_conflicts",
-               "treatments_given", "decisions", "consents", "disposition", "prognosis_and_goals",
+               "treatments_given", "findings", "decisions", "consents", "disposition", "prognosis_and_goals",
                "family_statements", "term_candidates"],
   "additionalProperties": false,
   "properties": {
@@ -94,6 +94,20 @@
         "properties": {
           "text": {"type": "string"},
           "source_segment_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["test_or_exam", "result", "interpretation", "source_segment_ids", "needs_confirmation"],
+        "properties": {
+          "test_or_exam": {"type": "string"},
+          "result": {"type": "string"},
+          "interpretation": {"type": "string"},
+          "source_segment_ids": {"type": "array", "items": {"type": "string"}},
+          "needs_confirmation": {"type": "boolean"}
         }
       }
     },

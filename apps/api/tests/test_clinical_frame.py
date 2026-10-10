@@ -162,3 +162,20 @@ def test_every_inference_term_is_explicitly_marked():
         for term in load_frame(frame_id)["terms"]:
             if "의심" in term["term"]:
                 assert term["risk"] == "inference", term["term"]
+
+
+def test_versions_stored_before_findings_still_load():
+    # tasks/13-a: structures saved by earlier versions have no "findings" key.
+    old = MockLLMProvider().generate_json("structure_transcript", {"transcript_text": TRANSCRIPT})
+    old.pop("findings")
+    assert ClinicalStructure.model_validate(old).findings == []
+
+
+def test_findings_are_part_of_the_openai_strict_schema():
+    from openai.lib._pydantic import to_strict_json_schema
+
+    schema = to_strict_json_schema(ClinicalStructure)
+    assert "findings" in schema["required"]
+    finding = schema["$defs"]["Finding"]
+    assert set(finding["required"]) == {"test_or_exam", "result", "interpretation", "source_segment_ids",
+                                        "needs_confirmation"}

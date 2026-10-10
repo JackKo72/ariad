@@ -158,7 +158,7 @@ def main() -> int:
           f"must_exclude leaks: {sum(len(r['score'].excluded_leaks) for r in runs)}  |  "
           f"enrichment validator violations: {sum(r['violations'] for r in runs)}  (leak/violation counts summed over runs)")
     print(f"frame-term recall: {spread(frame_r, pct)}  |  frame-term leaks: {sum(len(r['score'].frame_leaks) for r in runs)}")
-    slots = ("treatments_given", "decisions", "consents", "disposition", "prognosis_and_goals",
+    slots = ("treatments_given", "findings", "decisions", "consents", "disposition", "prognosis_and_goals",
              "family_statements", "term_candidates")
     print("tasks/10 slots filled: " + ", ".join(
         f"{k} {spread([float(len(getattr(r['structure'], k))) for r in runs], '{:.1f}' if repeat > 1 else '{:.0f}')}"

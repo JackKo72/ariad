@@ -74,6 +74,19 @@ class Decision(BaseModel):
     needs_confirmation: bool = False
 
 
+class Finding(BaseModel):
+    """tasks/13-a: a test/exam/imaging RESULT as told -- what was looked at,
+    what it showed, and the doctor's own interpretation if said. `tests`
+    stays the order/plan; results had no slot, so the LLM dropped them
+    (ER: "굵은 혈관은 뚫려 있음", perfusion explanations)."""
+
+    test_or_exam: str
+    result: str
+    interpretation: str = ""
+    source_segment_ids: list[str] = Field(default_factory=list)
+    needs_confirmation: bool = False
+
+
 class FamilyStatement(BaseModel):
     text: str
     speaker_role: Literal["guardian", "patient", "unknown"]
@@ -113,6 +126,7 @@ class ClinicalStructure(BaseModel):
     # tasks/10 additions -- default empty so versions stored before them
     # still load.
     treatments_given: list[PlanItem] = Field(default_factory=list)
+    findings: list[Finding] = Field(default_factory=list)
     decisions: list[Decision] = Field(default_factory=list)
     consents: list[PlanItem] = Field(default_factory=list)
     disposition: list[PlanItem] = Field(default_factory=list)

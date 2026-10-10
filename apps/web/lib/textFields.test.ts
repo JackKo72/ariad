@@ -23,6 +23,7 @@ describe("buildStructureFromText", () => {
     follow_up: [],
     questions_or_conflicts: [],
     treatments_given: [],
+    findings: [],
     decisions: [
       {
         text: "시술",
@@ -93,6 +94,15 @@ describe("buildStructureFromText keeps tasks/10 slots", () => {
       follow_up: [],
       questions_or_conflicts: [],
       treatments_given: [{ text: "재워놓음", source_segment_ids: ["seg-3"] }],
+      findings: [
+        {
+          test_or_exam: "흉부 X선",
+          result: "오른쪽 아래 폐가 하얗게 보임",
+          interpretation: "",
+          source_segment_ids: ["seg-4"],
+          needs_confirmation: false,
+        },
+      ],
       decisions: [
         {
           text: "시술",
@@ -112,5 +122,6 @@ describe("buildStructureFromText keeps tasks/10 slots", () => {
     const result = buildStructureFromText(original, "새 문제");
     expect(result.decisions).toEqual(original.decisions);
     expect(result.treatments_given).toEqual(original.treatments_given);
+    expect(result.findings).toEqual(original.findings);
   });
 });
