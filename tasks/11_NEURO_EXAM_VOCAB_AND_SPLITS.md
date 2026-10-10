@@ -55,3 +55,23 @@
   모든 후보는 체크리스트에서 의사가 확인한다. eval에서는 context_only 누출로 잡힌다.
 - 질환군 진료 틀의 용어는 시작점이다. 신경과 전문의 검토가 필요하다.
 - gpt-4o는 mini보다 비용이 높다. 진료당 비용은 출력 JSON 토큰으로 확인한다.
+
+## 녹음 배정 기록
+
+| case | 진료 틀 | split | 비고 |
+|---|---|---|---|
+| sim_icu_01 | seizure | eval | 2026-10-09 |
+| sim_er_01 | stroke | eval | 2026-10-09 |
+| sim_mg_01 | neuromuscular | **dev** | 2026-10-10, 신경근육 첫 녹음. 의료진 핵심 구조 미수령이라 gold는 초안이다. |
+
+sim_mg_01(dev)에서 어휘로 옮긴 표현(`learned_from: ["sim_mg_01"]` 표시):
+
+- neuromuscular: respiratory weakness, myasthenic crisis 의심(inference), FVC/spirometry,
+  객담 배출 장애
+- general_medicine: high-flow nasal cannula, hypercapnia, nasogastric tube, arterial line
+
+dev 녹음의 점수는 어휘를 그 녹음에서 배웠으므로 부풀려져 있다. 개선 효과는 eval 녹음
+점수로만 판단한다.
+
+답안 변환기 수정: 줄 전체가 "보호자분 (01:08)"인 헤더를 화자 전환으로 읽는다. 문장
+안의 "보호자분 ~"은 기존대로 본문이다(MG 답안에서 보호자 발화가 의사 발화로 읽힌 문제).

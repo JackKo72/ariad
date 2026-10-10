@@ -380,7 +380,11 @@
       "term": "arterial line (동맥관)",
       "risk": "exam",
       "spoken_examples": [
-        "혈압을 계속 재는 줄"
+        "혈압을 계속 재는 줄",
+        "동맥 검사도 그냥 관을 넣어 두고"
+      ],
+      "learned_from": [
+        "sim_mg_01"
       ]
     },
     {
@@ -431,6 +435,37 @@
       "risk": "exam",
       "spoken_examples": [
         "가족분들과 다시 상의해 주세요"
+      ]
+    },
+    {
+      "term": "high-flow nasal cannula (고유량 비강 캐뉼라)",
+      "risk": "exam",
+      "spoken_examples": [
+        "강한 유속으로 밀어 넣어 줘야",
+        "코로 들어가는 거 여기서 더 세게"
+      ],
+      "learned_from": [
+        "sim_mg_01"
+      ]
+    },
+    {
+      "term": "hypercapnia (고탄산혈증)",
+      "risk": "exam",
+      "spoken_examples": [
+        "이산화탄소를 못 내보내는"
+      ],
+      "learned_from": [
+        "sim_mg_01"
+      ]
+    },
+    {
+      "term": "nasogastric tube (비위관)",
+      "risk": "exam",
+      "spoken_examples": [
+        "약을 드시기 위해서 콧줄을 넣었는데"
+      ],
+      "learned_from": [
+        "sim_mg_01"
       ]
     }
   ]

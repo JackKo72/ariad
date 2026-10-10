@@ -1,0 +1,476 @@
+{
+ "case": "sim_mg_01",
+ "split": "dev",
+ "source": "DRAFT from sim_mg_01.answer.txt (no clinician key yet) -- review pending",
+ "items": [
+  {
+   "id": "dx_myasthenia_gravis",
+   "section": "problem",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "근무력증"
+    ]
+   ]
+  },
+  {
+   "id": "resp_weakness",
+   "section": "problem",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "숨쉬는힘",
+     "숨 쉬는 힘",
+     "호흡근",
+     "호흡력",
+     "호흡 기능"
+    ],
+    [
+     "떨어",
+     "약",
+     "저하"
+    ]
+   ]
+  },
+  {
+   "id": "secretion_retention",
+   "section": "problem",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "가래",
+     "침"
+    ],
+    [
+     "못뱉",
+     "못 뱉",
+     "고이",
+     "고임",
+     "배출"
+    ]
+   ]
+  },
+  {
+   "id": "co2_retention",
+   "section": "problem",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "이산화탄소",
+     "co2"
+    ]
+   ]
+  },
+  {
+   "id": "pneumonia_may_worsen",
+   "section": "problem",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "폐렴"
+    ]
+   ]
+  },
+  {
+   "id": "sepsis_risk",
+   "section": "problem",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "패혈증"
+    ]
+   ]
+  },
+  {
+   "id": "antibiotics",
+   "section": "treatment",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "항생제"
+    ]
+   ]
+  },
+  {
+   "id": "ng_tube_for_meds",
+   "section": "treatment",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "콧줄",
+     "비위관"
+    ],
+    [
+     "약"
+    ]
+   ]
+  },
+  {
+   "id": "nasal_o2_insufficient",
+   "section": "plan",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "산소"
+    ],
+    [
+     "부족",
+     "해결이 안",
+     "해결 안",
+     "더 세게",
+     "더 쎄게"
+    ]
+   ]
+  },
+  {
+   "id": "high_flow_needed",
+   "section": "plan",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "유속",
+     "고유량",
+     "high flow",
+     "high-flow"
+    ]
+   ]
+  },
+  {
+   "id": "mask_option",
+   "section": "plan",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "마스크"
+    ]
+   ]
+  },
+  {
+   "id": "abga_bad_result",
+   "section": "test",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "피검사",
+     "피 검사",
+     "혈액검사",
+     "동맥혈",
+     "동맥 검사"
+    ],
+    [
+     "좋지",
+     "나쁘",
+     "안 좋",
+     "안좋"
+    ]
+   ]
+  },
+  {
+   "id": "arterial_line",
+   "section": "plan",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "동맥"
+    ],
+    [
+     "관",
+     "라인",
+     "line"
+    ]
+   ]
+  },
+  {
+   "id": "spirometry_not_possible_now",
+   "section": "test",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "폐활량"
+    ]
+   ]
+  },
+  {
+   "id": "dose_increase_not_now",
+   "section": "decision",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "증량",
+     "용량"
+    ],
+    [
+     "않",
+     "안 ",
+     "보류",
+     "경과"
+    ]
+   ],
+   "note": "약 증량은 지금 하지 않고 경과를 봄 -- 증량하는 것으로 뒤집히지 않았는지"
+  },
+  {
+   "id": "dose_increase_if_worse",
+   "section": "decision",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "증량"
+    ],
+    [
+     "나빠지면",
+     "필요",
+     "수도"
+    ]
+   ]
+  },
+  {
+   "id": "icu_transfer",
+   "section": "disposition",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "중환자실"
+    ],
+    [
+     "가",
+     "들어가",
+     "이동",
+     "전동",
+     "입실",
+     "옮"
+    ]
+   ]
+  },
+  {
+   "id": "holiday_period",
+   "section": "disposition",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "연휴",
+     "주말"
+    ]
+   ]
+  },
+  {
+   "id": "general_ward_not_ready",
+   "section": "disposition",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "일반병실",
+     "일반 병실"
+    ]
+   ]
+  },
+  {
+   "id": "intubation_not_now",
+   "section": "decision",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "삽관"
+    ],
+    [
+     "않",
+     "안 ",
+     "계획하고 있지",
+     "지금은 안"
+    ]
+   ],
+   "note": "기관삽관은 지금 하지 않음 -- 시행하는 것으로 뒤집히지 않았는지"
+  },
+  {
+   "id": "intubation_if_worse",
+   "section": "decision",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "삽관"
+    ],
+    [
+     "나빠지면",
+     "필요",
+     "수도",
+     "해야"
+    ]
+   ]
+  },
+  {
+   "id": "ask_family_before_intubation",
+   "section": "decision",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "여쭤",
+     "다시 상의",
+     "다시 묻",
+     "동의"
+    ]
+   ]
+  },
+  {
+   "id": "family_needs_time",
+   "section": "goals_of_care",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "상의",
+     "고민"
+    ],
+    [
+     "시간"
+    ]
+   ]
+  },
+  {
+   "id": "guardian_question_intubation",
+   "section": "family",
+   "tier": "conversation",
+   "must_match": [
+    [
+     "guardian",
+     "보호자"
+    ],
+    [
+     "삽관"
+    ]
+   ]
+  },
+  {
+   "id": "frame_myasthenic_crisis",
+   "section": "problem",
+   "tier": "frame_term",
+   "must_match": [
+    [
+     "myasthenic crisis",
+     "근무력증 위기"
+    ]
+   ],
+   "frame": "neuromuscular",
+   "note": "'숨쉬는 힘이 떨어짐' -> myasthenic crisis는 추정, 후보로만 표시됐는지"
+  },
+  {
+   "id": "frame_resp_weakness",
+   "section": "problem",
+   "tier": "frame_term",
+   "must_match": [
+    [
+     "respiratory weakness",
+     "호흡근 약화"
+    ]
+   ],
+   "frame": "neuromuscular"
+  },
+  {
+   "id": "frame_hfnc",
+   "section": "plan",
+   "tier": "frame_term",
+   "must_match": [
+    [
+     "high-flow nasal cannula",
+     "hfnc",
+     "고유량 비강"
+    ]
+   ],
+   "frame": "neuromuscular"
+  },
+  {
+   "id": "frame_hypercapnia",
+   "section": "problem",
+   "tier": "frame_term",
+   "must_match": [
+    [
+     "hypercapnia",
+     "고탄산"
+    ]
+   ],
+   "frame": "neuromuscular"
+  },
+  {
+   "id": "frame_arterial_line",
+   "section": "plan",
+   "tier": "frame_term",
+   "must_match": [
+    [
+     "arterial line",
+     "동맥관"
+    ]
+   ],
+   "frame": "neuromuscular"
+  },
+  {
+   "id": "frame_fvc",
+   "section": "test",
+   "tier": "frame_term",
+   "must_match": [
+    [
+     "fvc",
+     "forced vital capacity",
+     "spirometry"
+    ]
+   ],
+   "frame": "neuromuscular"
+  },
+  {
+   "id": "ctx_pyridostigmine",
+   "section": "medication",
+   "tier": "context_only",
+   "must_match": [
+    [
+     "pyridostigmine",
+     "피리도스티그민",
+     "메스티논",
+     "mestinon"
+    ]
+   ]
+  },
+  {
+   "id": "ctx_ivig",
+   "section": "medication",
+   "tier": "context_only",
+   "must_match": [
+    [
+     "ivig",
+     "면역글로불린"
+    ]
+   ]
+  },
+  {
+   "id": "ctx_plasmapheresis",
+   "section": "treatment",
+   "tier": "context_only",
+   "must_match": [
+    [
+     "plasmapheresis",
+     "plasma exchange",
+     "혈장교환"
+    ]
+   ]
+  },
+  {
+   "id": "ctx_niv",
+   "section": "plan",
+   "tier": "context_only",
+   "must_match": [
+    [
+     "bipap",
+     "niv",
+     "비침습"
+    ]
+   ]
+  },
+  {
+   "id": "excl_background_talk",
+   "section": "-",
+   "tier": "must_exclude",
+   "must_match": [
+    [
+     "부사장",
+     "5000원",
+     "전화번호"
+    ]
+   ]
+  }
+ ]
+}

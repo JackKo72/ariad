@@ -24,7 +24,8 @@ Only a colon is unambiguous: "의사 근데..." is a speaker switch but "환자 
 switch without a colon is reported for a human check, and SPEAKERS limits
 which role words can switch at all (e.g. SPEAKERS=의사,보호자 for an ICU talk
 with an intubated patient). ALIASES="발화자 1=의사 1" renames a speaker once
-the annotator knows who it was.
+the annotator knows who it was. A line that is ONLY "보호자분"/"환자분"
+(optionally with a colon/timestamp) is a speaker header too.
 """
 
 from __future__ import annotations
@@ -58,6 +59,7 @@ def parse_answer(text: str, speakers: tuple[str, ...] = tuple(ROLES),
     aliases = {"".join(k.split()): v for k, v in (aliases or {}).items()}
     # "환자분", "보호자님" are content (address forms), never a speaker switch.
     role_re = re.compile(rf"^({'|'.join(speakers)})(?:\s*(\d+))?(?![분님\d])(\s*[:：]\s*|\s+|)(.*)$", re.IGNORECASE)
+    honorific_re = re.compile(rf"({'|'.join(speakers)})\s*(\d*)\s*[분님]\s*[:：]?", re.IGNORECASE)
     segments, warnings = [], []
     speaker = None
     offset = 0.0
@@ -73,6 +75,13 @@ def parse_answer(text: str, speakers: tuple[str, ...] = tuple(ROLES),
         if match := TIMESTAMP_RE.search(line):
             approx_start = offset + int(match.group(1)) * 60 + int(match.group(2))
             line = TIMESTAMP_RE.sub("", line).strip()
+        # "보호자분 (01:08)" alone on a line is a speaker header; "보호자분 콩팥이..."
+        # mid-sentence is content -- only the whole-line form switches.
+        honorific = honorific_re.fullmatch(line)
+        if honorific:
+            word = honorific.group(1).lower() if honorific.group(1).isascii() else honorific.group(1)
+            speaker = (word, honorific.group(2) or "")
+            continue
         match = role_re.match(line)
         if match:
             word, number = match.group(1).lower() if match.group(1).isascii() else match.group(1), match.group(2) or ""

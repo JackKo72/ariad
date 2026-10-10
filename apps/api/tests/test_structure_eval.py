@@ -142,3 +142,14 @@ def test_answer_unnamed_speaker_without_alias_stays_unknown(answer_parser):
     segments, warnings = answer_parser("발화자 4 (02:56)\nCT 찍어야 돼요\n")
     assert segments[0]["speaker"] == "SPK4" and segments[0]["expected_role"] == "unknown"
     assert any("unnamed speaker" in w for w in warnings)
+
+
+def test_answer_honorific_header_line_switches_speaker_but_not_mid_sentence(answer_parser):
+    text = "의사: 기관삽관 할 수도 있어요\n보호자분 (01:08)\n기관 삽관은요...\n의사: 네\n보호자분 걱정 마세요\n"
+    segments, _ = answer_parser(text)
+    assert [(s["speaker"], s["text"]) for s in segments] == [
+        ("DOC", "기관삽관 할 수도 있어요"),
+        ("GUARD", "기관 삽관은요..."),
+        ("DOC", "네"),
+        ("DOC", "보호자분 걱정 마세요"),  # address form inside the doctor's turn
+    ]

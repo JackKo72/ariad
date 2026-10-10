@@ -58,7 +58,42 @@
       "term": "respiratory weakness (호흡근 약화)",
       "risk": "exam",
       "spoken_examples": [
-        "숨이 차서 누워 있기 힘들어요"
+        "숨이 차서 누워 있기 힘들어요",
+        "숨쉬는 힘이 떨어진다",
+        "숨을 못 쉬는 게 가장 큰 문제"
+      ],
+      "learned_from": [
+        "sim_mg_01"
+      ]
+    },
+    {
+      "term": "myasthenic crisis 의심 (근무력증 위기 의심)",
+      "risk": "inference",
+      "spoken_examples": [
+        "숨쉬는 힘이 떨어져서 금방 나빠질 수 있어요"
+      ],
+      "learned_from": [
+        "sim_mg_01"
+      ]
+    },
+    {
+      "term": "FVC / spirometry (폐활량 검사)",
+      "risk": "exam",
+      "spoken_examples": [
+        "폐활량 검사"
+      ],
+      "learned_from": [
+        "sim_mg_01"
+      ]
+    },
+    {
+      "term": "impaired secretion clearance (객담 배출 장애)",
+      "risk": "exam",
+      "spoken_examples": [
+        "가래 못 뱉으니까 계속 침이 고이는"
+      ],
+      "learned_from": [
+        "sim_mg_01"
       ]
     }
   ]
