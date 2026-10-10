@@ -123,6 +123,7 @@ def main() -> int:
         structure_s = time.perf_counter() - start
         tokens_in = sum(r.input_tokens or 0 for r in timer.records)
         tokens_out = sum(r.output_tokens or 0 for r in timer.records)
+        retries = sum(r.retry_count for r in timer.records)
         output = {"enrichment": enrichment.model_dump(), "structure": structure.model_dump()}
         # Next to the TRANSCRIPT (gitignored data/), never next to the gold --
         # gold lives in the repo (tests/evals/gold/) and outputs quote transcript text.
@@ -132,7 +133,7 @@ def main() -> int:
         runs.append({"score": score_structure(output, gold, text, frames=frames), "structure": structure,
                      "violations": len(enrichment.validator_violations), "enrichment_s": enrichment_s,
                      "structure_s": structure_s, "out_path": out_path,
-                     "tokens_in": tokens_in, "tokens_out": tokens_out})
+                     "tokens_in": tokens_in, "tokens_out": tokens_out, "retries": retries})
 
     def spread(values: list[float], fmt: str) -> str:
         if not values:
@@ -192,6 +193,9 @@ def main() -> int:
     if tokens_in or tokens_out:
         print(f"tokens per encounter{' (mean)' if repeat > 1 else ''}: input {tokens_in:,.0f} + output {tokens_out:,.0f} "
               "(enrichment + structure; multiply by your provider's current per-token price for cost)")
+    retries = sum(r["retries"] for r in runs)
+    if retries:
+        print(f"LLM calls retried after hitting the output cap (temperature 0 loop): {retries} (summed over runs)")
     if score.gold_errors:
         print("gold check FAILED (fix the gold before reading the scores):")
         for error in score.gold_errors:

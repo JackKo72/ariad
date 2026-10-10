@@ -39,6 +39,13 @@ DEFAULT_TEXT_MODEL = "gpt-4o"
 # variety. With the API default (1.0) the 13-c REPEAT=3 eval returned 1, 4
 # and 10 term candidates for the same MG transcript.
 TEMPERATURE = 0
+# At temperature 0 a long transcript can fall into a repetition loop that
+# runs to the model's output limit (ER role-play: 16,384 tokens, no JSON).
+# Normal outputs here are 2-3k tokens, so cap well above that to fail
+# sooner and cheaper, then retry once at the API default temperature, which
+# never looped in earlier evals. The retry is recorded as the stage's retry_count.
+MAX_OUTPUT_TOKENS = 8000
+RETRY_TEMPERATURE = 1.0
 
 # prompt_id -> (pipeline stage name, response schema, prompt version).
 # tasks/03_SPEAKER_MERGE_AND_LATENCY.md Phase 1 names the pipeline stages
@@ -86,24 +93,27 @@ class OpenAILLMProvider:
     ) -> dict[str, Any]:
         import json
 
-        from openai import OpenAIError
+        from openai import LengthFinishReasonError, OpenAIError
 
         system_prompt = _load_prompt(prompt_id)
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+        ]
         with (
             stage_timer.stage(stage_name, provider="openai", model=self._model, prompt_version=prompt_version)
             if stage_timer
             else nullcontext()
         ) as meta:
+            cut_off_usage = None
             try:
-                completion = self._client.chat.completions.parse(
-                    model=self._model,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
-                    ],
-                    response_format=schema,
-                    temperature=TEMPERATURE,
-                )
+                try:
+                    completion = self._parse(messages, schema, TEMPERATURE)
+                except LengthFinishReasonError as exc:
+                    cut_off_usage = exc.completion.usage
+                    if meta is not None:
+                        meta["retry_count"] = 1
+                    completion = self._parse(messages, schema, RETRY_TEMPERATURE)
             except OpenAIError as exc:
                 # Never include the request/response body in the error --
                 # only the error class name (docs/DEBUGGING.md: no
@@ -122,10 +132,21 @@ class OpenAILLMProvider:
                 ) from exc
 
             if meta is not None and completion.usage is not None:
-                meta["input_tokens"] = completion.usage.prompt_tokens
-                meta["output_tokens"] = completion.usage.completion_tokens
+                # Both attempts are billed, so both count.
+                usages = [u for u in (cut_off_usage, completion.usage) if u is not None]
+                meta["input_tokens"] = sum(u.prompt_tokens for u in usages)
+                meta["output_tokens"] = sum(u.completion_tokens for u in usages)
 
             parsed = completion.choices[0].message.parsed
             if parsed is None:
                 raise LlmProviderFailed("empty_response")
             return parsed.model_dump()
+
+    def _parse(self, messages: list[dict[str, str]], schema: type, temperature: float) -> Any:
+        return self._client.chat.completions.parse(
+            model=self._model,
+            messages=messages,
+            response_format=schema,
+            temperature=temperature,
+            max_completion_tokens=MAX_OUTPUT_TOKENS,
+        )
