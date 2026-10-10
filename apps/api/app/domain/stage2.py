@@ -2,14 +2,9 @@
 
 Two groups live here:
 
-1. Stage-1 extension (Part 5-2): ActionDirective and its nested shapes. The
-   structure LLM will emit these once Step 3 attaches
-   `action_directives: list[ActionDirective]` to ClinicalStructure. They are
-   LLM-facing, so every nested object is an explicit model (OpenAI strict
-   structured output rejects free-form dicts -- see test_openai_llm_provider).
-   Utterance references reuse models.SourceSpan, the same shape enrichment
-   already uses: segment_id ("seg_003") + speaker label (A/B/C) + role
-   ("doctor") + verbatim quote. docs/stage1_output.md section 7 explains why.
+1. Stage-1 extension (Part 5-2): ActionDirective and its nested shapes,
+   defined in app.domain.models because ClinicalStructure.action_directives
+   embeds them, and re-exported here.
 
 2. Stage-2 entities: CatalogAction (catalog/actions.yaml rows), ActionItem,
    ActionPlan, CheckIn, AdherenceJudgment, BarrierReport. Never LLM output
@@ -28,7 +23,15 @@ from typing import Any, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.domain.models import SourceSpan
+# Stage-1 extension shapes live in models.py (ClinicalStructure embeds them);
+# re-exported here so stage 2 code imports everything from one module.
+from app.domain.models import (  # noqa: F401
+    ActionDirective,
+    Agreement,
+    BarrierMention,
+    PatientResponse,
+    SourceSpan,
+)
 
 TODO_CLINICIAN = "TODO_CLINICIAN"
 CUSTOM_CATALOG_CODE = "custom"
@@ -36,17 +39,6 @@ _ISO_WEEK_RE = re.compile(r"^\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$")
 
 
 # ---------------------------------------------------------------- enums
-
-
-class Agreement(str, Enum):
-    """How the patient responded to a directive in the visit (Part 5-2).
-    Clinical information -- distinct from needs_review, which is about
-    extraction quality (docs/stage1_output.md section 7, item 10)."""
-
-    AGREED = "agreed"
-    HESITANT = "hesitant"
-    REFUSED = "refused"
-    UNCLEAR = "unclear"
 
 
 class ActionStatus(str, Enum):
@@ -103,37 +95,17 @@ class CheckInSource(str, Enum):
     DEVICE = "device"
 
 
-# ---------------------------------------------------------------- stage-1 extension (LLM-facing)
+# ---------------------------------------------------------------- normalizer LLM output
 
 
-class PatientResponse(BaseModel):
-    text: str  # verbatim
-    agreement: Agreement
-    source_spans: list[SourceSpan] = Field(default_factory=list)
+class DirectiveClassification(BaseModel):
+    """prompts/classify_action_directive.md output. LLM-facing: no
+    constraints the strict schema can't express; app/stage2/normalizer.py
+    checks catalog_code membership and confidence range itself."""
 
-
-class BarrierMention(BaseModel):
-    text: str  # verbatim
-    source_spans: list[SourceSpan] = Field(default_factory=list)
-
-
-class ActionDirective(BaseModel):
-    """One lifestyle directive the doctor gave in the visit (Part 5-2).
-
-    raw_text is copied verbatim, never paraphrased. source_spans must point
-    at real input segments; Step 3's grounding check enforces that and sets
-    needs_review instead of failing the whole structure output, so no
-    hard length constraint here. domain_hint/target_hint are hints only --
-    the normalizer does the final catalog match."""
-
-    directive_id: str
-    raw_text: str
-    source_spans: list[SourceSpan] = Field(default_factory=list)
-    domain_hint: Optional[str] = None
-    target_hint: Optional[str] = None
-    patient_response: Optional[PatientResponse] = None
-    barrier_mentions: list[BarrierMention] = Field(default_factory=list)
-    needs_review: bool = True
+    catalog_code: str  # a catalog code or "custom"
+    confidence: float
+    rationale: str
 
 
 # ---------------------------------------------------------------- catalog (catalog/actions.yaml)

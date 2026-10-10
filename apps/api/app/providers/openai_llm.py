@@ -19,8 +19,10 @@ from typing import Any, Optional
 
 from app.domain.errors import LlmProviderFailed
 from app.domain.models import ClinicalEnrichment, ClinicalStructure, ExplanationDraft
+from app.domain.stage2 import DirectiveClassification
 from app.observability import StageTimer
 from app.providers.mock import (
+    PROMPT_VERSION_CLASSIFY_DIRECTIVE,
     PROMPT_VERSION_ENRICHMENT,
     PROMPT_VERSION_EXPLANATION,
     PROMPT_VERSION_STRUCTURE,
@@ -36,6 +38,11 @@ _CALL_SPEC = {
     "structure_transcript": ("structure_llm", ClinicalStructure, PROMPT_VERSION_STRUCTURE),
     "patient_explanation": ("explanation_llm", ExplanationDraft, PROMPT_VERSION_EXPLANATION),
     "clinical_enrichment": ("clinical_enrichment_llm", ClinicalEnrichment, PROMPT_VERSION_ENRICHMENT),
+    "classify_action_directive": (
+        "classify_action_directive_llm",
+        DirectiveClassification,
+        PROMPT_VERSION_CLASSIFY_DIRECTIVE,
+    ),
 }
 
 

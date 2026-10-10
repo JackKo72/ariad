@@ -83,6 +83,199 @@
     "questions_or_conflicts": {
       "type": "array",
       "items": {"type": "string"}
+    },
+    "action_directives": {
+      "description": "Stage 2 additive field (docs/stage1_output.md section 6). Not required so pre-0.2.0 outputs still validate.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "directive_id",
+          "raw_text",
+          "source_spans",
+          "needs_review"
+        ],
+        "properties": {
+          "directive_id": {
+            "type": "string"
+          },
+          "raw_text": {
+            "type": "string"
+          },
+          "source_spans": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "segment_id",
+                "quote",
+                "speaker",
+                "role"
+              ],
+              "properties": {
+                "segment_id": {
+                  "type": "string"
+                },
+                "quote": {
+                  "type": "string"
+                },
+                "speaker": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string"
+                },
+                "start": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "end": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "domain_hint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "target_hint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "patient_response": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "text",
+                  "agreement",
+                  "source_spans"
+                ],
+                "properties": {
+                  "text": {
+                    "type": "string"
+                  },
+                  "agreement": {
+                    "enum": [
+                      "agreed",
+                      "hesitant",
+                      "refused",
+                      "unclear"
+                    ]
+                  },
+                  "source_spans": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "segment_id",
+                        "quote",
+                        "speaker",
+                        "role"
+                      ],
+                      "properties": {
+                        "segment_id": {
+                          "type": "string"
+                        },
+                        "quote": {
+                          "type": "string"
+                        },
+                        "speaker": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string"
+                        },
+                        "start": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "end": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "barrier_mentions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "text",
+                "source_spans"
+              ],
+              "properties": {
+                "text": {
+                  "type": "string"
+                },
+                "source_spans": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "segment_id",
+                      "quote",
+                      "speaker",
+                      "role"
+                    ],
+                    "properties": {
+                      "segment_id": {
+                        "type": "string"
+                      },
+                      "quote": {
+                        "type": "string"
+                      },
+                      "speaker": {
+                        "type": "string"
+                      },
+                      "role": {
+                        "type": "string"
+                      },
+                      "start": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "end": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "needs_review": {
+            "type": "boolean"
+          }
+        }
+      }
     }
   }
 }

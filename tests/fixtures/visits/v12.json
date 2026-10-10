@@ -1,0 +1,41 @@
+{
+  "visit_id": "V12",
+  "description": "식사 패턴, 비용 장벽",
+  "synthetic": true,
+  "label_status": "draft_unreviewed",
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "밥은 잡곡밥으로 바꾸시고 생선은 일주일에 두 번 이상 드세요."
+    },
+    {
+      "id": "seg_002",
+      "speaker": "B",
+      "role": "patient",
+      "text": "생선은 비싸서 자주는 못 먹어요."
+    },
+    {
+      "id": "seg_003",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "고등어 통조림도 괜찮습니다."
+    },
+    {
+      "id": "seg_004",
+      "speaker": "B",
+      "role": "patient",
+      "text": "아 그건 해볼게요."
+    }
+  ],
+  "expected_directives": [
+    {
+      "segment_ids": [
+        "seg_001"
+      ],
+      "catalog_code": "D1",
+      "agreement": "hesitant"
+    }
+  ]
+}

@@ -302,3 +302,18 @@ Step 2는 **모델 정의**(`apps/api/app/domain/stage2.py`)만 만든다. 1단�
 | 11 | 발화 참조 이름·형식을 enrichment와 통일(`source_spans[].segment_id`, `role`) | — |
 
 설계와 달라진 이름: `visit_id` → `ActionPlan.encounter_id`, `source_span.utterance_ids` → `source_spans[].segment_id`, `source_span.speaker:"doctor"` → `source_spans[].role`, `patient_response.utterance_id` → `patient_response.source_spans`.
+
+## 9. Step 3 반영 결과 (2026-10-10)
+
+§8 표의 "Step 3에서 해결" 열을 모두 구현했다.
+
+| # | 구현 위치 |
+| --- | --- |
+| 7 | `app/pipeline/segments.py` (수동 텍스트 `seg_001`·`의사` 태그, 오디오는 실제 `seg_xxx`·A/B·확정 role), `structure_encounter(..., segments=)`, `routes/encounters.py`가 오디오 run의 segment 전달, mock `seg-1`→`seg_001` |
+| 7 | `app/pipeline/directive_validation.py`: segment ID 존재, quote/원문 부분 문자열, speaker·role 태그 일치, 지시=doctor·반응/장벽=patient·guardian, target_hint 숫자가 발화에 있는지 → 실패 시 `needs_review=true` |
+| 8 | `ClinicalStructure.action_directives`, `clinical_structure.schema.json`에 정의 추가(기존 필드·required 불변) |
+| 9 | `explanation.py`: `model_dump(exclude={"action_directives"})` |
+| 10 | 검증 통과 시에만 LLM의 `needs_review` 값을 유지. mock은 항상 `true` |
+| — | 프롬프트 `structure_transcript@0.2.0`, LLM 출력 검증 실패 시 1회 재시도 |
+
+정규화기: `app/stage2/normalizer.py` (domain_hint → LLM `classify_action_directive` → `custom`). 평가: `tests/fixtures/visits/` 20건(라벨 `draft_unreviewed`), `scripts/eval_action_directives.py`.

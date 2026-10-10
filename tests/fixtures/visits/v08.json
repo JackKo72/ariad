@@ -1,0 +1,48 @@
+{
+  "visit_id": "V08",
+  "description": "편마비 환자 저항 운동, 무릎 통증",
+  "synthetic": true,
+  "label_status": "draft_unreviewed",
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "오른쪽 다리 힘이 약하시니까 의자에서 일어났다 앉기를 주 2회 해보세요."
+    },
+    {
+      "id": "seg_002",
+      "speaker": "B",
+      "role": "patient",
+      "text": "무릎이 아파서 할 수 있을지 모르겠어요."
+    },
+    {
+      "id": "seg_003",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "밴드 운동도 같이 하시고요."
+    },
+    {
+      "id": "seg_004",
+      "speaker": "B",
+      "role": "patient",
+      "text": "네."
+    }
+  ],
+  "expected_directives": [
+    {
+      "segment_ids": [
+        "seg_001"
+      ],
+      "catalog_code": "P2",
+      "agreement": "hesitant"
+    },
+    {
+      "segment_ids": [
+        "seg_003"
+      ],
+      "catalog_code": "P2",
+      "agreement": "agreed"
+    }
+  ]
+}

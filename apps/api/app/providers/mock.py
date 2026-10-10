@@ -14,9 +14,10 @@ from typing import Any, Optional
 
 from app.observability import StageTimer
 
-PROMPT_VERSION_STRUCTURE = "structure_transcript@0.1.0"
+PROMPT_VERSION_STRUCTURE = "structure_transcript@0.2.0"
 PROMPT_VERSION_EXPLANATION = "patient_explanation@0.1.0"
 PROMPT_VERSION_ENRICHMENT = "clinical_enrichment@0.1.0"
+PROMPT_VERSION_CLASSIFY_DIRECTIVE = "classify_action_directive@0.1.0"
 
 _DOSE_UNIT_RE = re.compile(r"(밀리그램|mg|그램)")
 _MEDICATION_MENTION_RE = re.compile(r"약")
@@ -35,9 +36,114 @@ _NOCTURNAL_BEHAVIOR_RE = re.compile(r"(잠꼬대|소리를\s*지르|팔다리를
 _DOCTOR_DIRECTIVE_RE = re.compile(r"(하겠습니다|하시고|오세요|가셔야)")
 
 
+# Stage 2 action directives (prompts/structure_transcript.md 0.2.0). Keyword
+# -> catalog domain (catalog/actions.yaml `domain`). A mock heuristic, not a
+# clinical rule: it only decides which doctor sentences to copy verbatim.
+# Checked in order, most specific first ("호흡 운동" is stress, not walking).
+_DIRECTIVE_DOMAIN_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
+    (domain, re.compile(pattern))
+    for domain, pattern in (
+        ("home_bp", r"혈압.{0,15}(재|측정|기록)|혈압계"),
+        ("home_glucose", r"혈당.{0,15}(재|측정|기록)|혈당계"),
+        ("smoking", r"담배|금연|흡연"),
+        ("alcohol", r"술|음주|금주"),
+        ("diet_potassium", r"칼륨"),
+        ("diet_sodium", r"국물|싱겁|짜게|소금|라면|젓갈|장아찌|간을"),
+        ("diet_fat", r"튀김|삼겹살|기름진"),
+        ("diet_carb_sugar", r"음료|탄산|주스|단 거|과자|커피믹스|콜라"),
+        ("diet_pattern", r"채소|생선|잡곡"),
+        ("stress", r"호흡|명상|스트레스"),
+        ("activity_resistance", r"근력|밴드|의자에서 일어"),
+        ("activity_sedentary_break", r"앉아 계|오래 앉"),
+        ("weight", r"체중|몸무게"),
+        ("activity_aerobic", r"걷|걸으|걸어|산책|운동"),
+    )
+)
+_DIRECTIVE_CUE_RE = re.compile(r"(세요|시고요|하셔야|마시고|드시지|줄이|끊으|끊으셔야|해보세요|하십시오)")
+_TARGET_HINT_RE = re.compile(r"(하루\s*\d+\s*(번|회|분|잔|개비)|주\s*\d+\s*(일|회|번)(\s*\d+\s*분)?|\d+\s*분)")
+_REFUSED_RE = re.compile(r"(못\s*하|안\s*할|싫|못\s*끊)")
+_HESITANT_RE = re.compile(r"(어렵|글쎄|자신(이)?\s*없|노력은|모르겠)")
+_AGREED_RE = re.compile(r"(네|알겠|해볼게|할게|그럴게|그렇게\s*할)")
+_BARRIER_RE = re.compile(r"(아파|아프|혼자|바빠|바쁘|회식|시간이\s*없|비가|추워|무릎|피곤|힘들|귀찮|배달)")
+
+
 def _segment_transcript(transcript_text: str) -> list[dict[str, str]]:
-    lines = [line.strip() for line in transcript_text.splitlines() if line.strip()]
-    return [{"id": f"seg-{i + 1}", "text": line} for i, line in enumerate(lines)]
+    # Same seg_001 IDs as app.pipeline.segments (docs/stage1_output.md
+    # section 6); imported lazily to keep providers free of a pipeline
+    # import cycle at module load.
+    from app.pipeline.segments import segments_from_transcript_text
+
+    return segments_from_transcript_text(transcript_text)
+
+
+def _directive_domain(text: str) -> Optional[str]:
+    for domain, pattern in _DIRECTIVE_DOMAIN_PATTERNS:
+        if pattern.search(text):
+            return domain
+    return None
+
+
+def _span(seg: dict[str, str]) -> dict[str, Any]:
+    return {
+        "segment_id": seg["id"],
+        "quote": seg["text"],
+        "speaker": seg["speaker"],
+        "role": seg["role"],
+        "start": None,
+        "end": None,
+    }
+
+
+def _agreement(text: str) -> str:
+    if _REFUSED_RE.search(text):
+        return "refused"
+    if _HESITANT_RE.search(text):
+        return "hesitant"
+    if _AGREED_RE.search(text):
+        return "agreed"
+    return "unclear"
+
+
+def _action_directives(segments: list[dict[str, str]]) -> list[dict[str, Any]]:
+    """A doctor segment with a directive ending and a lifestyle keyword
+    becomes a directive (whole segment copied verbatim); the patient/
+    guardian segments up to the next doctor segment give the response and
+    barriers. Medication sentences and questions are skipped."""
+    directives: list[dict[str, Any]] = []
+    for i, seg in enumerate(segments):
+        text = seg["text"]
+        if seg["role"] != "doctor" or _QUESTION_RE.search(text) or _DOSE_UNIT_RE.search(text) or "약" in text:
+            continue
+        domain = _directive_domain(text)
+        if domain is None or not _DIRECTIVE_CUE_RE.search(text):
+            continue
+        replies = []
+        for nxt in segments[i + 1 :]:
+            if nxt["role"] == "doctor":
+                break
+            if nxt["role"] in ("patient", "guardian"):
+                replies.append(nxt)
+        target = _TARGET_HINT_RE.search(text)
+        directives.append(
+            {
+                "directive_id": f"AD-{len(directives) + 1}",
+                "raw_text": text,
+                "source_spans": [_span(seg)],
+                "domain_hint": domain,
+                "target_hint": target.group(0) if target else None,
+                "patient_response": (
+                    {"text": replies[0]["text"], "agreement": _agreement(replies[0]["text"]), "source_spans": [_span(replies[0])]}
+                    if replies
+                    else None
+                ),
+                "barrier_mentions": [
+                    {"text": r["text"], "source_spans": [_span(r)]} for r in replies if _BARRIER_RE.search(r["text"])
+                ],
+                # The mock cannot judge ambiguity, so it never clears review.
+                "needs_review": True,
+            }
+        )
+    return directives
 
 
 class MockLLMProvider:
@@ -55,13 +161,19 @@ class MockLLMProvider:
             return self._patient_explanation(payload)
         if prompt_id == "clinical_enrichment":
             return self._clinical_enrichment(payload)
+        if prompt_id == "classify_action_directive":
+            return self._classify_action_directive(payload)
         raise ValueError(f"MockLLMProvider has no handler for prompt_id={prompt_id!r}")
 
     def _structure_transcript(self, payload: dict[str, Any]) -> dict[str, Any]:
-        segments = _segment_transcript(payload["transcript_text"])
+        lines = [line.strip() for line in payload["transcript_text"].splitlines() if line.strip()]
+        segments = payload.get("segments") or _segment_transcript(payload["transcript_text"])
+        # Problem text stays the full transcript line (unchanged 0.1.0
+        # behavior); IDs now come from the real segments when they line up.
+        ids = [seg["id"] for seg in segments] if len(segments) == len(lines) else [f"seg_{i + 1:03d}" for i in range(len(lines))]
         problems = [
-            {"text": seg["text"], "certainty": "stated", "source_segment_ids": [seg["id"]]}
-            for seg in segments
+            {"text": line, "certainty": "stated", "source_segment_ids": [sid]}
+            for line, sid in zip(lines, ids)
         ]
         return {
             "problems": problems,
@@ -71,7 +183,13 @@ class MockLLMProvider:
             "warnings": [],
             "follow_up": [],
             "questions_or_conflicts": [],
+            "action_directives": _action_directives(segments),
         }
+
+    def _classify_action_directive(self, payload: dict[str, Any]) -> dict[str, Any]:
+        # Only reached when a directive has no usable domain_hint. The mock
+        # has no basis to pick a catalog action, so it never guesses.
+        return {"catalog_code": "custom", "confidence": 0.0, "rationale": "mock: no classification"}
 
     def _clinical_enrichment(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Deterministic, rule-based stand-in for the real LLM (same spirit

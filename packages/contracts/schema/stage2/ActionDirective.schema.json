@@ -109,7 +109,7 @@
       "type": "object"
     }
   },
-  "description": "One lifestyle directive the doctor gave in the visit (Part 5-2).\n\nraw_text is copied verbatim, never paraphrased. source_spans must point\nat real input segments; Step 3's grounding check enforces that and sets\nneeds_review instead of failing the whole structure output, so no\nhard length constraint here. domain_hint/target_hint are hints only --\nthe normalizer does the final catalog match.",
+  "description": "One lifestyle directive the doctor gave in the visit (Part 5-2).\n\nraw_text is copied verbatim, never paraphrased. source_spans must point\nat real input segments; app/pipeline/directive_validation.py enforces that and sets\nneeds_review instead of failing the whole structure output, so no\nhard length constraint here. domain_hint/target_hint are hints only --\nthe normalizer does the final catalog match.",
   "properties": {
     "directive_id": {
       "title": "Directive Id",

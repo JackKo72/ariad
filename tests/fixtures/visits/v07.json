@@ -1,0 +1,48 @@
+{
+  "visit_id": "V07",
+  "description": "체중 감량 + 체중 측정, 기기 없음",
+  "synthetic": true,
+  "label_status": "draft_unreviewed",
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "체중을 지금보다 5% 정도 줄이는 게 목표입니다."
+    },
+    {
+      "id": "seg_002",
+      "speaker": "B",
+      "role": "patient",
+      "text": "네, 노력해볼게요."
+    },
+    {
+      "id": "seg_003",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "일주일에 한 번 아침 공복에 몸무게를 재세요."
+    },
+    {
+      "id": "seg_004",
+      "speaker": "B",
+      "role": "patient",
+      "text": "체중계가 없어서요."
+    }
+  ],
+  "expected_directives": [
+    {
+      "segment_ids": [
+        "seg_001"
+      ],
+      "catalog_code": "W1",
+      "agreement": "agreed"
+    },
+    {
+      "segment_ids": [
+        "seg_003"
+      ],
+      "catalog_code": "W1",
+      "agreement": "unclear"
+    }
+  ]
+}

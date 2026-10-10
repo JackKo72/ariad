@@ -1,0 +1,67 @@
+{
+  "visit_id": "V18",
+  "description": "여러 지시, 동의 정도가 섞임",
+  "synthetic": true,
+  "label_status": "draft_unreviewed",
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "칼륨이 많은 바나나나 채소를 챙겨 드세요."
+    },
+    {
+      "id": "seg_002",
+      "speaker": "B",
+      "role": "patient",
+      "text": "네."
+    },
+    {
+      "id": "seg_003",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "라면 국물은 남기세요."
+    },
+    {
+      "id": "seg_004",
+      "speaker": "B",
+      "role": "patient",
+      "text": "그건 싫어요."
+    },
+    {
+      "id": "seg_005",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "그리고 술은 드시지 마세요."
+    },
+    {
+      "id": "seg_006",
+      "speaker": "B",
+      "role": "patient",
+      "text": "알겠습니다."
+    }
+  ],
+  "expected_directives": [
+    {
+      "segment_ids": [
+        "seg_001"
+      ],
+      "catalog_code": "D3",
+      "agreement": "agreed"
+    },
+    {
+      "segment_ids": [
+        "seg_003"
+      ],
+      "catalog_code": "D2",
+      "agreement": "refused"
+    },
+    {
+      "segment_ids": [
+        "seg_005"
+      ],
+      "catalog_code": "A1",
+      "agreement": "agreed"
+    }
+  ]
+}
