@@ -170,3 +170,54 @@ recall 92%).
   - 정답지 키워드(이미 repo에 있음)와 칸 이름만 출력한다. 출력이나 전사 본문은 출력하지 않는다.
 - `term_candidates@0.2.0`: 한 구절이 여러 용어에 해당하면 용어마다 후보를 쓴다. MG myasthenic
   crisis는 "숨쉬는 힘" 구절이 이미 호흡근 약화로 쓰여 3번 모두 빠졌다.
+
+# 13-e: 보완 호출 (coverage_check)
+
+## 왜
+
+`make diagnose-structure` 결과, 놓친 녹음 내용 항목의 62%(MG 24/39)와 68%(ER 23/34)가 요약
+어디에도 키워드가 없었다(omitted). 바꿔 말한 것(partial)이 아니었다. 같은 항목을 3번 모두
+빠뜨렸고, 그 칸의 규칙(findings 13-a, plan 0.6.0)이 있어도 빠졌다. 구조화 호출은 칸마다 1-3개만
+쓰고 나머지를 버린다. 13-c에서 확인했듯이 한 가지 일만 맡은 호출은 더 빠짐없이 찾는다.
+
+## 구현
+
+- `structure_encounter`: ① `structure_transcript` → ② `coverage_check` → ③ `term_candidates`(진료 틀이 있을 때).
+- `add_missed_facts`:
+  - 대화와 ①의 결과(term_candidates 제외)를 보낸다.
+  - 같은 `ClinicalStructure` 형식으로 **빠진 항목만** 받아 칸마다 뒤에 덧붙인다.
+  - 대소문자와 공백만 다른 완전 중복은 버린다. 바꿔 말한 중복은 프롬프트가 막는다.
+  - ②가 돌려준 term_candidates는 버린다.
+- `prompts/coverage_check.md` 0.1.0:
+  - 발화를 하나씩 확인하는 체크 목록이 있다(결과, 결정과 이유, 위험, 치료·장치, 계획과 다음 단계,
+    병동 이동, 보호자 절차, 환자·보호자 진술).
+  - 의사가 쓴 단어 그대로 쓴다. 원문에 없는 사실은 쓰지 않는다.
+  - 빠진 것이 없으면 빈 칸으로 반환한다.
+- temperature는 기본값(1.0)이다. 구조화 호출과 같은 종류라 0이면 반복 루프 위험이 있다.
+- 덧붙인 결정도 기존 체크리스트 규칙을 그대로 탄다(하지 않음, 조건부 → 의사 확인).
+- `PROMPT_VERSION` = structure + coverage + term_candidates.
+- 평가 출력에 호출별 시간과 토큰(`per call`)을 보여 준다.
+
+## 의도적으로 하지 않은 것
+
+- ②가 덧붙인 항목에 표시를 달거나 따로 검수하게 하지 않았다. 효과와 누출을 먼저 측정한다.
+- 바꿔 말한 중복을 의미로 걸러 내지 않았다.
+
+## Tests
+
+- `test_coverage_check.py`(+4):
+  - 빠진 항목이 뒤에 덧붙는다
+  - 완전 중복과 term_candidates는 버린다
+  - 빠진 것이 없으면 그대로
+  - PROMPT_VERSION에 coverage가 기록된다
+- `test_clinical_frame.py`: 호출 순서에 coverage_check가 들어갔다.
+- 전체: pytest 317, E2E 8, `check-vocab-leakage` OK
+
+## 측정 기준 (13-d 0.6.0)
+
+| | ER | ICU | MG |
+|---|---|---|---|
+| 녹음 내용 recall | 67% | 80% | 50% |
+| frame-term recall | 67% | 100% | 80% |
+| 누출 | 0 | 0 | 0 |
+| 지연 | 16.1s | 17.1s | 15.0s |

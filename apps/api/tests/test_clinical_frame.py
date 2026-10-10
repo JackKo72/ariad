@@ -104,15 +104,17 @@ def _two_call_responses(structure_candidates=None):
     return {
         "structure_transcript": structure,
         "term_candidates": {"term_candidates": [_candidate().model_dump(), _candidate(term="tPA").model_dump()]},
+        "coverage_check": {},
     }
 
 
 def test_frame_vocabulary_goes_only_to_the_dedicated_term_call():
     provider = PerPromptProvider(_two_call_responses())
     result = structure_encounter(TRANSCRIPT, provider, clinical_frame="stroke")
-    assert [pid for pid, _ in provider.calls] == ["structure_transcript", "term_candidates"]
+    assert [pid for pid, _ in provider.calls] == ["structure_transcript", "coverage_check", "term_candidates"]
     assert "clinical_frame" not in provider.calls[0][1]  # structure call: transcript only
-    assert provider.calls[1][1]["clinical_frame"]["id"] == "stroke"
+    assert "clinical_frame" not in provider.calls[1][1]
+    assert provider.calls[2][1]["clinical_frame"]["id"] == "stroke"
     assert [c.term for c in result.term_candidates] == [EVT]  # tPA (outside vocabulary) dropped
 
 
@@ -120,7 +122,7 @@ def test_no_frame_means_no_term_call_and_structure_candidates_discarded():
     # Even if the structure call returns candidates, they are not kept.
     provider = PerPromptProvider(_two_call_responses(structure_candidates=[_candidate().model_dump()]))
     result = structure_encounter(TRANSCRIPT, provider)
-    assert [pid for pid, _ in provider.calls] == ["structure_transcript"]
+    assert [pid for pid, _ in provider.calls] == ["structure_transcript", "coverage_check"]
     assert result.term_candidates == []
 
 

@@ -124,6 +124,12 @@ def main() -> int:
         tokens_in = sum(r.input_tokens or 0 for r in timer.records)
         tokens_out = sum(r.output_tokens or 0 for r in timer.records)
         retries = sum(r.retry_count for r in timer.records)
+        by_stage: dict[str, list[float]] = {}
+        for r in timer.records:
+            acc = by_stage.setdefault(r.stage, [0.0, 0.0, 0.0])
+            acc[0] += r.input_tokens or 0
+            acc[1] += r.output_tokens or 0
+            acc[2] += r.duration_ms / 1000
         output = {"enrichment": enrichment.model_dump(), "structure": structure.model_dump()}
         # Next to the TRANSCRIPT (gitignored data/), never next to the gold --
         # gold lives in the repo (tests/evals/gold/) and outputs quote transcript text.
@@ -133,7 +139,7 @@ def main() -> int:
         runs.append({"score": score_structure(output, gold, text, frames=frames), "structure": structure,
                      "violations": len(enrichment.validator_violations), "enrichment_s": enrichment_s,
                      "structure_s": structure_s, "out_path": out_path,
-                     "tokens_in": tokens_in, "tokens_out": tokens_out, "retries": retries})
+                     "tokens_in": tokens_in, "tokens_out": tokens_out, "retries": retries, "by_stage": by_stage})
 
     def spread(values: list[float], fmt: str) -> str:
         if not values:
@@ -193,6 +199,13 @@ def main() -> int:
     if tokens_in or tokens_out:
         print(f"tokens per encounter{' (mean)' if repeat > 1 else ''}: input {tokens_in:,.0f} + output {tokens_out:,.0f} "
               "(enrichment + structure; multiply by your provider's current per-token price for cost)")
+    stages = sorted({stage for r in runs for stage in r["by_stage"]})
+    if tokens_in or tokens_out:
+        print("per call (mean): " + "  |  ".join(
+            f"{stage} {sum(r['by_stage'].get(stage, [0, 0, 0])[2] for r in runs) / repeat:.1f}s "
+            f"in {sum(r['by_stage'].get(stage, [0, 0, 0])[0] for r in runs) / repeat:,.0f} "
+            f"out {sum(r['by_stage'].get(stage, [0, 0, 0])[1] for r in runs) / repeat:,.0f}"
+            for stage in stages))
     retries = sum(r["retries"] for r in runs)
     if retries:
         print(f"LLM calls retried after hitting the output cap (temperature 0 loop): {retries} (summed over runs)")
