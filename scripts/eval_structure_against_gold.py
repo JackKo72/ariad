@@ -27,6 +27,9 @@ FRAMES=stroke (or seizure, comma-separated) scores as if the clinician had
 picked that clinical frame: its frame_term items become expected instead
 of leaks, AND passes that frame to the structure stage (tasks/10) -- a single
 frame; the first one listed is sent.
+REPEAT=3 runs the same input 3 times (LLM output varies run to run): per-item
+hit counts (e.g. "HIT 2/3"), recall as mean (min-max), outputs saved as
+<case>.<provider>.runK.output.json.
 Gold items with a "note" are printed as a clinician review checklist:
 keyword matching cannot judge polarity ("clopi loading 안 함").
 
@@ -101,51 +104,72 @@ def main() -> int:
     text = transcript_text(segments)
     gold = json.loads(gold_path.read_text(encoding="utf-8"))
 
-    start = time.perf_counter()
-    enrichment = enrich_clinical_findings(segments, provider)
-    enrichment_s = time.perf_counter() - start
-    start = time.perf_counter()
     frames = frozenset(f.strip() for f in os.environ.get("FRAMES", "").split(",") if f.strip())
     pipeline_frame = os.environ.get("FRAMES", "").split(",")[0].strip() or None
-    structure = structure_encounter(text, provider, clinical_frame=pipeline_frame)
-    structure_s = time.perf_counter() - start
+    repeat = max(1, int(os.environ.get("REPEAT", "1")))
+    case = gold.get("case", gold_path.stem)
+    runs = []
+    for k in range(1, repeat + 1):
+        start = time.perf_counter()
+        enrichment = enrich_clinical_findings(segments, provider)
+        enrichment_s = time.perf_counter() - start
+        start = time.perf_counter()
+        structure = structure_encounter(text, provider, clinical_frame=pipeline_frame)
+        structure_s = time.perf_counter() - start
+        output = {"enrichment": enrichment.model_dump(), "structure": structure.model_dump()}
+        # Next to the TRANSCRIPT (gitignored data/), never next to the gold --
+        # gold lives in the repo (tests/evals/gold/) and outputs quote transcript text.
+        suffix = f".run{k}" if repeat > 1 else ""
+        out_path = transcript_path.with_name(f"{case}.{label.replace(':', '_')}{suffix}.output.json")
+        out_path.write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
+        runs.append({"score": score_structure(output, gold, text, frames=frames), "structure": structure,
+                     "violations": len(enrichment.validator_violations), "enrichment_s": enrichment_s,
+                     "structure_s": structure_s, "out_path": out_path})
 
-    output = {"enrichment": enrichment.model_dump(), "structure": structure.model_dump()}
-    # Next to the TRANSCRIPT (gitignored data/), never next to the gold --
-    # gold lives in the repo (tests/evals/gold/) and outputs quote transcript text.
-    out_path = transcript_path.with_name(f"{gold.get('case', gold_path.stem)}.{label.replace(':', '_')}.output.json")
-    out_path.write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
-    score = score_structure(output, gold, text, frames=frames)
+    def spread(values: list[float], fmt: str) -> str:
+        if not values:
+            return "-"
+        mean = fmt.format(sum(values) / len(values))
+        return mean if len(values) == 1 else f"{mean} ({fmt.format(min(values))}-{fmt.format(max(values))})"
 
     frame_of = {item["id"]: item.get("frame") for item in gold["items"]}
-    print(f"\ncase={gold.get('case')} provider={label} segments={len(segments)} frames={sorted(frames) or '-'}")
-    print(f"{'item':<34}{'tier':<14}{'result':<8}sections")
-    print("-" * 78)
-    for item in score.items:
+    print(f"\ncase={case} provider={label} segments={len(segments)} frames={sorted(frames) or '-'} runs={repeat}")
+    print(f"{'item':<34}{'tier':<14}{'result':<10}sections")
+    print("-" * 80)
+    for i, item in enumerate(runs[0]["score"].items):
+        hits = sum(run["score"].items[i].hit for run in runs)
+        sections = sorted({sec for run in runs for sec in run["score"].items[i].sections})
         expected_absent = item.tier in ("context_only", "must_exclude") or (
             item.tier == "frame_term" and frame_of[item.id] not in frames)
-        if expected_absent:
-            result = "LEAK" if item.hit else "absent"
-        else:
-            result = "HIT" if item.hit else "miss"
-        print(f"{item.id:<34}{item.tier:<14}{result:<8}{', '.join(item.sections)}")
+        word = ("LEAK" if hits else "absent") if expected_absent else ("HIT" if hits else "miss")
+        result = word if repeat == 1 else f"{word} {hits}/{repeat}"
+        print(f"{item.id:<34}{item.tier:<14}{result:<10}{', '.join(sections)}")
     print()
-    recall = "-" if score.conversation_recall is None else f"{100 * score.conversation_recall:.0f}%"
-    print(f"conversation recall: {recall}  |  context_only leaks: {len(score.context_only_leaks)}  |  "
-          f"must_exclude leaks: {len(score.excluded_leaks)}  |  "
-          f"enrichment validator violations: {len(enrichment.validator_violations)}")
-    frame_recall = "-" if score.frame_recall is None else f"{100 * score.frame_recall:.0f}%"
-    print(f"frame-term recall: {frame_recall}  |  frame-term leaks: {len(score.frame_leaks)}")
-    filled = {k: len(getattr(structure, k)) for k in ("treatments_given", "decisions", "consents", "disposition",
-                                                       "prognosis_and_goals", "family_statements", "term_candidates")}
-    print("tasks/10 slots filled: " + ", ".join(f"{k} {v}" for k, v in filled.items())
-          + f"  |  review checklist items: {len(build_review_checklist(structure))}")
+    pct = "{:.0%}"
+    conv = [r["score"].conversation_recall for r in runs if r["score"].conversation_recall is not None]
+    frame_r = [r["score"].frame_recall for r in runs if r["score"].frame_recall is not None]
+    print(f"conversation recall: {spread(conv, pct)}  |  "
+          f"context_only leaks: {sum(len(r['score'].context_only_leaks) for r in runs)}  |  "
+          f"must_exclude leaks: {sum(len(r['score'].excluded_leaks) for r in runs)}  |  "
+          f"enrichment validator violations: {sum(r['violations'] for r in runs)}  (leak/violation counts summed over runs)")
+    print(f"frame-term recall: {spread(frame_r, pct)}  |  frame-term leaks: {sum(len(r['score'].frame_leaks) for r in runs)}")
+    slots = ("treatments_given", "decisions", "consents", "disposition", "prognosis_and_goals",
+             "family_statements", "term_candidates")
+    print("tasks/10 slots filled: " + ", ".join(
+        f"{k} {spread([float(len(getattr(r['structure'], k))) for r in runs], '{:.1f}' if repeat > 1 else '{:.0f}')}"
+        for k in slots)
+        + "  |  review checklist items: "
+        + spread([float(len(build_review_checklist(r["structure"]))) for r in runs], "{:.1f}" if repeat > 1 else "{:.0f}"))
+    enrichment_s = sum(r["enrichment_s"] for r in runs) / repeat
+    structure_s = sum(r["structure_s"] for r in runs) / repeat
+    score = runs[-1]["score"]
+    out_path = runs[-1]["out_path"]
     notes = [item for item in gold["items"] if item.get("note")]
     if notes:
         print("clinician review checklist (read these in the output JSON):")
         for item in notes:
             print(f"  [ ] {item['id']}: {item['note']}")
-    print(f"latency: enrichment {enrichment_s:.1f}s + structure {structure_s:.1f}s = {enrichment_s + structure_s:.1f}s")
+    print(f"latency{' (mean)' if repeat > 1 else ''}: enrichment {enrichment_s:.1f}s + structure {structure_s:.1f}s = {enrichment_s + structure_s:.1f}s")
     if score.gold_errors:
         print("gold check FAILED (fix the gold before reading the scores):")
         for error in score.gold_errors:
