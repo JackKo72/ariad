@@ -1,0 +1,349 @@
+{
+  "$defs": {
+    "Cadence": {
+      "additionalProperties": false,
+      "properties": {
+        "times": {
+          "minimum": 1,
+          "title": "Times",
+          "type": "integer"
+        },
+        "per": {
+          "enum": [
+            "day",
+            "week"
+          ],
+          "title": "Per",
+          "type": "string"
+        }
+      },
+      "required": [
+        "times",
+        "per"
+      ],
+      "title": "Cadence",
+      "type": "object"
+    },
+    "CatalogRule": {
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "rule": {
+          "title": "Rule",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "rule"
+      ],
+      "title": "CatalogRule",
+      "type": "object"
+    },
+    "CatalogTarget": {
+      "additionalProperties": true,
+      "properties": {
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "const": "TODO_CLINICIAN",
+              "enum": [
+                "TODO_CLINICIAN"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Value"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "const": "TODO_CLINICIAN",
+              "enum": [
+                "TODO_CLINICIAN"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Unit"
+        },
+        "comparator": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Comparator"
+            },
+            {
+              "const": "TODO_CLINICIAN",
+              "enum": [
+                "TODO_CLINICIAN"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Comparator"
+        }
+      },
+      "required": [
+        "value",
+        "unit",
+        "comparator"
+      ],
+      "title": "CatalogTarget",
+      "type": "object"
+    },
+    "CheckMethod": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "title": "Channel",
+          "type": "string"
+        },
+        "question_id": {
+          "title": "Question Id",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "cadence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Cadence"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Cadence"
+        },
+        "example_question": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Example Question"
+        },
+        "answer_options": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Answer Options"
+        },
+        "objective_source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Objective Source"
+        },
+        "secondary_question_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Secondary Question Id"
+        },
+        "secondary_cadence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Cadence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "channel",
+        "question_id",
+        "description",
+        "cadence"
+      ],
+      "title": "CheckMethod",
+      "type": "object"
+    },
+    "Comparator": {
+      "enum": [
+        ">=",
+        "<="
+      ],
+      "title": "Comparator",
+      "type": "string"
+    },
+    "MetricType": {
+      "enum": [
+        "frequency",
+        "amount",
+        "binary",
+        "measurement"
+      ],
+      "title": "MetricType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One row of catalog/actions.yaml. extra=\"forbid\" so a typo'd key in\nthe YAML fails loudly instead of being silently ignored.",
+  "properties": {
+    "catalog_code": {
+      "title": "Catalog Code",
+      "type": "string"
+    },
+    "name_ko": {
+      "title": "Name Ko",
+      "type": "string"
+    },
+    "domain": {
+      "title": "Domain",
+      "type": "string"
+    },
+    "guideline_refs": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Guideline Refs",
+      "type": "array"
+    },
+    "guideline_values": {
+      "title": "Guideline Values",
+      "type": "object"
+    },
+    "atomic_behaviors": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "const": "TODO_CLINICIAN",
+          "enum": [
+            "TODO_CLINICIAN"
+          ],
+          "type": "string"
+        }
+      ],
+      "title": "Atomic Behaviors"
+    },
+    "metric_type": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MetricType"
+        },
+        {
+          "const": "TODO_CLINICIAN",
+          "enum": [
+            "TODO_CLINICIAN"
+          ],
+          "type": "string"
+        }
+      ],
+      "title": "Metric Type"
+    },
+    "default_target": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CatalogTarget"
+        },
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/CatalogTarget"
+          },
+          "type": "object"
+        }
+      ],
+      "title": "Default Target"
+    },
+    "outcome_target": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CatalogTarget"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "check_method": {
+      "$ref": "#/$defs/CheckMethod"
+    },
+    "contraindication_rules": {
+      "items": {
+        "$ref": "#/$defs/CatalogRule"
+      },
+      "title": "Contraindication Rules",
+      "type": "array"
+    },
+    "flags": {
+      "items": {
+        "$ref": "#/$defs/CatalogRule"
+      },
+      "title": "Flags",
+      "type": "array"
+    },
+    "safety_rules": {
+      "items": {
+        "$ref": "#/$defs/CatalogRule"
+      },
+      "title": "Safety Rules",
+      "type": "array"
+    },
+    "adjustable_params": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Adjustable Params",
+      "type": "array"
+    }
+  },
+  "required": [
+    "catalog_code",
+    "name_ko",
+    "domain",
+    "guideline_refs",
+    "atomic_behaviors",
+    "metric_type",
+    "default_target",
+    "check_method"
+  ],
+  "title": "CatalogAction",
+  "type": "object"
+}

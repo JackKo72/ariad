@@ -1,0 +1,36 @@
+{
+  "visit_id": "V11",
+  "description": "지시가 두 segment에 걸침, 숫자를 한국어로 말함",
+  "synthetic": true,
+  "label_status": "draft_unreviewed",
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "그리고 운동은요,"
+    },
+    {
+      "id": "seg_002",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "일주일에 다섯 번, 한 번에 30분씩 빠르게 걸으세요."
+    },
+    {
+      "id": "seg_003",
+      "speaker": "B",
+      "role": "patient",
+      "text": "날씨가 추워지면 밖에 나가기 힘들 것 같아요."
+    }
+  ],
+  "expected_directives": [
+    {
+      "segment_ids": [
+        "seg_001",
+        "seg_002"
+      ],
+      "catalog_code": "P1",
+      "agreement": "hesitant"
+    }
+  ]
+}

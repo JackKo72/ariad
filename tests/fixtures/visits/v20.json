@@ -1,0 +1,48 @@
+{
+  "visit_id": "V20",
+  "description": "가당음료, 보호자 응답, 키워드 없는 후속 지시",
+  "synthetic": true,
+  "label_status": "draft_unreviewed",
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "탄산음료는 하루에 한 캔도 안 드시는 게 좋아요."
+    },
+    {
+      "id": "seg_002",
+      "speaker": "C",
+      "role": "guardian",
+      "text": "아버지가 콜라를 너무 좋아하셔서 걱정이에요."
+    },
+    {
+      "id": "seg_003",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "집에 사 두지 마세요."
+    },
+    {
+      "id": "seg_004",
+      "speaker": "C",
+      "role": "guardian",
+      "text": "네, 그렇게 할게요."
+    }
+  ],
+  "expected_directives": [
+    {
+      "segment_ids": [
+        "seg_001"
+      ],
+      "catalog_code": "D5",
+      "agreement": "hesitant"
+    },
+    {
+      "segment_ids": [
+        "seg_003"
+      ],
+      "catalog_code": "D5",
+      "agreement": "agreed"
+    }
+  ]
+}

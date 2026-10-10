@@ -1,0 +1,29 @@
+{
+  "visit_id": "V09",
+  "description": "호흡 운동, 의욕 저하",
+  "synthetic": true,
+  "label_status": "draft_unreviewed",
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "하루에 한 번 5분씩 호흡 운동을 해보세요."
+    },
+    {
+      "id": "seg_002",
+      "speaker": "B",
+      "role": "patient",
+      "text": "요즘 의욕이 없어서 잘 될지 모르겠어요."
+    }
+  ],
+  "expected_directives": [
+    {
+      "segment_ids": [
+        "seg_001"
+      ],
+      "catalog_code": "M1",
+      "agreement": "hesitant"
+    }
+  ]
+}

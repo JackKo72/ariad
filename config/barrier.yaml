@@ -1,0 +1,22 @@
+# ARIAD stage 2 미시행 사유 분류 설정 (docs/ARIAD_stage2_design.md Part 3-3·3-4, Step 5).
+config_version: "0.1.0"
+
+# Part 3-4: 신뢰도 < 0.7이면 확인 질문 1개 추가
+min_confidence: 0.7
+
+# Part 3-3 범주 이름과 기본 대응 (설계 표 그대로). 리포트·확인 질문에 쓴다.
+codes:
+  C-PHY: { label_ko: 신체 능력, default_response: "대체 행동 제안, 재활 의뢰 플래그" }
+  C-PSY: { label_ko: 인지·지식, default_response: "알림 시간 조정, 쉬운 설명·그림, 보호자 경로" }
+  O-PHY: { label_ko: 물리적 환경·자원, default_response: "실내 대안, 기기 대여 안내" }
+  O-SOC: { label_ko: 사회적 환경, default_response: "조리자·가족 대상 메시지" }
+  M-REF: { label_ko: 신념·동기, default_response: "의료진 설명 요청 플래그" }
+  M-AUT: { label_ko: 습관·갈망, default_response: "금연클리닉·약물 연계" }
+  M-EMO: { label_ko: 정서, default_response: "PHQ-2 선별 → 의료진 알림" }
+  MED: { label_ko: 의학적 사건, default_response: "계획 일시정지, 필요 시 의료진 알림" }
+  PLAN: { label_ko: 계획 자체의 문제, default_response: "ARIAD 1단계 품질 피드백으로도 기록" }
+  MEAS: { label_ko: 측정·응답 문제, default_response: "기술 지원, 응답 채널 변경" }
+
+# 신뢰도가 낮을 때 보내는 확인 질문. {label_ko}는 위 범주 이름. 문구 검토 필요.
+follow_up_template: "어려우셨던 이유가 '{label_ko}' 쪽에 가까운가요? 아니면 다른 이유가 있으셨나요?"
+unclassified_follow_up: "어려우셨던 이유를 조금 더 자세히 알려주실 수 있을까요?"

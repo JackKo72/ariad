@@ -1,0 +1,65 @@
+{
+  "$defs": {
+    "AdherenceLabel": {
+      "description": "Part 3-2 judgment labels. Thresholds live in config/judge.yaml (Step 4).",
+      "enum": [
+        "adherent",
+        "partial",
+        "non_adherent",
+        "indeterminate"
+      ],
+      "title": "AdherenceLabel",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "action_id": {
+      "title": "Action Id",
+      "type": "string"
+    },
+    "plan_id": {
+      "title": "Plan Id",
+      "type": "string"
+    },
+    "week": {
+      "title": "Week",
+      "type": "string"
+    },
+    "rate": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rate"
+    },
+    "response_rate": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Response Rate",
+      "type": "number"
+    },
+    "label": {
+      "$ref": "#/$defs/AdherenceLabel"
+    },
+    "rule_version": {
+      "title": "Rule Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "action_id",
+    "plan_id",
+    "week",
+    "response_rate",
+    "label",
+    "rule_version"
+  ],
+  "title": "AdherenceJudgment",
+  "type": "object"
+}

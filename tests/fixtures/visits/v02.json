@@ -1,0 +1,93 @@
+{
+  "visit_id": "V02",
+  "description": "시나리오 B: 55세 여성, T2DM+HTN, 사무직",
+  "synthetic": true,
+  "label_status": "draft_unreviewed",
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "회사에서 오래 앉아 계시면 30분마다 일어나서 3분씩 움직이세요."
+    },
+    {
+      "id": "seg_002",
+      "speaker": "B",
+      "role": "patient",
+      "text": "회의가 많아서 쉽지 않을 것 같아요."
+    },
+    {
+      "id": "seg_003",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "퇴근하고 주 5일 30분 걸으세요."
+    },
+    {
+      "id": "seg_004",
+      "speaker": "B",
+      "role": "patient",
+      "text": "네, 해볼게요."
+    },
+    {
+      "id": "seg_005",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "단 음료는 끊으시고요."
+    },
+    {
+      "id": "seg_006",
+      "speaker": "B",
+      "role": "patient",
+      "text": "커피믹스도 안 되나요?"
+    },
+    {
+      "id": "seg_007",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "네, 커피믹스도 줄이세요. 아침 공복 혈당은 매일 재세요."
+    },
+    {
+      "id": "seg_008",
+      "speaker": "B",
+      "role": "patient",
+      "text": "알겠습니다."
+    }
+  ],
+  "expected_directives": [
+    {
+      "segment_ids": [
+        "seg_001"
+      ],
+      "catalog_code": "P3",
+      "agreement": "hesitant"
+    },
+    {
+      "segment_ids": [
+        "seg_003"
+      ],
+      "catalog_code": "P1",
+      "agreement": "agreed"
+    },
+    {
+      "segment_ids": [
+        "seg_005"
+      ],
+      "catalog_code": "D5",
+      "agreement": "unclear"
+    },
+    {
+      "segment_ids": [
+        "seg_007"
+      ],
+      "catalog_code": "D5",
+      "agreement": "agreed"
+    },
+    {
+      "segment_ids": [
+        "seg_007"
+      ],
+      "catalog_code": "H2",
+      "agreement": "agreed"
+    }
+  ]
+}
