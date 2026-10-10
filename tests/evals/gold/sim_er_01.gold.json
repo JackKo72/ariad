@@ -346,9 +346,14 @@
    "must_match": [
     [
      "안경",
-     "핸드폰"
+     "핸드폰",
+     "이름대기",
+     "이름 대기",
+     "naming",
+     "물건 이름"
     ]
-   ]
+   ],
+   "note_gold": "2026-10-10: widened -- the item means 'naming test was done'; requiring the test objects missed outputs that named the test correctly"
   },
   {
    "id": "exam_repetition",

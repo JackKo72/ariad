@@ -59,6 +59,7 @@ from eval_clinical_enrichment import _build_provider  # noqa: E402
 
 from app.domain.models import DiarizedSegment  # noqa: E402
 from app.eval.structure_eval import score_structure  # noqa: E402
+from app.observability import StageTimer  # noqa: E402
 from app.pipeline.enrichment import enrich_clinical_findings  # noqa: E402
 from app.pipeline.review_checklist import build_review_checklist  # noqa: E402
 from app.pipeline.structure import structure_encounter  # noqa: E402
@@ -110,12 +111,15 @@ def main() -> int:
     case = gold.get("case", gold_path.stem)
     runs = []
     for k in range(1, repeat + 1):
+        timer = StageTimer()  # the real provider records token usage per call
         start = time.perf_counter()
-        enrichment = enrich_clinical_findings(segments, provider)
+        enrichment = enrich_clinical_findings(segments, provider, stage_timer=timer)
         enrichment_s = time.perf_counter() - start
         start = time.perf_counter()
-        structure = structure_encounter(text, provider, clinical_frame=pipeline_frame)
+        structure = structure_encounter(text, provider, stage_timer=timer, clinical_frame=pipeline_frame)
         structure_s = time.perf_counter() - start
+        tokens_in = sum(r.input_tokens or 0 for r in timer.records)
+        tokens_out = sum(r.output_tokens or 0 for r in timer.records)
         output = {"enrichment": enrichment.model_dump(), "structure": structure.model_dump()}
         # Next to the TRANSCRIPT (gitignored data/), never next to the gold --
         # gold lives in the repo (tests/evals/gold/) and outputs quote transcript text.
@@ -124,7 +128,8 @@ def main() -> int:
         out_path.write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
         runs.append({"score": score_structure(output, gold, text, frames=frames), "structure": structure,
                      "violations": len(enrichment.validator_violations), "enrichment_s": enrichment_s,
-                     "structure_s": structure_s, "out_path": out_path})
+                     "structure_s": structure_s, "out_path": out_path,
+                     "tokens_in": tokens_in, "tokens_out": tokens_out})
 
     def spread(values: list[float], fmt: str) -> str:
         if not values:
@@ -162,6 +167,8 @@ def main() -> int:
         + spread([float(len(build_review_checklist(r["structure"]))) for r in runs], "{:.1f}" if repeat > 1 else "{:.0f}"))
     enrichment_s = sum(r["enrichment_s"] for r in runs) / repeat
     structure_s = sum(r["structure_s"] for r in runs) / repeat
+    tokens_in = sum(r["tokens_in"] for r in runs) / repeat
+    tokens_out = sum(r["tokens_out"] for r in runs) / repeat
     score = runs[-1]["score"]
     out_path = runs[-1]["out_path"]
     notes = [item for item in gold["items"] if item.get("note")]
@@ -170,6 +177,9 @@ def main() -> int:
         for item in notes:
             print(f"  [ ] {item['id']}: {item['note']}")
     print(f"latency{' (mean)' if repeat > 1 else ''}: enrichment {enrichment_s:.1f}s + structure {structure_s:.1f}s = {enrichment_s + structure_s:.1f}s")
+    if tokens_in or tokens_out:
+        print(f"tokens per encounter{' (mean)' if repeat > 1 else ''}: input {tokens_in:,.0f} + output {tokens_out:,.0f} "
+              "(enrichment + structure; multiply by your provider's current per-token price for cost)")
     if score.gold_errors:
         print("gold check FAILED (fix the gold before reading the scores):")
         for error in score.gold_errors:
