@@ -32,6 +32,10 @@ there is not a hit (its sections still list it, so it shows as
 "miss  structure.term_candidates"). Leak tiers and frame_term still look
 at every section, term candidates included.
 
+Frame must-check items (tasks/14) count for NO tier: their labels are the
+clinician's checklist template ("뇌파", shown as "not mentioned"), not
+model output, and their quotes are verbatim transcript.
+
 Pure -- see apps/api/tests/test_structure_eval.py.
 """
 
@@ -108,9 +112,12 @@ class StructureScore:
 
 
 TERM_CANDIDATE_SECTION = "term_candidates"
+FRAME_CHECK_SECTION = "frame_checks"
 
 
 def _counts_for(tier: str, section: str) -> bool:
+    if section.endswith(FRAME_CHECK_SECTION):
+        return False
     return tier != "conversation" or not section.endswith(TERM_CANDIDATE_SECTION)
 
 
@@ -169,6 +176,8 @@ def diagnose_miss(output: dict[str, Any], item: dict[str, Any]) -> MissDiagnosis
     anywhere: set[int] = set()
     in_quote = False
     for section, text in output_items(output):
+        if section.endswith(FRAME_CHECK_SECTION):
+            continue
         matched = _groups_matched(text, must_match)
         if not _counts_for("conversation", section):
             in_quote = in_quote or len(matched) == len(must_match)

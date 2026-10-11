@@ -148,3 +148,24 @@
 | `conservative` | 보존 치료 | 약, 물리치료, 운동, 자세 |
 | `intervention` | 주사·수술 기준 | 주사 치료나 수술을 고려하는 경우와 의뢰 |
 | `return_precautions` | 다시 와야 할 증상 | 어떤 증상이 생기면 바로 와야 하는지 |
+
+## 측정 1 (gpt-4o, REPEAT=3)과 채점 수정
+
+- context_only 누출이 ER 3, ICU 3으로 나왔지만 실제 누출이 아니었다. 화면에 "언급 안 됨"으로
+  보여 주는 목록 label("정맥 혈전용해제 결정", "뇌파")을 채점기가 모델 출력으로 읽었다.
+- 녹음 내용 recall(ER 75%, ICU 93%)도 부풀려졌다. frame_checks의 근거 구절은 대화를 그대로
+  옮긴 것이라 키워드가 들어 있다.
+- 수정: frame_checks 칸은 어떤 등급의 채점에도 쓰지 않는다. 어디서 찾았는지 표시만 한다.
+- `make diagnose-structure`가 저장된 출력을 현재 채점기로 다시 채점한다(recall, 누출). API를
+  다시 부르지 않는다.
+- 항목별 결과는 3번 실행에서 모두 같았다(temperature 0). 맞는지는 의료진 판단이 필요하다.
+
+| ER (stroke) 언급됨 3/3 | ER 언급됨 0/3 |
+|---|---|
+| deficit, vessel_occlusion, core_perfusion, thrombectomy, antithrombotic_plan, etiology_workup, worsening, disposition, procedure_consent | onset_time, hemorrhage, thrombolysis, prior_antithrombotic, blood_pressure, swallow |
+
+| ICU (seizure) 언급됨 3/3 | ICU 언급됨 0/3 |
+|---|---|
+| provoking, acute_treatment, airway, labs, cause | semiology, duration_count, recovery, history, adherence, imaging, eeg, asm_plan, safety, rescue |
+
+- 지연: ER 26.9s, ICU 24.0s. frame_checklist 호출은 3.6-3.8s다.

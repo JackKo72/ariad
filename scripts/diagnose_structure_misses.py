@@ -5,6 +5,9 @@ tasks/13-d: for each conversation item an eval run missed, says whether the
 summary paraphrased it (some keyword groups in one item), split it across
 items, or left it out -- from the already-saved eval outputs, no API call.
 
+It also re-scores each saved output with the current scorer (recall and
+leaks), so a scorer fix can be checked without paying for new runs.
+
 Prints only gold keywords (already in the repo) and section names, never
 output or transcript text, so it is safe on real recordings.
 """
@@ -40,12 +43,15 @@ def main() -> int:
 
     items = {item["id"]: item for item in gold["items"] if item["tier"] == "conversation"}
     kinds: dict[str, list[str]] = {}
+    summaries = []
     print(f"{'item':<32}{'run':<6}{'kind':<9}{'quote':<7}{'best section':<28}keyword groups")
     print("-" * 110)
     for path in outputs:
         output = json.loads(Path(path).read_text(encoding="utf-8"))
         run = Path(path).name.split(".")[-3]  # x.provider.runK.output.json -> runK
-        for result in score_structure(output, gold, "").items:
+        score = score_structure(output, gold, "")
+        summaries.append((run, score))
+        for result in score.items:
             if result.id not in items or result.hit:
                 continue
             item = items[result.id]
@@ -60,6 +66,11 @@ def main() -> int:
                           ("omitted", "no group in any summary item")):
         print(f"{kind:<8} {len(kinds.get(kind, [])):>3}  {explain}")
     print("quote=yes: the whole item is in a term-candidate quote, so it was said but not summarised.")
+    print("\nre-scored with the current scorer (frame-term recall needs FRAMES -- see make eval-structure):")
+    for run, score in summaries:
+        recall = "-" if score.conversation_recall is None else f"{score.conversation_recall:.0%}"
+        print(f"  {run}: conversation recall {recall}  |  context_only leaks {score.context_only_leaks or 0}"
+              f"  |  must_exclude leaks {score.excluded_leaks or 0}")
     return 0
 
 

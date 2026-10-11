@@ -80,6 +80,19 @@ def test_diagnose_quote_only_does_not_count_as_summary():
     assert (d.kind, d.in_quote) == ("omitted", True)
 
 
+def test_frame_check_labels_and_quotes_count_for_no_tier():
+    # tasks/14: "뇌파 (not mentioned)" is the checklist template, not a leaked test name
+    gold = {"items": [{"id": "ctx_eeg", "tier": "context_only", "must_match": [["뇌파"]]},
+                      {"id": "dialysis", "tier": "conversation", "must_match": [["투석"]]}]}
+    output = {"structure": {"frame_checks": [
+        {"id": "eeg", "label": "뇌파", "status": "not_mentioned", "spoken_text": ""},
+        {"id": "x", "label": "신장", "status": "mentioned", "spoken_text": "투석을 해야 할 수도"}]}}
+    score = score_structure(output, gold, INPUT)
+    assert score.context_only_leaks == [] and score.conversation_recall == 0.0
+    assert score.items[0].sections == ("structure.frame_checks",)  # still shown where it was found
+    assert diagnose_miss(output, gold["items"][1]).kind == "omitted"
+
+
 def test_must_exclude_hit_is_always_a_leak():
     gold = {"items": [{"id": "profanity", "tier": "must_exclude", "must_match": [["욕설"]]}]}
     output = {"plan": [{"text": "욕설 포함 문장"}]}
