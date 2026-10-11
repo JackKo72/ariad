@@ -10,7 +10,8 @@ measuring anything. This fails when any spoken_example of 3+ words appears
 1-2 word examples are standard term names ("내시경 초음파") and may
 legitimately occur anywhere. Quoted Korean examples in prompts/*.md are
 checked too, from 4 Hangul characters up -- a short prompt example
-("재워놨어요") can still hand the model an eval answer (tasks/12).
+("재워놨어요") can still hand the model an eval answer (tasks/12). Must-check
+list labels and look_for texts (prompts/frame_checks/, tasks/14) likewise.
 
 Reads gold from tests/evals/gold/, transcripts from DIR/<case>.transcript.json
 (gitignored data/). Prints only the overlapping vocabulary phrase.
@@ -25,6 +26,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FRAMES_DIR = REPO_ROOT / "prompts" / "frames"
+CHECKS_DIR = REPO_ROOT / "prompts" / "frame_checks"
 GOLD_DIR = REPO_ROOT / "tests" / "evals" / "gold"
 MIN_WORDS = 3
 PROMPTS_DIR = REPO_ROOT / "prompts"
@@ -38,6 +40,16 @@ def vocabulary_phrases(frames_dir: Path = FRAMES_DIR) -> list[tuple[str, str]]:
         for term in json.loads(path.read_text(encoding="utf-8")).get("terms", []):
             phrases += [(path.relative_to(frames_dir).as_posix(), ex) for ex in term["spoken_examples"]
                         if len(ex.split()) >= MIN_WORDS]
+    return phrases
+
+
+def check_list_phrases(checks_dir: Path = CHECKS_DIR) -> list[tuple[str, str]]:
+    """(file, text) for each must-check item's label and look_for (tasks/14)."""
+    phrases = []
+    for path in sorted(checks_dir.glob("*.json")):
+        for item in json.loads(path.read_text(encoding="utf-8"))["items"]:
+            phrases += [(f"frame_checks/{path.name}", text) for text in (item["label"], item["look_for"])
+                        if len(text.split()) >= MIN_WORDS]
     return phrases
 
 
@@ -60,7 +72,7 @@ def find_overlaps(phrases: list[tuple[str, str]], transcript_text: str) -> list[
 
 def main() -> int:
     data_dir = Path(os.environ.get("DIR", REPO_ROOT / "apps" / "api" / "data" / "annotations"))
-    phrases = vocabulary_phrases() + prompt_phrases()
+    phrases = vocabulary_phrases() + prompt_phrases() + check_list_phrases()
     failed = checked = 0
     for gold_path in sorted(GOLD_DIR.glob("*.gold.json")):
         gold = json.loads(gold_path.read_text(encoding="utf-8"))

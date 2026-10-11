@@ -1,0 +1,84 @@
+{
+  "frame": "seizure",
+  "label_ko": "경련/발작",
+  "version": "0.1.0",
+  "status": "draft",
+  "note": "tasks/14 DRAFT for clinician review. Items are what this disease's encounter should cover; the frame_checklist call marks each as mentioned (with a verbatim quote) or not_mentioned. Written from general clinical practice, NOT from any recording (tasks/11 eval split).",
+  "items": [
+    {
+      "id": "semiology",
+      "label": "발작 양상",
+      "look_for": "어떤 모습이었는지(전신·한쪽, 의식 소실, 눈 돌아감, 굳음·떨림)"
+    },
+    {
+      "id": "duration_count",
+      "label": "지속 시간·횟수",
+      "look_for": "얼마나 오래, 몇 번 했는지, 사이에 깨어났는지"
+    },
+    {
+      "id": "recovery",
+      "label": "발작 후 회복",
+      "look_for": "의식이 돌아왔는지, 발작 후 마비·혼동이 있는지"
+    },
+    {
+      "id": "history",
+      "label": "첫 발작 여부·과거력",
+      "look_for": "처음인지, 기존 뇌전증이나 이전 발작이 있는지"
+    },
+    {
+      "id": "provoking",
+      "label": "유발 요인",
+      "look_for": "수면 부족, 음주, 약 중단, 발열, 혈당·전해질 이상 등"
+    },
+    {
+      "id": "adherence",
+      "label": "기존 항경련제 복용",
+      "look_for": "먹던 항경련제와 빠뜨림 여부"
+    },
+    {
+      "id": "acute_treatment",
+      "label": "급성기 치료와 반응",
+      "look_for": "발작을 멈추려고 쓴 약과 효과"
+    },
+    {
+      "id": "airway",
+      "label": "기도·호흡 관리",
+      "look_for": "산소, 삽관, 인공호흡기 여부"
+    },
+    {
+      "id": "labs",
+      "label": "혈액검사",
+      "look_for": "혈당, 전해질, 약물 농도, 감염 수치"
+    },
+    {
+      "id": "imaging",
+      "label": "뇌 영상",
+      "look_for": "CT·MRI 계획 또는 결과"
+    },
+    {
+      "id": "eeg",
+      "label": "뇌파",
+      "look_for": "뇌파 검사 계획 또는 결과"
+    },
+    {
+      "id": "asm_plan",
+      "label": "항경련제 계획",
+      "look_for": "약 시작, 추가, 용량 변경"
+    },
+    {
+      "id": "cause",
+      "label": "원인 감별",
+      "look_for": "발작 원인에 대한 설명이나 감별"
+    },
+    {
+      "id": "safety",
+      "label": "안전 교육",
+      "look_for": "운전, 수영, 높은 곳, 혼자 목욕 등 주의"
+    },
+    {
+      "id": "rescue",
+      "label": "재발 시 대처",
+      "look_for": "다시 발작하면 어떻게 하고 언제 응급실에 오는지"
+    }
+  ]
+}

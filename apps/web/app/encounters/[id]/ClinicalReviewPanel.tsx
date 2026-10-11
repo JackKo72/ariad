@@ -92,6 +92,22 @@ export default function ClinicalReviewPanel({
           .map((c) => `"${c.spoken_text}" → ${c.term}`)}
       />
 
+      {structure.frame_checks.length > 0 && (
+        <div data-testid="slot-frame-checks">
+          <strong>
+            진료 틀 필수 항목 ({structure.frame_checks.filter((c) => c.status === "mentioned").length}/
+            {structure.frame_checks.length} 언급됨, 정보용·승인과 무관)
+          </strong>
+          <ul className="field-list">
+            {structure.frame_checks.map((c) => (
+              <li key={c.id} data-testid={`frame-check-${c.id}`} data-status={c.status}>
+                {c.status === "mentioned" ? `✓ ${c.label}: "${c.spoken_text}"` : `– ${c.label} (언급 안 됨)`}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {checklist.length > 0 && (
         <div className="notice-box" data-testid="review-checklist">
           <strong>의사 검수 체크리스트 ({checklist.filter((i) => checkedIds.has(i.id)).length}/{checklist.length})</strong>

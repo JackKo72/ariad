@@ -1,0 +1,84 @@
+{
+  "frame": "stroke",
+  "label_ko": "급성 뇌졸중",
+  "version": "0.1.0",
+  "status": "draft",
+  "note": "tasks/14 DRAFT for clinician review. Items are what this disease's encounter should cover; the frame_checklist call marks each as mentioned (with a verbatim quote) or not_mentioned. Written from general clinical practice, NOT from any recording (tasks/11 eval split).",
+  "items": [
+    {
+      "id": "onset_time",
+      "label": "증상 시작 시각 / 마지막 정상 시각",
+      "look_for": "언제 증상이 시작됐는지, 또는 마지막으로 괜찮았던 때"
+    },
+    {
+      "id": "deficit",
+      "label": "주 증상과 신경학적 결손",
+      "look_for": "편측 마비, 말·언어 장애, 시야, 감각, 어지럼 등 어떤 증상이 어느 쪽에 있는지와 정도(NIHSS 포함)"
+    },
+    {
+      "id": "hemorrhage",
+      "label": "뇌출혈 여부",
+      "look_for": "뇌 영상에서 출혈이 있는지 없는지"
+    },
+    {
+      "id": "vessel_occlusion",
+      "label": "혈관 폐색 여부와 부위",
+      "look_for": "혈관 영상에서 막힌 혈관이 있는지, 어느 혈관인지"
+    },
+    {
+      "id": "core_perfusion",
+      "label": "경색 범위·관류 상태",
+      "look_for": "이미 손상된 범위, 혈류가 떨어진 범위, 살릴 수 있는 범위에 대한 설명"
+    },
+    {
+      "id": "thrombolysis",
+      "label": "정맥 혈전용해제 결정",
+      "look_for": "혈전용해제를 쓰는지, 쓰지 않는다면 이유(시간, 금기 등)"
+    },
+    {
+      "id": "thrombectomy",
+      "label": "혈관내 혈전제거술 결정",
+      "look_for": "시술을 하는지, 하지 않는지, 조건부인지와 이유"
+    },
+    {
+      "id": "prior_antithrombotic",
+      "label": "기존 항혈전제 복용",
+      "look_for": "원래 먹던 항혈소판제·항응고제가 있는지"
+    },
+    {
+      "id": "antithrombotic_plan",
+      "label": "항혈소판제·항응고제 계획",
+      "look_for": "앞으로 쓸 항혈전제, 보류, 변경과 이유"
+    },
+    {
+      "id": "blood_pressure",
+      "label": "혈압 목표·조절",
+      "look_for": "혈압을 어느 정도로 유지하는지, 혈압약 조절"
+    },
+    {
+      "id": "swallow",
+      "label": "삼킴 평가·금식",
+      "look_for": "삼킴 검사 전 금식, 식사 시작 시점"
+    },
+    {
+      "id": "etiology_workup",
+      "label": "원인 검사 계획",
+      "look_for": "심전도 감시, 심장 초음파, 혈관 검사 등 원인을 찾는 검사"
+    },
+    {
+      "id": "worsening",
+      "label": "악화 가능성과 대응",
+      "look_for": "증상이 나빠질 수 있다는 설명과 나빠지면 어떻게 하는지"
+    },
+    {
+      "id": "disposition",
+      "label": "입원 병동",
+      "look_for": "뇌졸중 집중치료실, 중환자실, 일반 병동 중 어디로 가는지"
+    },
+    {
+      "id": "procedure_consent",
+      "label": "시술·조영제 위험 설명과 동의",
+      "look_for": "시술이나 조영제의 위험 설명, 동의서"
+    }
+  ]
+}

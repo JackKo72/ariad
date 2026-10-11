@@ -6,9 +6,15 @@ from typing import Any, Optional
 
 from app.domain.models import ClinicalFrameId, ClinicalStructure, TermCandidate, TermCandidateList
 from app.observability import StageTimer
+from app.pipeline.frame_checks import check_frame_items
 from app.pipeline.frames import load_frame, validate_term_candidates
 from app.providers.base import LLMProvider
-from app.providers.mock import PROMPT_VERSION_COVERAGE, PROMPT_VERSION_STRUCTURE, PROMPT_VERSION_TERM_CANDIDATES
+from app.providers.mock import (
+    PROMPT_VERSION_COVERAGE,
+    PROMPT_VERSION_FRAME_CHECKLIST,
+    PROMPT_VERSION_STRUCTURE,
+    PROMPT_VERSION_TERM_CANDIDATES,
+)
 
 
 def structure_encounter(
@@ -27,17 +33,19 @@ def structure_encounter(
     suspected-diagnosis candidates in 3/3 runs.
 
     tasks/13-e: a coverage call between them adds what the structure call
-    left out (see add_missed_facts)."""
+    left out (see add_missed_facts).
+
+    tasks/14: with a frame that has a must-check list, a last call marks
+    which list items the encounter covered (app/pipeline/frame_checks.py)."""
     raw = llm_provider.generate_json("structure_transcript", {"transcript_text": transcript_text},
                                      stage_timer=stage_timer)
     structure = ClinicalStructure.model_validate(raw)
     structure = add_missed_facts(transcript_text, structure, llm_provider, stage_timer)
-    candidates = (
-        extract_term_candidates(transcript_text, llm_provider, clinical_frame, stage_timer)
-        if clinical_frame is not None
-        else []
-    )
-    return structure.model_copy(update={"term_candidates": candidates})
+    candidates, checks = [], []
+    if clinical_frame is not None:
+        candidates = extract_term_candidates(transcript_text, llm_provider, clinical_frame, stage_timer)
+        checks = check_frame_items(transcript_text, llm_provider, clinical_frame, stage_timer)
+    return structure.model_copy(update={"term_candidates": candidates, "frame_checks": checks})
 
 
 def add_missed_facts(
@@ -51,16 +59,18 @@ def add_missed_facts(
     of misses had no keyword in any summary item, the same items in 3/3
     runs, despite slot rules for them). A second call sees the transcript
     and the structure and returns only what is missing, in the same schema;
-    it is appended. Term candidates are not this call's job and are dropped."""
+    it is appended. Term candidates and frame checks are not this call's job
+    and are dropped."""
     raw = llm_provider.generate_json(
         "coverage_check",
-        {"transcript_text": transcript_text, "structure": structure.model_dump(exclude={"term_candidates"})},
+        {"transcript_text": transcript_text,
+         "structure": structure.model_dump(exclude={"term_candidates", "frame_checks"})},
         stage_timer=stage_timer,
     )
     missed = ClinicalStructure.model_validate(raw)
     update = {}
     for field in ClinicalStructure.model_fields:
-        if field == "term_candidates":
+        if field in ("term_candidates", "frame_checks"):
             continue
         existing = getattr(structure, field)
         seen = {_dedup_key(item) for item in existing}
@@ -98,5 +108,6 @@ def extract_term_candidates(
                                     transcript_text).term_candidates
 
 
-# All three prompts shape the stored structure, so all versions are recorded.
-PROMPT_VERSION = f"{PROMPT_VERSION_STRUCTURE}+{PROMPT_VERSION_COVERAGE}+{PROMPT_VERSION_TERM_CANDIDATES}"
+# Every prompt that shapes the stored structure is recorded.
+PROMPT_VERSION = "+".join([PROMPT_VERSION_STRUCTURE, PROMPT_VERSION_COVERAGE, PROMPT_VERSION_TERM_CANDIDATES,
+                           PROMPT_VERSION_FRAME_CHECKLIST])

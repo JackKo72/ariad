@@ -64,6 +64,7 @@ tasks/10_CLINICAL_FRAME_AND_REVIEW.md:
 - `POST /process`는 선택적 body `{"clinical_frame": "stroke" | "seizure" | null}`를 받고, 고른 틀을 version의 `clinical_frame`에 기록한다.
 - `GET /encounters/{id}`는 현재 draft에서 계산한 `review_checklist`를 반환한다.
 - `POST /approve`는 `acknowledged_review_item_ids`에 체크리스트의 모든 id가 없으면 `REVIEW_CHECKLIST_INCOMPLETE`(409)로 거부한다. 항목 id는 내용 hash라서, 항목을 수정하면 이전 확인은 무효가 된다.
+- tasks/14: `structure.frame_checks`(진료 틀 필수 항목 언급 여부)는 정보용이며 체크리스트와 승인 조건에 들어가지 않는다.
 
 ## 5. Core pipeline functions
 

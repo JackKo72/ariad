@@ -1,5 +1,5 @@
 # Prompt ID: structure_transcript
-Version: 0.6.0
+Version: 0.6.1
 
 ## Role
 
@@ -57,6 +57,7 @@ Version: 0.6.0
 ## term_candidates
 
 - `term_candidates`는 항상 빈 목록으로 둔다. 진료 틀 용어 후보는 별도 단계(prompt `term_candidates`)가 채운다 (tasks/13-c).
+- `frame_checks`도 항상 빈 목록으로 둔다. 별도 단계(prompt `frame_checklist`)가 채운다 (tasks/14).
 
 ## Output
 
@@ -78,6 +79,7 @@ JSON schema가 요구하는 필드만 반환한다.
   "disposition": [{"text": "", "source_segment_ids": []}],
   "prognosis_and_goals": [{"text": "", "source_segment_ids": []}],
   "family_statements": [{"text": "", "speaker_role": "guardian|patient|unknown", "kind": "report|question|request", "source_segment_ids": []}],
-  "term_candidates": [{"spoken_text": "", "term": "", "frame": "", "source_segment_ids": [], "risk": "inference|exam"}]
+  "term_candidates": [{"spoken_text": "", "term": "", "frame": "", "source_segment_ids": [], "risk": "inference|exam"}],
+  "frame_checks": []
 }
 ```

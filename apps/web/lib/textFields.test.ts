@@ -39,6 +39,7 @@ describe("buildStructureFromText", () => {
     prognosis_and_goals: [],
     family_statements: [],
     term_candidates: [],
+    frame_checks: [],
   };
 
   it("preserves certainty/source ids for lines that still exist", () => {
@@ -118,10 +119,14 @@ describe("buildStructureFromText keeps tasks/10 slots", () => {
       prognosis_and_goals: [],
       family_statements: [],
       term_candidates: [],
+      frame_checks: [
+        { id: "onset_time", label: "증상 시작 시각", status: "mentioned", spoken_text: "아침", source_segment_ids: [] },
+      ],
     };
     const result = buildStructureFromText(original, "새 문제");
     expect(result.decisions).toEqual(original.decisions);
     expect(result.treatments_given).toEqual(original.treatments_given);
     expect(result.findings).toEqual(original.findings);
+    expect(result.frame_checks).toEqual(original.frame_checks);
   });
 });

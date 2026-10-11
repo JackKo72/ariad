@@ -1,0 +1,84 @@
+{
+  "frame": "movement",
+  "label_ko": "파킨슨병",
+  "version": "0.1.0",
+  "status": "draft",
+  "note": "tasks/14 DRAFT for clinician review. Items are what this disease's encounter should cover; the frame_checklist call marks each as mentioned (with a verbatim quote) or not_mentioned. Written from general clinical practice, NOT from any recording (tasks/11 eval split).",
+  "items": [
+    {
+      "id": "motor",
+      "label": "운동 증상",
+      "look_for": "떨림, 느려짐, 뻣뻣함, 보행·자세 이상"
+    },
+    {
+      "id": "onset_side",
+      "label": "시작 부위·시기·진행",
+      "look_for": "어느 쪽에서 언제 시작해 어떻게 진행했는지"
+    },
+    {
+      "id": "med_response",
+      "label": "약 효과",
+      "look_for": "레보도파 등 약을 먹으면 좋아지는지"
+    },
+    {
+      "id": "fluctuation",
+      "label": "약효 변동",
+      "look_for": "약효가 빨리 떨어지는지, 좋을 때와 나쁠 때의 변동"
+    },
+    {
+      "id": "dyskinesia",
+      "label": "이상운동증",
+      "look_for": "약 먹은 뒤 몸이 저절로 움직이는지"
+    },
+    {
+      "id": "falls_freezing",
+      "label": "낙상·보행 동결",
+      "look_for": "넘어짐, 발이 붙는 느낌"
+    },
+    {
+      "id": "cognition_psychosis",
+      "label": "인지 저하·환각",
+      "look_for": "기억력 저하, 헛것이 보임, 망상"
+    },
+    {
+      "id": "mood_sleep",
+      "label": "기분·수면",
+      "look_for": "우울, 불안, 잠꼬대·꿈 행동, 낮 졸림"
+    },
+    {
+      "id": "autonomic",
+      "label": "자율신경 증상",
+      "look_for": "일어설 때 어지럼, 변비, 소변 문제"
+    },
+    {
+      "id": "swallow_speech",
+      "label": "삼킴·말하기",
+      "look_for": "사레, 목소리 작아짐, 발음"
+    },
+    {
+      "id": "impulse_control",
+      "label": "충동조절 문제",
+      "look_for": "도박, 쇼핑, 과식 등 충동 행동 (해당 약 복용 시)"
+    },
+    {
+      "id": "med_plan",
+      "label": "약 계획",
+      "look_for": "약 종류·용량·복용 시간 변경"
+    },
+    {
+      "id": "atypical",
+      "label": "비전형 소견",
+      "look_for": "초기 낙상, 빠른 진행, 약에 반응 없음 등 다른 질환을 의심할 소견"
+    },
+    {
+      "id": "exercise_rehab",
+      "label": "운동·재활",
+      "look_for": "운동, 재활 치료 권유"
+    },
+    {
+      "id": "function_caregiver",
+      "label": "일상 기능·보호자",
+      "look_for": "혼자 할 수 있는 일, 보호자 도움"
+    }
+  ]
+}

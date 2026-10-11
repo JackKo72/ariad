@@ -1,0 +1,79 @@
+{
+  "frame": "spine",
+  "label_ko": "신경뿌리병증 (radiculopathy)",
+  "version": "0.1.0",
+  "status": "draft",
+  "note": "tasks/14 DRAFT for clinician review. Items are what this disease's encounter should cover; the frame_checklist call marks each as mentioned (with a verbatim quote) or not_mentioned. Written from general clinical practice, NOT from any recording (tasks/11 eval split).",
+  "items": [
+    {
+      "id": "pain_distribution",
+      "label": "통증·저림 부위와 방사",
+      "look_for": "어디가 아프고 저린지, 팔·다리로 뻗치는지, 어느 쪽인지"
+    },
+    {
+      "id": "onset_course",
+      "label": "시작·유발 동작·경과",
+      "look_for": "언제, 무엇을 하다 시작했고 어떻게 변했는지"
+    },
+    {
+      "id": "weakness",
+      "label": "근력 저하",
+      "look_for": "힘이 빠지는 부위"
+    },
+    {
+      "id": "sensory",
+      "label": "감각 저하",
+      "look_for": "감각이 무딘 부위"
+    },
+    {
+      "id": "reflex",
+      "label": "반사 검사",
+      "look_for": "힘줄 반사 검사 결과"
+    },
+    {
+      "id": "provocative_test",
+      "label": "유발 검사",
+      "look_for": "다리 들어 올리기, 목 젖히기 등으로 통증이 재현되는지"
+    },
+    {
+      "id": "bowel_bladder",
+      "label": "대소변 장애·회음부 감각",
+      "look_for": "소변·대변 문제, 엉덩이·회음부 감각 저하"
+    },
+    {
+      "id": "myelopathy",
+      "label": "척수 압박 징후",
+      "look_for": "보행 장애, 손 기능 저하, 양쪽 증상"
+    },
+    {
+      "id": "red_flags",
+      "label": "위험 신호",
+      "look_for": "암 병력, 발열, 체중 감소, 외상, 밤에 심한 통증"
+    },
+    {
+      "id": "imaging",
+      "label": "영상 검사",
+      "look_for": "MRI 등 계획 또는 결과"
+    },
+    {
+      "id": "electrodiagnosis",
+      "label": "신경전도·근전도 검사",
+      "look_for": "검사 계획 또는 결과"
+    },
+    {
+      "id": "conservative",
+      "label": "보존 치료",
+      "look_for": "약, 물리치료, 운동, 자세"
+    },
+    {
+      "id": "intervention",
+      "label": "주사·수술 기준",
+      "look_for": "주사 치료나 수술을 고려하는 경우와 의뢰"
+    },
+    {
+      "id": "return_precautions",
+      "label": "다시 와야 할 증상",
+      "look_for": "어떤 증상이 생기면 바로 와야 하는지"
+    }
+  ]
+}

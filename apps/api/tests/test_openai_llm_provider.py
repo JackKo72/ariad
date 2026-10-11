@@ -13,7 +13,13 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.domain.errors import LlmProviderFailed
-from app.domain.models import ClinicalEnrichment, ClinicalStructure, ExplanationDraft, TermCandidateList
+from app.domain.models import (
+    ClinicalEnrichment,
+    ClinicalStructure,
+    ExplanationDraft,
+    FrameCheckList,
+    TermCandidateList,
+)
 from app.observability import StageTimer
 from app.providers.openai_llm import OpenAILLMProvider
 
@@ -169,7 +175,7 @@ def test_clinical_structure_and_explanation_draft_are_openai_strict_schema_compa
     before a user ever hit it live."""
     from openai.lib._parsing._completions import type_to_response_format_param
 
-    for schema_cls in (ClinicalStructure, ExplanationDraft, ClinicalEnrichment):
+    for schema_cls in (ClinicalStructure, ExplanationDraft, ClinicalEnrichment, TermCandidateList, FrameCheckList):
         type_to_response_format_param(schema_cls)  # raises if incompatible
 
 

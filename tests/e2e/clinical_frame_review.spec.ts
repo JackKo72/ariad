@@ -23,6 +23,10 @@ test("stroke frame is recorded and a 'not doing' decision gates approval", async
   await expect(page.getByTestId("status-badge")).toHaveAttribute("data-status", "REVIEW_REQUIRED");
   await expect(page.getByTestId("clinical-frame-label")).toContainText("뇌졸중");
   await expect(page.getByTestId("approve-button")).toBeEnabled(); // empty checklist
+  // tasks/14: the mock never claims coverage -- every must-check item shows
+  // as not mentioned, and that does not block approval.
+  await expect(page.getByTestId("frame-check-onset_time")).toHaveAttribute("data-status", "not_mentioned");
+  await expect(page.getByTestId("slot-frame-checks")).toContainText("0/15 언급됨");
 
   const detail = await (await request.get(`${API}/encounters/${encounterId}`)).json();
   const draft = detail.draft_version;

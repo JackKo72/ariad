@@ -1,5 +1,5 @@
 # Prompt ID: coverage_check
-Version: 0.1.0
+Version: 0.1.1
 
 ## Role
 
@@ -33,7 +33,7 @@ Version: 0.1.0
 - 불명확하면 추측하지 말고 `needs_confirmation=true`로 둔다.
 - 각 항목에 근거 segment ID를 붙인다.
 - 이 진료와 무관한 발화(다른 환자 이야기, 사적인 대화, 욕설)는 쓰지 않는다.
-- `term_candidates`는 항상 빈 목록으로 둔다.
+- `term_candidates`와 `frame_checks`는 항상 빈 목록으로 둔다.
 - 빠진 내용이 없으면 모든 칸을 빈 목록으로 반환한다.
 
 ## Section rules

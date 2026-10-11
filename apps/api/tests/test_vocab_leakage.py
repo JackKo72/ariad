@@ -35,3 +35,13 @@ def test_prompt_quotes_are_checked_from_four_hangul(leakage, tmp_path):
     phrases = leakage.prompt_phrases(tmp_path)
     assert [q for _f, q in phrases] == ["재워놨어요"]
     assert leakage.find_overlaps(phrases, "의사: 항발작제를 넣고 재워놨어요") == [("p.md", "재워놨어요")]
+
+
+def test_must_check_list_texts_are_checked(leakage, tmp_path):
+    # tasks/14: a list item copied from an eval transcript would inflate that frame's check score
+    (tmp_path / "stroke.json").write_text(json.dumps({"items": [
+        {"id": "a", "label": "혈압 목표", "look_for": "혈압을 어느 정도로 유지하는지"},
+    ]}, ensure_ascii=False), encoding="utf-8")
+    phrases = leakage.check_list_phrases(tmp_path)
+    assert [t for _f, t in phrases] == ["혈압을 어느 정도로 유지하는지"]  # 2-word label skipped
+    assert leakage.find_overlaps(phrases, "의사: 혈압을 어느 정도로 유지하는지 볼게요")[0][0] == "frame_checks/stroke.json"

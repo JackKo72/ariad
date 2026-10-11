@@ -5,7 +5,7 @@
   "type": "object",
   "required": ["problems", "tests", "medications", "plan", "warnings", "follow_up", "questions_or_conflicts",
                "treatments_given", "findings", "decisions", "consents", "disposition", "prognosis_and_goals",
-               "family_statements", "term_candidates"],
+               "family_statements", "term_candidates", "frame_checks"],
   "additionalProperties": false,
   "properties": {
     "problems": {
@@ -183,6 +183,21 @@
           "frame": {"enum": ["general_neuro", "stroke", "seizure", "headache", "dizziness", "movement", "cognitive", "neuromuscular", "spine", "icu"]},
           "source_segment_ids": {"type": "array", "items": {"type": "string"}},
           "risk": {"enum": ["exam", "inference"]}
+        }
+      }
+    },
+    "frame_checks": {
+      "type": "array",
+      "description": "tasks/14: must-check items of the selected frame -- information only, never blocks approval",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "status", "spoken_text", "source_segment_ids"],
+        "properties": {
+          "id": {"type": "string"},
+          "label": {"type": "string"},
+          "status": {"enum": ["mentioned", "not_mentioned"]},
+          "spoken_text": {"type": "string"},
+          "source_segment_ids": {"type": "array", "items": {"type": "string"}}
         }
       }
     }

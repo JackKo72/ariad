@@ -1,0 +1,79 @@
+{
+  "frame": "cognitive",
+  "label_ko": "치매·인지저하",
+  "version": "0.1.0",
+  "status": "draft",
+  "note": "tasks/14 DRAFT for clinician review. Items are what this disease's encounter should cover; the frame_checklist call marks each as mentioned (with a verbatim quote) or not_mentioned. Written from general clinical practice, NOT from any recording (tasks/11 eval split).",
+  "items": [
+    {
+      "id": "onset_course",
+      "label": "시작 시기·진행 양상",
+      "look_for": "언제부터, 서서히·갑자기·계단식으로 나빠졌는지"
+    },
+    {
+      "id": "memory",
+      "label": "기억력 저하 양상",
+      "look_for": "최근 일을 잊음, 같은 말 반복 등"
+    },
+    {
+      "id": "other_domains",
+      "label": "다른 인지 영역",
+      "look_for": "말하기, 길 찾기, 계산, 계획·판단"
+    },
+    {
+      "id": "daily_function",
+      "label": "일상생활 수행",
+      "look_for": "약·돈 관리, 운전, 혼자 외출, 집안일"
+    },
+    {
+      "id": "behavior",
+      "label": "행동·정신 증상",
+      "look_for": "망상, 환각, 배회, 공격성, 우울, 무관심"
+    },
+    {
+      "id": "cognitive_test",
+      "label": "인지 검사",
+      "look_for": "선별 검사나 신경심리검사 시행·결과"
+    },
+    {
+      "id": "reversible_workup",
+      "label": "가역적 원인 검사",
+      "look_for": "갑상선, 비타민, 혈액검사 등 고칠 수 있는 원인 확인"
+    },
+    {
+      "id": "imaging",
+      "label": "뇌 영상",
+      "look_for": "MRI 등 계획 또는 결과"
+    },
+    {
+      "id": "med_review",
+      "label": "인지에 영향 주는 약 검토",
+      "look_for": "수면제, 항콜린제 등 복용 약 확인"
+    },
+    {
+      "id": "treatment",
+      "label": "인지 개선제",
+      "look_for": "약 시작·변경·부작용"
+    },
+    {
+      "id": "differential",
+      "label": "감별 소견",
+      "look_for": "환시, 꿈 행동, 파킨슨 증상, 성격 변화 등"
+    },
+    {
+      "id": "safety",
+      "label": "안전",
+      "look_for": "운전, 가스·불, 낙상, 길 잃음"
+    },
+    {
+      "id": "caregiver",
+      "label": "보호자 부담·돌봄",
+      "look_for": "보호자 부담, 돌봄 계획, 지원 제도"
+    },
+    {
+      "id": "future_planning",
+      "label": "향후 계획",
+      "look_for": "대리 결정, 연명의료, 장기 요양"
+    }
+  ]
+}

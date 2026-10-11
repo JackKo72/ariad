@@ -15,11 +15,12 @@ from typing import Any, Optional
 from app.observability import StageTimer
 from app.pipeline.asr_normalize import contains_number_word
 
-PROMPT_VERSION_STRUCTURE = "structure_transcript@0.6.0"
+PROMPT_VERSION_STRUCTURE = "structure_transcript@0.6.1"
 PROMPT_VERSION_EXPLANATION = "patient_explanation@0.1.0"
 PROMPT_VERSION_ENRICHMENT = "clinical_enrichment@0.1.0"
 PROMPT_VERSION_TERM_CANDIDATES = "term_candidates@0.2.0"
-PROMPT_VERSION_COVERAGE = "coverage_check@0.1.0"
+PROMPT_VERSION_COVERAGE = "coverage_check@0.1.1"
+PROMPT_VERSION_FRAME_CHECKLIST = "frame_checklist@0.1.0"
 
 _DOSE_UNIT_RE = re.compile(r"(밀리그램|mg|(?<!킬로)그램)")
 _MEDICATION_MENTION_RE = re.compile(r"약")
@@ -69,6 +70,9 @@ class MockLLMProvider:
         if prompt_id == "term_candidates":
             # Never maps lay words to terms -- that needs a real model.
             return {"term_candidates": []}
+        if prompt_id == "frame_checklist":
+            # Never claims coverage -- every item comes back not_mentioned.
+            return {"items": []}
         if prompt_id == "coverage_check":
             # The mock structure already echoes every line; nothing to add.
             return {}
@@ -98,6 +102,7 @@ class MockLLMProvider:
             "prognosis_and_goals": [],
             "family_statements": [],
             "term_candidates": [],
+            "frame_checks": [],
         }
 
     def _clinical_enrichment(self, payload: dict[str, Any]) -> dict[str, Any]:

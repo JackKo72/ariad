@@ -105,13 +105,15 @@ def _two_call_responses(structure_candidates=None):
         "structure_transcript": structure,
         "term_candidates": {"term_candidates": [_candidate().model_dump(), _candidate(term="tPA").model_dump()]},
         "coverage_check": {},
+        "frame_checklist": {"items": []},
     }
 
 
 def test_frame_vocabulary_goes_only_to_the_dedicated_term_call():
     provider = PerPromptProvider(_two_call_responses())
     result = structure_encounter(TRANSCRIPT, provider, clinical_frame="stroke")
-    assert [pid for pid, _ in provider.calls] == ["structure_transcript", "coverage_check", "term_candidates"]
+    assert [pid for pid, _ in provider.calls] == ["structure_transcript", "coverage_check", "term_candidates",
+                                                  "frame_checklist"]
     assert "clinical_frame" not in provider.calls[0][1]  # structure call: transcript only
     assert "clinical_frame" not in provider.calls[1][1]
     assert provider.calls[2][1]["clinical_frame"]["id"] == "stroke"

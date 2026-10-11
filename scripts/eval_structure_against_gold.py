@@ -33,6 +33,9 @@ hit counts (e.g. "HIT 2/3"), recall as mean (min-max), outputs saved as
 A conversation item found only in a term candidate's verbatim quote is a
 miss (tasks/13-c; app/eval/structure_eval.py); the summary line counts them
 as "found only in term-candidate quotes".
+With a frame that has a must-check list (tasks/14), prints per item how
+many runs marked it mentioned; a gold "frame_checks": {"<frame>": {"<item
+id>": "mentioned" | "not_mentioned"}} adds agreement with the clinician.
 Gold items with a "note" are printed as a clinician review checklist:
 keyword matching cannot judge polarity ("clopi loading 안 함").
 
@@ -190,6 +193,23 @@ def main() -> int:
     tokens_out = sum(r["tokens_out"] for r in runs) / repeat
     score = runs[-1]["score"]
     out_path = runs[-1]["out_path"]
+    checks = [r["structure"].frame_checks for r in runs]
+    if checks[0]:
+        expected = gold.get("frame_checks", {}).get(pipeline_frame, {})
+        print(f"frame must-check items ({pipeline_frame}, information only):")
+        agree = total = 0
+        for i, item in enumerate(checks[0]):
+            n = sum(run[i].status == "mentioned" for run in checks)
+            line = f"  {item.id:<24}mentioned {n}/{repeat}"
+            if item.id in expected:
+                ok = sum((run[i].status == expected[item.id]) for run in checks)
+                agree, total = agree + ok, total + repeat
+                line += f"   gold {expected[item.id]:<14}{'agree' if ok == repeat else f'agree {ok}/{repeat}'}"
+            print(line)
+        if total:
+            print(f"  agreement with gold: {agree / total:.0%} over {total // repeat} item(s)")
+        else:
+            print("  (no gold frame_checks for this frame -- see tests/evals/gold/README.md)")
     notes = [item for item in gold["items"] if item.get("note")]
     if notes:
         print("clinician review checklist (read these in the output JSON):")

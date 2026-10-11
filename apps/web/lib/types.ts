@@ -46,6 +46,16 @@ export interface ClinicalStructure {
     source_segment_ids: string[];
     risk: "exam" | "inference";
   }>;
+  // tasks/14: must-check items of the selected frame -- information only.
+  frame_checks: FrameCheckItem[];
+}
+
+export interface FrameCheckItem {
+  id: string;
+  label: string;
+  status: "mentioned" | "not_mentioned";
+  spoken_text: string;
+  source_segment_ids: string[];
 }
 
 export type DecisionStatus = "decided_to_do" | "decided_not_to_do" | "conditional" | "undecided";

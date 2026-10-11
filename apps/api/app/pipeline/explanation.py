@@ -14,8 +14,9 @@ def generate_patient_explanation(
     structure: ClinicalStructure, llm_provider: LLMProvider, stage_timer: Optional[StageTimer] = None
 ) -> ExplanationDraft:
     # tasks/10: term candidates are unreviewed clinical-term guesses for the
-    # clinician; they never feed patient-facing text.
-    patient_safe = structure.model_copy(update={"term_candidates": []})
+    # clinician; they never feed patient-facing text. tasks/14: neither does
+    # the must-check coverage list.
+    patient_safe = structure.model_copy(update={"term_candidates": [], "frame_checks": []})
     raw = llm_provider.generate_json(
         "patient_explanation", {"structure": patient_safe.model_dump()}, stage_timer=stage_timer
     )

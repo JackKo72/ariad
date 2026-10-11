@@ -110,6 +110,26 @@ class TermCandidate(BaseModel):
     risk: Literal["exam", "inference"] = "inference"
 
 
+class FrameCheckItem(BaseModel):
+    """tasks/14: whether the encounter covered one must-check item of the
+    selected frame (prompts/frame_checks/<frame>.json). Information for the
+    clinician only -- not_mentioned never blocks approval and is never
+    filled in by the model. `label` and a mentioned item's quote are
+    enforced by app/pipeline/frame_checks.validate_frame_checks."""
+
+    id: str
+    label: str = ""
+    status: Literal["mentioned", "not_mentioned"] = "not_mentioned"
+    spoken_text: str = ""
+    source_segment_ids: list[str] = Field(default_factory=list)
+
+
+class FrameCheckList(BaseModel):
+    """Response of the frame_checklist call (tasks/14)."""
+
+    items: list[FrameCheckItem] = Field(default_factory=list)
+
+
 class SourceMapEntry(BaseModel):
     field: str
     source_segment_ids: list[str] = Field(default_factory=list)
@@ -133,6 +153,9 @@ class ClinicalStructure(BaseModel):
     prognosis_and_goals: list[PlanItem] = Field(default_factory=list)
     family_statements: list[FamilyStatement] = Field(default_factory=list)
     term_candidates: list[TermCandidate] = Field(default_factory=list)
+    # tasks/14: filled only by the frame_checklist call; empty without a
+    # selected frame that has a must-check list.
+    frame_checks: list[FrameCheckItem] = Field(default_factory=list)
 
 
 class TermCandidateList(BaseModel):

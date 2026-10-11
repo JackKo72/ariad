@@ -18,12 +18,19 @@ from pathlib import Path
 from typing import Any, Optional
 
 from app.domain.errors import LlmProviderFailed
-from app.domain.models import ClinicalEnrichment, ClinicalStructure, ExplanationDraft, TermCandidateList
+from app.domain.models import (
+    ClinicalEnrichment,
+    ClinicalStructure,
+    ExplanationDraft,
+    FrameCheckList,
+    TermCandidateList,
+)
 from app.observability import StageTimer
 from app.providers.mock import (
     PROMPT_VERSION_COVERAGE,
     PROMPT_VERSION_ENRICHMENT,
     PROMPT_VERSION_EXPLANATION,
+    PROMPT_VERSION_FRAME_CHECKLIST,
     PROMPT_VERSION_STRUCTURE,
     PROMPT_VERSION_TERM_CANDIDATES,
 )
@@ -43,7 +50,8 @@ DEFAULT_TEXT_MODEL = "gpt-4o"
 #   output limit in 4 of 4 runs (no JSON), so it and the other calls stay at
 #   the default, which never looped.
 DEFAULT_TEMPERATURE = 1.0
-TEMPERATURE_BY_PROMPT = {"term_candidates": 0.0}
+# frame_checklist (tasks/14): same quote-finding job as term_candidates, short output.
+TEMPERATURE_BY_PROMPT = {"term_candidates": 0.0, "frame_checklist": 0.0}
 # Normal outputs here are 2-3k tokens, so a cap well above that ends a
 # repetition loop sooner and cheaper; one retry at the default temperature
 # follows. The retry is recorded as the stage's retry_count.
@@ -60,6 +68,7 @@ _CALL_SPEC = {
     "clinical_enrichment": ("clinical_enrichment_llm", ClinicalEnrichment, PROMPT_VERSION_ENRICHMENT),
     "term_candidates": ("term_candidates_llm", TermCandidateList, PROMPT_VERSION_TERM_CANDIDATES),
     "coverage_check": ("coverage_check_llm", ClinicalStructure, PROMPT_VERSION_COVERAGE),
+    "frame_checklist": ("frame_checklist_llm", FrameCheckList, PROMPT_VERSION_FRAME_CHECKLIST),
 }
 
 

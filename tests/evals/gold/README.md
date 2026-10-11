@@ -25,3 +25,17 @@ make eval-structure TRANSCRIPT=<data 아래 transcript.json> GOLD=tests/evals/go
 
 진료 틀마다 번갈아 배정한다(1번째 dev, 2번째 eval, …). gold 파일의 `"split"`에
 적고, 어휘를 고친 뒤에는 `make check-vocab-leakage`로 확인한다.
+
+## 질환별 필수 확인 항목 정답 (tasks/14, 선택)
+
+진료 틀에 필수 확인 목록(`prompts/frame_checks/<frame>.json`)이 있으면, 평가 출력에 항목마다
+"언급됨" 횟수가 나온다. 의료진이 대화를 듣고 항목별 정답을 gold에 적으면 일치율도 나온다.
+
+```json
+"frame_checks": {
+  "stroke": {"onset_time": "mentioned", "swallow": "not_mentioned"}
+}
+```
+
+- 항목 id는 `prompts/frame_checks/<frame>.json`의 `id`를 그대로 쓴다. 적지 않은 항목은 채점하지 않는다.
+- `mentioned`: 대화에서 그 항목을 다룸(물어보기만 했거나 정상이라고 한 것도 포함). `not_mentioned`: 다루지 않음.
