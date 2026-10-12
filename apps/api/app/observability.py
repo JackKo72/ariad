@@ -11,6 +11,7 @@ EncounterRepository.record_stage_runs).
 
 from __future__ import annotations
 
+import threading
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -53,6 +54,8 @@ class StageTimer:
 
     def __init__(self) -> None:
         self.records: list[StageRecord] = []
+        # tasks/15: LLM calls of one request run on several threads.
+        self._lock = threading.Lock()
 
     @contextmanager
     def stage(self, name: str, **fixed: Any) -> Iterator[dict[str, Any]]:
@@ -68,12 +71,12 @@ class StageTimer:
             raise
         finally:
             duration_ms = (time.perf_counter() - start) * 1000
-            self.records.append(
-                StageRecord(
-                    stage=name,
-                    duration_ms=duration_ms,
-                    status=status,
-                    error_code=error_code,
-                    **{**fixed, **meta},
-                )
+            record = StageRecord(
+                stage=name,
+                duration_ms=duration_ms,
+                status=status,
+                error_code=error_code,
+                **{**fixed, **meta},
             )
+            with self._lock:
+                self.records.append(record)

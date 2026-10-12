@@ -53,6 +53,7 @@ import json
 import os
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -118,12 +119,18 @@ def main() -> int:
     runs = []
     for k in range(1, repeat + 1):
         timer = StageTimer()  # the real provider records token usage per call
+        def timed_enrichment():
+            began = time.perf_counter()
+            return enrich_clinical_findings(segments, provider, stage_timer=timer), time.perf_counter() - began
+
+        # tasks/15: same concurrency as the app -- enrichment alongside the structure stage.
         start = time.perf_counter()
-        enrichment = enrich_clinical_findings(segments, provider, stage_timer=timer)
-        enrichment_s = time.perf_counter() - start
-        start = time.perf_counter()
-        structure = structure_encounter(text, provider, stage_timer=timer, clinical_frame=pipeline_frame)
-        structure_s = time.perf_counter() - start
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            pending = pool.submit(timed_enrichment)
+            structure = structure_encounter(text, provider, stage_timer=timer, clinical_frame=pipeline_frame)
+            structure_s = time.perf_counter() - start
+            enrichment, enrichment_s = pending.result()
+        wall_s = time.perf_counter() - start
         tokens_in = sum(r.input_tokens or 0 for r in timer.records)
         tokens_out = sum(r.output_tokens or 0 for r in timer.records)
         retries = sum(r.retry_count for r in timer.records)
@@ -141,7 +148,7 @@ def main() -> int:
         out_path.write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
         runs.append({"score": score_structure(output, gold, text, frames=frames), "structure": structure,
                      "violations": len(enrichment.validator_violations), "enrichment_s": enrichment_s,
-                     "structure_s": structure_s, "out_path": out_path,
+                     "structure_s": structure_s, "wall_s": wall_s, "out_path": out_path,
                      "tokens_in": tokens_in, "tokens_out": tokens_out, "retries": retries, "by_stage": by_stage})
 
     def spread(values: list[float], fmt: str) -> str:
@@ -189,6 +196,7 @@ def main() -> int:
         + spread([float(len(build_review_checklist(r["structure"]))) for r in runs], "{:.1f}" if repeat > 1 else "{:.0f}"))
     enrichment_s = sum(r["enrichment_s"] for r in runs) / repeat
     structure_s = sum(r["structure_s"] for r in runs) / repeat
+    wall_s = sum(r["wall_s"] for r in runs) / repeat
     tokens_in = sum(r["tokens_in"] for r in runs) / repeat
     tokens_out = sum(r["tokens_out"] for r in runs) / repeat
     score = runs[-1]["score"]
@@ -215,7 +223,9 @@ def main() -> int:
         print("clinician review checklist (read these in the output JSON):")
         for item in notes:
             print(f"  [ ] {item['id']}: {item['note']}")
-    print(f"latency{' (mean)' if repeat > 1 else ''}: enrichment {enrichment_s:.1f}s + structure {structure_s:.1f}s = {enrichment_s + structure_s:.1f}s")
+    print(f"latency{' (mean)' if repeat > 1 else ''}: wall-clock {wall_s:.1f}s  "
+          f"(enrichment {enrichment_s:.1f}s runs alongside structure {structure_s:.1f}s; "
+          "structure = structure->coverage | term candidates | frame checks, in parallel)")
     if tokens_in or tokens_out:
         print(f"tokens per encounter{' (mean)' if repeat > 1 else ''}: input {tokens_in:,.0f} + output {tokens_out:,.0f} "
               "(enrichment + structure; multiply by your provider's current per-token price for cost)")

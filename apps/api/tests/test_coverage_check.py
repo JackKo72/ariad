@@ -55,3 +55,38 @@ def test_nothing_missed_leaves_the_structure_unchanged():
 
 def test_prompt_version_records_the_coverage_prompt():
     assert "coverage_check@" in PROMPT_VERSION
+
+
+def test_term_and_frame_check_calls_run_alongside_the_structure_call():
+    # tasks/15: each of the three calls waits until all three have started;
+    # run one after another, the barrier times out and the test fails.
+    import threading
+
+    barrier = threading.Barrier(3, timeout=5)
+    responses = {"structure_transcript": {}, "coverage_check": {}, "term_candidates": {"term_candidates": []},
+                 "frame_checklist": {"items": []}}
+
+    class Concurrent(Provider):
+        def generate_json(self, prompt_id, payload, stage_timer=None):
+            if prompt_id != "coverage_check":
+                barrier.wait()
+            return super().generate_json(prompt_id, payload, stage_timer)
+
+    provider = Concurrent(responses)
+    result = structure_encounter(TRANSCRIPT, provider, clinical_frame="stroke")
+    assert {pid for pid, _ in provider.calls} == set(responses)
+    assert len(result.frame_checks) > 0
+
+
+def test_a_failing_branch_fails_the_whole_stage():
+    import pytest
+
+    class Failing(Provider):
+        def generate_json(self, prompt_id, payload, stage_timer=None):
+            if prompt_id == "term_candidates":
+                raise RuntimeError("provider down")
+            return super().generate_json(prompt_id, payload, stage_timer)
+
+    provider = Failing({"structure_transcript": {}, "coverage_check": {}, "frame_checklist": {"items": []}})
+    with pytest.raises(RuntimeError):
+        structure_encounter(TRANSCRIPT, provider, clinical_frame="stroke")

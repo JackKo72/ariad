@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
 
 from app.domain.models import ClinicalFrameId, ClinicalStructure, TermCandidate, TermCandidateList
@@ -36,16 +37,31 @@ def structure_encounter(
     left out (see add_missed_facts).
 
     tasks/14: with a frame that has a must-check list, a last call marks
-    which list items the encounter covered (app/pipeline/frame_checks.py)."""
+    which list items the encounter covered (app/pipeline/frame_checks.py).
+
+    tasks/15: only coverage needs another call's output, so three branches
+    run at once -- structure -> coverage | term candidates | frame checks.
+    Any branch's error is re-raised here, as before."""
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        slots = pool.submit(_structure_and_coverage, transcript_text, llm_provider, stage_timer)
+        terms = checks = None
+        if clinical_frame is not None:
+            terms = pool.submit(extract_term_candidates, transcript_text, llm_provider, clinical_frame, stage_timer)
+            checks = pool.submit(check_frame_items, transcript_text, llm_provider, clinical_frame, stage_timer)
+        structure = slots.result()
+        return structure.model_copy(update={
+            "term_candidates": terms.result() if terms else [],
+            "frame_checks": checks.result() if checks else [],
+        })
+
+
+def _structure_and_coverage(
+    transcript_text: str, llm_provider: LLMProvider, stage_timer: Optional[StageTimer]
+) -> ClinicalStructure:
     raw = llm_provider.generate_json("structure_transcript", {"transcript_text": transcript_text},
                                      stage_timer=stage_timer)
     structure = ClinicalStructure.model_validate(raw)
-    structure = add_missed_facts(transcript_text, structure, llm_provider, stage_timer)
-    candidates, checks = [], []
-    if clinical_frame is not None:
-        candidates = extract_term_candidates(transcript_text, llm_provider, clinical_frame, stage_timer)
-        checks = check_frame_items(transcript_text, llm_provider, clinical_frame, stage_timer)
-    return structure.model_copy(update={"term_candidates": candidates, "frame_checks": checks})
+    return add_missed_facts(transcript_text, structure, llm_provider, stage_timer)
 
 
 def add_missed_facts(

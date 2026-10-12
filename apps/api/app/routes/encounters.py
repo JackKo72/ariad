@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 from fastapi import APIRouter, Depends
@@ -183,11 +184,18 @@ def process_encounter(
                     # text-only encounters (no active_run) skip it, and
                     # transcript_text/structure_encounter are untouched
                     # either way (purely additive stage).
-                    if active_run is not None and active_run.segments:
-                        enrichment = enrich_clinical_findings(active_run.segments, llm_provider, stage_timer=timer)
-                    result = run_pipeline(
-                        draft.transcript_text, llm_provider, stage_timer=timer, clinical_frame=clinical_frame
-                    )
+                    # tasks/15: enrichment shares no input or output with
+                    # the structure pipeline, so it runs alongside it.
+                    with ThreadPoolExecutor(max_workers=1) as pool:
+                        pending = (
+                            pool.submit(enrich_clinical_findings, active_run.segments, llm_provider, stage_timer=timer)
+                            if active_run is not None and active_run.segments
+                            else None
+                        )
+                        result = run_pipeline(
+                            draft.transcript_text, llm_provider, stage_timer=timer, clinical_frame=clinical_frame
+                        )
+                        enrichment = pending.result() if pending is not None else None
                     structure, explanation = result.structure, result.explanation  # type: ignore[assignment]
             except Exception as exc:
                 # The transcript itself lives on encounter_versions and is

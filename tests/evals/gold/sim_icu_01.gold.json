@@ -2,6 +2,13 @@
  "case": "sim_icu_01",
  "split": "eval",
  "source": "clinician key (chat, 2026-10-09) + sim_icu_01.answer.txt",
+ "frame_checks": {
+  "seizure": {
+   "asm_plan": "not_mentioned",
+   "eeg": "not_mentioned"
+  }
+ },
+ "frame_checks_note": "clinician (chat, 2026-10-12): the dose increase discussed is the sputum/pneumonia medication, not an antiseizure drug; EEG is chart-only (see ctx_eeg)",
  "items": [
   {
    "id": "dx_seizure",

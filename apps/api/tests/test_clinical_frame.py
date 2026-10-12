@@ -87,7 +87,8 @@ class RecordingProvider:
 
 
 class PerPromptProvider:
-    """Fixed response per prompt_id; records (prompt_id, payload) calls."""
+    """Fixed response per prompt_id; records (prompt_id, payload) calls
+    (list.append is atomic, so concurrent branches are safe)."""
 
     def __init__(self, responses: dict):
         self.responses = responses
@@ -112,11 +113,14 @@ def _two_call_responses(structure_candidates=None):
 def test_frame_vocabulary_goes_only_to_the_dedicated_term_call():
     provider = PerPromptProvider(_two_call_responses())
     result = structure_encounter(TRANSCRIPT, provider, clinical_frame="stroke")
-    assert [pid for pid, _ in provider.calls] == ["structure_transcript", "coverage_check", "term_candidates",
-                                                  "frame_checklist"]
-    assert "clinical_frame" not in provider.calls[0][1]  # structure call: transcript only
-    assert "clinical_frame" not in provider.calls[1][1]
-    assert provider.calls[2][1]["clinical_frame"]["id"] == "stroke"
+    # tasks/15: the branches run concurrently, so only coverage-after-structure is ordered
+    ids = [pid for pid, _ in provider.calls]
+    assert sorted(ids) == ["coverage_check", "frame_checklist", "structure_transcript", "term_candidates"]
+    assert ids.index("structure_transcript") < ids.index("coverage_check")
+    sent = dict(provider.calls)
+    assert "clinical_frame" not in sent["structure_transcript"]  # structure call: transcript only
+    assert "clinical_frame" not in sent["coverage_check"]
+    assert sent["term_candidates"]["clinical_frame"]["id"] == "stroke"
     assert [c.term for c in result.term_candidates] == [EVT]  # tPA (outside vocabulary) dropped
 
 

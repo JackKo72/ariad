@@ -2,6 +2,13 @@
  "case": "sim_er_01",
  "split": "eval",
  "source": "clinician key (chat, 2026-10-10) + sim_er_01.answer.txt",
+ "frame_checks": {
+  "stroke": {
+   "onset_time": "not_mentioned",
+   "hemorrhage": "not_mentioned"
+  }
+ },
+ "frame_checks_note": "clinician (chat, 2026-10-12): onset time never stated, only compared with the morning; hemorrhage was ruled out on non-contrast CT before the conversation, not discussed",
  "items": [
   {
    "id": "dx_vessel_thrombus",
