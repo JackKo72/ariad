@@ -14,7 +14,7 @@ checked too, from 4 Hangul characters up -- a short prompt example
 list labels and look_for texts (prompts/frame_checks/, tasks/14) likewise.
 
 Reads gold from tests/evals/gold/, transcripts from DIR/<case>.transcript.json
-(gitignored data/). Prints only the overlapping vocabulary phrase.
+or a tasks/16 case folder scored against that gold (gitignored data/). Prints only the overlapping vocabulary phrase.
 """
 
 from __future__ import annotations
@@ -23,6 +23,10 @@ import json
 import os
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from cases import transcript_for_gold  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FRAMES_DIR = REPO_ROOT / "prompts" / "frames"
@@ -79,6 +83,8 @@ def main() -> int:
         if gold.get("split") != "eval":
             continue
         transcript_path = data_dir / f"{gold['case']}.transcript.json"
+        if not transcript_path.is_file():  # tasks/16 case folders
+            transcript_path = transcript_for_gold(gold["case"]) or transcript_path
         if not transcript_path.is_file():
             print(f"[{gold['case']}] transcript not found at {transcript_path} -- skipped")
             continue

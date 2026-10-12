@@ -1,4 +1,4 @@
-.PHONY: doctor setup dev test e2e eval lint sample-audio vital-signs-audio vital-signs-isolated-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization parallel-asr-diarization-mp compare-diarization-engines noisy-diarization-set eval-diarization-der draft-annotation labels-to-reference answer-to-transcript eval-structure diagnose-structure check-vocab-leakage
+.PHONY: doctor setup dev test e2e eval lint sample-audio vital-signs-audio vital-signs-isolated-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization parallel-asr-diarization-mp compare-diarization-engines noisy-diarization-set eval-diarization-der draft-annotation labels-to-reference answer-to-transcript eval-structure diagnose-structure check-vocab-leakage check-cases prepare-case-audio migrate-case
 
 doctor:
 	@echo "Checking required tools..."
@@ -214,3 +214,17 @@ diagnose-structure:
 # Usage: make check-vocab-leakage [DIR=apps/api/data/annotations]
 check-vocab-leakage:
 	apps/api/.venv/bin/python scripts/check_vocab_leakage.py
+
+# tasks/16_CASE_DATA_LAYOUT.md: one folder per recording under apps/api/data/cases/<case>/ (gitignored).
+# Lists files, validates meta.json, flags identifying patterns by line number. Usage: make check-cases [CASE=er_3023432]
+check-cases:
+	apps/api/.venv/bin/python scripts/check_cases.py
+
+# Original recording (wma, m4a, ...) -> <case>.opus, mono 16 kHz. Usage: make prepare-case-audio CASE=er_3023432
+prepare-case-audio:
+	apps/api/.venv/bin/python scripts/prepare_case_audio.py
+
+# Moves an analysed recording's files into its case folder under the new number.
+# Usage: make migrate-case OLD=sim_er_01 NEW=er_3023432 [FROM=apps/api/data/annotations]
+migrate-case:
+	apps/api/.venv/bin/python scripts/migrate_case.py

@@ -23,6 +23,9 @@ dropped by default, as a clinician would mark them 배경 at role
 confirmation; INCLUDE_BACKGROUND=1 feeds them too, to test whether the LLM
 pulls other people's talk into the summary.
 
+CASE=er_3023432 (tasks/16) takes the transcript, gold and frame from that
+case folder (apps/api/data/cases/, see scripts/cases.py); explicit
+TRANSCRIPT/GOLD/FRAMES still win.
 FRAMES=stroke (or seizure, comma-separated) scores as if the clinician had
 picked that clinical frame: its frame_term items become expected instead
 of leaks, AND passes that frame to the structure stage (tasks/10) -- a single
@@ -60,6 +63,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "apps" / "api"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from cases import use_case_defaults  # noqa: E402
 from compare_asr_engines import _load_env_local  # noqa: E402
 from env_paths import require_files  # noqa: E402
 from eval_clinical_enrichment import _build_provider  # noqa: E402
@@ -98,6 +102,12 @@ def main() -> int:
     parser.add_argument("--real", action="store_true", help="use OPENAI_API_KEY instead of the mock provider")
     args = parser.parse_args()
 
+    # tasks/16: CASE=er_3023432 fills TRANSCRIPT, GOLD and FRAMES from the case folder.
+    if os.environ.get("CASE"):
+        error = use_case_defaults(os.environ["CASE"])
+        if error:
+            print(error)
+            return 1
     paths = require_files(["TRANSCRIPT", "GOLD"],
                           "TRANSCRIPT=x.transcript.json GOLD=x.gold.json python3 scripts/eval_structure_against_gold.py")
     if paths is None:
@@ -115,7 +125,7 @@ def main() -> int:
     frames = frozenset(f.strip() for f in os.environ.get("FRAMES", "").split(",") if f.strip())
     pipeline_frame = os.environ.get("FRAMES", "").split(",")[0].strip() or None
     repeat = max(1, int(os.environ.get("REPEAT", "1")))
-    case = gold.get("case", gold_path.stem)
+    case = os.environ.get("CASE") or gold.get("case", gold_path.stem)
     runs = []
     for k in range(1, repeat + 1):
         timer = StageTimer()  # the real provider records token usage per call

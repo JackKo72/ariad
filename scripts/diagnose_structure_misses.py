@@ -24,14 +24,21 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "apps" / "api"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from cases import use_case_defaults  # noqa: E402
 from env_paths import require_files  # noqa: E402
 
 from app.eval.structure_eval import diagnose_miss, score_structure  # noqa: E402
 
-USAGE = 'GOLD=x.gold.json OUTPUTS="x.*.run*.output.json" python3 scripts/diagnose_structure_misses.py'
+USAGE = ('GOLD=x.gold.json OUTPUTS="x.*.run*.output.json" python3 scripts/diagnose_structure_misses.py'
+         '  (or CASE=er_3023432)')
 
 
 def main() -> int:
+    if os.environ.get("CASE"):  # tasks/16
+        error = use_case_defaults(os.environ["CASE"])
+        if error:
+            print(error)
+            return 1
     paths = require_files(["GOLD"], USAGE)
     if paths is None:
         return 1
