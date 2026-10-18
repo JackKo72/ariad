@@ -1,0 +1,235 @@
+{
+  "$defs": {
+    "ActionItem": {
+      "properties": {
+        "action_id": {
+          "title": "Action Id",
+          "type": "string"
+        },
+        "plan_id": {
+          "title": "Plan Id",
+          "type": "string"
+        },
+        "catalog_code": {
+          "title": "Catalog Code",
+          "type": "string"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ActionTarget"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "respondent": {
+          "$ref": "#/$defs/Respondent",
+          "default": "patient"
+        },
+        "source_directive_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Directive Id"
+        },
+        "status": {
+          "$ref": "#/$defs/ActionStatus",
+          "default": "draft"
+        },
+        "approved_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved By"
+        },
+        "needs_review": {
+          "default": false,
+          "title": "Needs Review",
+          "type": "boolean"
+        },
+        "check_cadence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Cadence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "action_id",
+        "plan_id",
+        "catalog_code"
+      ],
+      "title": "ActionItem",
+      "type": "object"
+    },
+    "ActionStatus": {
+      "enum": [
+        "draft",
+        "approved",
+        "active",
+        "paused",
+        "retired"
+      ],
+      "title": "ActionStatus",
+      "type": "string"
+    },
+    "ActionTarget": {
+      "description": "A concrete, agreed target on an ActionItem -- never TODO.",
+      "properties": {
+        "value": {
+          "title": "Value",
+          "type": "number"
+        },
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "comparator": {
+          "$ref": "#/$defs/Comparator"
+        }
+      },
+      "required": [
+        "value",
+        "unit",
+        "comparator"
+      ],
+      "title": "ActionTarget",
+      "type": "object"
+    },
+    "Cadence": {
+      "additionalProperties": false,
+      "properties": {
+        "times": {
+          "minimum": 1,
+          "title": "Times",
+          "type": "integer"
+        },
+        "per": {
+          "enum": [
+            "day",
+            "week"
+          ],
+          "title": "Per",
+          "type": "string"
+        }
+      },
+      "required": [
+        "times",
+        "per"
+      ],
+      "title": "Cadence",
+      "type": "object"
+    },
+    "Comparator": {
+      "enum": [
+        ">=",
+        "<="
+      ],
+      "title": "Comparator",
+      "type": "string"
+    },
+    "Respondent": {
+      "enum": [
+        "patient",
+        "caregiver"
+      ],
+      "title": "Respondent",
+      "type": "string"
+    }
+  },
+  "description": "Versioned plan. A changed target at a revisit makes a new version\npointing at the previous plan_id; past judgments keep their own\nplan_id, so trends are computed against the target of that time.",
+  "properties": {
+    "plan_id": {
+      "title": "Plan Id",
+      "type": "string"
+    },
+    "encounter_id": {
+      "title": "Encounter Id",
+      "type": "string"
+    },
+    "version": {
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "previous_plan_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Previous Plan Id"
+    },
+    "status": {
+      "$ref": "#/$defs/ActionStatus",
+      "default": "draft"
+    },
+    "items": {
+      "items": {
+        "$ref": "#/$defs/ActionItem"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    },
+    "approved_by": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Approved By"
+    },
+    "approved_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Approved At"
+    }
+  },
+  "required": [
+    "plan_id",
+    "encounter_id",
+    "version",
+    "created_at"
+  ],
+  "title": "ActionPlan",
+  "type": "object"
+}

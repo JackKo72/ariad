@@ -1,0 +1,79 @@
+{
+  "visit_id": "V03",
+  "description": "시나리오 C: 실어증 환자, 배우자가 응답·조리",
+  "synthetic": true,
+  "label_status": "draft_unreviewed",
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "오늘은 보호자분께 말씀드릴게요."
+    },
+    {
+      "id": "seg_002",
+      "speaker": "C",
+      "role": "guardian",
+      "text": "네, 말씀하세요."
+    },
+    {
+      "id": "seg_003",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "국 끓이실 때 간을 지금보다 싱겁게 해주세요."
+    },
+    {
+      "id": "seg_004",
+      "speaker": "C",
+      "role": "guardian",
+      "text": "남편이 싱거우면 안 먹으려고 해서 걱정이에요."
+    },
+    {
+      "id": "seg_005",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "혈압은 아침저녁으로 하루 2번 재서 기록해 주세요."
+    },
+    {
+      "id": "seg_006",
+      "speaker": "C",
+      "role": "guardian",
+      "text": "네, 그렇게 할게요."
+    },
+    {
+      "id": "seg_007",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "운동 전에는 혈당을 꼭 측정해 주세요."
+    },
+    {
+      "id": "seg_008",
+      "speaker": "C",
+      "role": "guardian",
+      "text": "알겠습니다."
+    }
+  ],
+  "expected_directives": [
+    {
+      "segment_ids": [
+        "seg_003"
+      ],
+      "catalog_code": "D2",
+      "agreement": "hesitant"
+    },
+    {
+      "segment_ids": [
+        "seg_005"
+      ],
+      "catalog_code": "H1",
+      "agreement": "agreed"
+    },
+    {
+      "segment_ids": [
+        "seg_007"
+      ],
+      "catalog_code": "H2",
+      "agreement": "agreed"
+    }
+  ]
+}

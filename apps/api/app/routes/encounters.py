@@ -24,6 +24,7 @@ from app.observability import StageTimer
 from app.pipeline.enrichment import enrich_clinical_findings
 from app.pipeline.review_checklist import build_review_checklist, missing_acknowledgments
 from app.pipeline.run import run_pipeline
+from app.pipeline.segments import ROLE_LABELS_KO, segments_from_pipeline_run
 from app.pipeline.validation import validate_grounding
 from app.providers.base import LLMProvider
 from app.providers.demo_asr import load_demo_structure_and_explanation
@@ -34,19 +35,12 @@ from app.dependencies import get_llm_provider, get_repository
 router = APIRouter(prefix="/encounters", tags=["encounters"])
 logger = logging.getLogger("ariad.pipeline")
 
-_ROLE_LABELS_KO = {
-    "doctor": "의사",
-    "patient": "환자",
-    "guardian": "보호자",
-    "unknown": "화자",
-}
-
 
 def _derive_transcript_text(run: PipelineRun) -> str:
     lines = []
     for seg in sorted(run.segments, key=lambda s: s.start):
         role = run.roles.get(seg.speaker, "unknown")
-        label = _ROLE_LABELS_KO.get(role, "화자")
+        label = ROLE_LABELS_KO.get(role, "화자")
         lines.append(f"{label}: {seg.text}")
     return "\n".join(lines)
 
@@ -186,6 +180,13 @@ def process_encounter(
                     # either way (purely additive stage).
                     # tasks/15: enrichment shares no input or output with
                     # the structure pipeline, so it runs alongside it.
+                    # Audio path: hand the structure LLM the run's real segment
+                    # IDs/speaker/role (option C); manual text derives seg_001.. itself.
+                    segments = (
+                        segments_from_pipeline_run(active_run)
+                        if active_run is not None and active_run.segments and active_run.roles
+                        else None
+                    )
                     with ThreadPoolExecutor(max_workers=1) as pool:
                         pending = (
                             pool.submit(enrich_clinical_findings, active_run.segments, llm_provider, stage_timer=timer)
@@ -193,7 +194,11 @@ def process_encounter(
                             else None
                         )
                         result = run_pipeline(
-                            draft.transcript_text, llm_provider, stage_timer=timer, clinical_frame=clinical_frame
+                            draft.transcript_text,
+                            llm_provider,
+                            stage_timer=timer,
+                            clinical_frame=clinical_frame,
+                            segments=segments,
                         )
                         enrichment = pending.result() if pending is not None else None
                     structure, explanation = result.structure, result.explanation  # type: ignore[assignment]

@@ -74,7 +74,7 @@ from app.observability import StageTimer  # noqa: E402
 from app.pipeline.enrichment import enrich_clinical_findings  # noqa: E402
 from app.pipeline.review_checklist import build_review_checklist  # noqa: E402
 from app.pipeline.structure import structure_encounter  # noqa: E402
-from app.routes.encounters import _ROLE_LABELS_KO  # noqa: E402
+from app.pipeline.segments import ROLE_LABELS_KO as _ROLE_LABELS_KO  # noqa: E402
 
 
 def load_segments(path: Path) -> list[DiarizedSegment]:

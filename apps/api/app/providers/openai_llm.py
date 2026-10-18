@@ -25,8 +25,11 @@ from app.domain.models import (
     FrameCheckList,
     TermCandidateList,
 )
+from app.domain.stage2 import BarrierClassification, DirectiveClassification
 from app.observability import StageTimer
 from app.providers.mock import (
+    PROMPT_VERSION_CLASSIFY_BARRIER,
+    PROMPT_VERSION_CLASSIFY_DIRECTIVE,
     PROMPT_VERSION_COVERAGE,
     PROMPT_VERSION_ENRICHMENT,
     PROMPT_VERSION_EXPLANATION,
@@ -69,6 +72,12 @@ _CALL_SPEC = {
     "term_candidates": ("term_candidates_llm", TermCandidateList, PROMPT_VERSION_TERM_CANDIDATES),
     "coverage_check": ("coverage_check_llm", ClinicalStructure, PROMPT_VERSION_COVERAGE),
     "frame_checklist": ("frame_checklist_llm", FrameCheckList, PROMPT_VERSION_FRAME_CHECKLIST),
+    "classify_action_directive": (
+        "classify_action_directive_llm",
+        DirectiveClassification,
+        PROMPT_VERSION_CLASSIFY_DIRECTIVE,
+    ),
+    "classify_barrier": ("classify_barrier_llm", BarrierClassification, PROMPT_VERSION_CLASSIFY_BARRIER),
 }
 
 

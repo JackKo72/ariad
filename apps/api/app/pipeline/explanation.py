@@ -15,10 +15,14 @@ def generate_patient_explanation(
 ) -> ExplanationDraft:
     # tasks/10: term candidates are unreviewed clinical-term guesses for the
     # clinician; they never feed patient-facing text. tasks/14: neither does
-    # the must-check coverage list.
+    # the must-check coverage list. Stage 2: action_directives carry the
+    # patient's reply and barriers; they reach the patient via the approved
+    # Action Plan, so they are left out of this payload entirely.
     patient_safe = structure.model_copy(update={"term_candidates": [], "frame_checks": []})
     raw = llm_provider.generate_json(
-        "patient_explanation", {"structure": patient_safe.model_dump()}, stage_timer=stage_timer
+        "patient_explanation",
+        {"structure": patient_safe.model_dump(exclude={"action_directives"})},
+        stage_timer=stage_timer,
     )
     return ExplanationDraft.model_validate(raw)
 

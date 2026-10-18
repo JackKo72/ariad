@@ -1,0 +1,9 @@
+# ARIAD stage 2 체크인 질문 스케줄 (docs/ARIAD_stage2_design.md Part 2-1, Step 4).
+# 하루 문항 3개 이내 (Part 2-1 "하루 문항은 3개 이내").
+max_questions_per_day: 3
+# 주 N회 질문을 어느 요일에 물을지 (ISO 요일: 1=월 ... 7=일).
+# 임상 수치가 아니라 운영 설정이다. 의료진·환자 선호에 맞춰 바꾼다.
+weekly_schedule:
+  1: [7]
+  2: [2, 5]
+  3: [1, 3, 5]

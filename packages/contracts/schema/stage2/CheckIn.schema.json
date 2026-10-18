@@ -1,0 +1,55 @@
+{
+  "$defs": {
+    "CheckInSource": {
+      "enum": [
+        "self_report",
+        "device"
+      ],
+      "title": "CheckInSource",
+      "type": "string"
+    },
+    "Respondent": {
+      "enum": [
+        "patient",
+        "caregiver"
+      ],
+      "title": "Respondent",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "checkin_id": {
+      "title": "Checkin Id",
+      "type": "string"
+    },
+    "action_id": {
+      "title": "Action Id",
+      "type": "string"
+    },
+    "date": {
+      "format": "date",
+      "title": "Date",
+      "type": "string"
+    },
+    "value": {
+      "title": "Value",
+      "type": "number"
+    },
+    "source": {
+      "$ref": "#/$defs/CheckInSource"
+    },
+    "respondent": {
+      "$ref": "#/$defs/Respondent",
+      "default": "patient"
+    }
+  },
+  "required": [
+    "checkin_id",
+    "action_id",
+    "date",
+    "value",
+    "source"
+  ],
+  "title": "CheckIn",
+  "type": "object"
+}

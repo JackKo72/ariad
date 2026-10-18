@@ -1,0 +1,79 @@
+{
+  "visit_id": "V01",
+  "description": "시나리오 A: 68세 남성, 편마비, 혼자 거주, 국물 선호, 흡연",
+  "synthetic": true,
+  "label_status": "draft_unreviewed",
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "혈압이 아직 높게 나오네요."
+    },
+    {
+      "id": "seg_002",
+      "speaker": "B",
+      "role": "patient",
+      "text": "네, 요즘 국을 많이 먹었어요."
+    },
+    {
+      "id": "seg_003",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "국물은 이제 드시지 마시고요, 건더기만 드세요."
+    },
+    {
+      "id": "seg_004",
+      "speaker": "B",
+      "role": "patient",
+      "text": "그게 제일 어렵네요. 혼자 살아서 라면을 자주 먹어요."
+    },
+    {
+      "id": "seg_005",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "담배는 오늘부터 끊으셔야 합니다."
+    },
+    {
+      "id": "seg_006",
+      "speaker": "B",
+      "role": "patient",
+      "text": "노력은 해볼게요."
+    },
+    {
+      "id": "seg_007",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "주 3일 15분 정도 걸으세요. 집 안에서 제자리 걷기도 괜찮습니다."
+    },
+    {
+      "id": "seg_008",
+      "speaker": "B",
+      "role": "patient",
+      "text": "네, 알겠습니다."
+    }
+  ],
+  "expected_directives": [
+    {
+      "segment_ids": [
+        "seg_003"
+      ],
+      "catalog_code": "D2",
+      "agreement": "hesitant"
+    },
+    {
+      "segment_ids": [
+        "seg_005"
+      ],
+      "catalog_code": "S1",
+      "agreement": "hesitant"
+    },
+    {
+      "segment_ids": [
+        "seg_007"
+      ],
+      "catalog_code": "P1",
+      "agreement": "agreed"
+    }
+  ]
+}

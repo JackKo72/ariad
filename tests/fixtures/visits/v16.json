@@ -1,0 +1,41 @@
+{
+  "visit_id": "V16",
+  "description": "좌식 중단 + 의뢰 논의(지시 아님)",
+  "synthetic": true,
+  "label_status": "draft_unreviewed",
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "TV 보실 때 오래 앉아 계시지 말고 중간중간 일어나세요."
+    },
+    {
+      "id": "seg_002",
+      "speaker": "B",
+      "role": "patient",
+      "text": "글쎄요, 다리가 불편해서요."
+    },
+    {
+      "id": "seg_003",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "나중에 재활의학과 진료도 한번 생각해 보죠."
+    },
+    {
+      "id": "seg_004",
+      "speaker": "B",
+      "role": "patient",
+      "text": "네."
+    }
+  ],
+  "expected_directives": [
+    {
+      "segment_ids": [
+        "seg_001"
+      ],
+      "catalog_code": "P3",
+      "agreement": "hesitant"
+    }
+  ]
+}

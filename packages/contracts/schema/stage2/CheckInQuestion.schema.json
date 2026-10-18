@@ -1,0 +1,90 @@
+{
+  "$defs": {
+    "Respondent": {
+      "enum": [
+        "patient",
+        "caregiver"
+      ],
+      "title": "Respondent",
+      "type": "string"
+    }
+  },
+  "description": "One question part sent to a respondent on a given day.",
+  "properties": {
+    "action_id": {
+      "title": "Action Id",
+      "type": "string"
+    },
+    "question_id": {
+      "title": "Question Id",
+      "type": "string"
+    },
+    "part_index": {
+      "minimum": 0,
+      "title": "Part Index",
+      "type": "integer"
+    },
+    "respondent": {
+      "$ref": "#/$defs/Respondent"
+    },
+    "text": {
+      "title": "Text",
+      "type": "string"
+    },
+    "answer_type": {
+      "enum": [
+        "yes_no",
+        "number",
+        "choice"
+      ],
+      "title": "Answer Type",
+      "type": "string"
+    },
+    "unit": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Unit"
+    },
+    "options": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Options"
+    },
+    "review_status": {
+      "enum": [
+        "draft_unreviewed",
+        "clinician_reviewed"
+      ],
+      "title": "Review Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "action_id",
+    "question_id",
+    "part_index",
+    "respondent",
+    "text",
+    "answer_type",
+    "review_status"
+  ],
+  "title": "CheckInQuestion",
+  "type": "object"
+}

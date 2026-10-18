@@ -156,6 +156,9 @@ class ClinicalStructure(BaseModel):
     # tasks/14: filled only by the frame_checklist call; empty without a
     # selected frame that has a must-check list.
     frame_checks: list[FrameCheckItem] = Field(default_factory=list)
+    # Stage 2 additive field (docs/stage1_output.md section 6, option C).
+    # Defaults to [] so stored versions and demo fixtures without it still load.
+    action_directives: list[ActionDirective] = Field(default_factory=list)
 
 
 class TermCandidateList(BaseModel):
@@ -255,6 +258,51 @@ class SourceSpan(BaseModel):
     role: str = "unknown"
     start: Optional[float] = None
     end: Optional[float] = None
+
+
+# Stage 2 extension of ClinicalStructure (docs/ARIAD_stage2_design.md Part
+# 5-2): lifestyle directives the doctor gave, with the patient's reply and
+# barriers, each tied to real segments via SourceSpan. Re-exported from
+# app.domain.stage2.
+class Agreement(str, Enum):
+    """How the patient responded to a directive in the visit (Part 5-2).
+    Clinical information -- distinct from needs_review, which is about
+    extraction quality (docs/stage1_output.md section 7, item 10)."""
+
+    AGREED = "agreed"
+    HESITANT = "hesitant"
+    REFUSED = "refused"
+    UNCLEAR = "unclear"
+
+
+class PatientResponse(BaseModel):
+    text: str  # verbatim
+    agreement: Agreement
+    source_spans: list[SourceSpan] = Field(default_factory=list)
+
+
+class BarrierMention(BaseModel):
+    text: str  # verbatim
+    source_spans: list[SourceSpan] = Field(default_factory=list)
+
+
+class ActionDirective(BaseModel):
+    """One lifestyle directive the doctor gave in the visit (Part 5-2).
+
+    raw_text is copied verbatim, never paraphrased. source_spans must point
+    at real input segments; app/pipeline/directive_validation.py enforces that and sets
+    needs_review instead of failing the whole structure output, so no
+    hard length constraint here. domain_hint/target_hint are hints only --
+    the normalizer does the final catalog match."""
+
+    directive_id: str
+    raw_text: str
+    source_spans: list[SourceSpan] = Field(default_factory=list)
+    domain_hint: Optional[str] = None
+    target_hint: Optional[str] = None
+    patient_response: Optional[PatientResponse] = None
+    barrier_mentions: list[BarrierMention] = Field(default_factory=list)
+    needs_review: bool = True
 
 
 # affirmed: stated as true. negated: explicitly denied/negative.

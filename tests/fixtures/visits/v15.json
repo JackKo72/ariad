@@ -1,0 +1,48 @@
+{
+  "visit_id": "V15",
+  "description": "전자담배 포함 금연 + 금연클리닉",
+  "synthetic": true,
+  "label_status": "draft_unreviewed",
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "전자담배도 담배입니다. 같이 끊으세요."
+    },
+    {
+      "id": "seg_002",
+      "speaker": "B",
+      "role": "patient",
+      "text": "전자담배는 괜찮은 줄 알았어요."
+    },
+    {
+      "id": "seg_003",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "보건소 금연클리닉에 꼭 가보세요."
+    },
+    {
+      "id": "seg_004",
+      "speaker": "B",
+      "role": "patient",
+      "text": "네, 이번 주에 가볼게요."
+    }
+  ],
+  "expected_directives": [
+    {
+      "segment_ids": [
+        "seg_001"
+      ],
+      "catalog_code": "S1",
+      "agreement": "unclear"
+    },
+    {
+      "segment_ids": [
+        "seg_003"
+      ],
+      "catalog_code": "S1",
+      "agreement": "agreed"
+    }
+  ]
+}

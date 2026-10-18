@@ -1,0 +1,33 @@
+{
+  "visit_id": "V04",
+  "description": "약·검사 지시만 있음 (생활습관 지시 없음)",
+  "synthetic": true,
+  "label_status": "draft_unreviewed",
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "아스피린은 계속 하루 한 번 드세요."
+    },
+    {
+      "id": "seg_002",
+      "speaker": "B",
+      "role": "patient",
+      "text": "네."
+    },
+    {
+      "id": "seg_003",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "다음 달에 피검사 하겠습니다."
+    },
+    {
+      "id": "seg_004",
+      "speaker": "B",
+      "role": "patient",
+      "text": "알겠습니다."
+    }
+  ],
+  "expected_directives": []
+}

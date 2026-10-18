@@ -5,10 +5,14 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
 
+from pydantic import ValidationError
+
 from app.domain.models import ClinicalFrameId, ClinicalStructure, TermCandidate, TermCandidateList
 from app.observability import StageTimer
+from app.pipeline.directive_validation import validate_action_directives
 from app.pipeline.frame_checks import check_frame_items
 from app.pipeline.frames import load_frame, validate_term_candidates
+from app.pipeline.segments import Segment, segments_from_transcript_text
 from app.providers.base import LLMProvider
 from app.providers.mock import (
     PROMPT_VERSION_COVERAGE,
@@ -23,6 +27,7 @@ def structure_encounter(
     llm_provider: LLMProvider,
     stage_timer: Optional[StageTimer] = None,
     clinical_frame: Optional[ClinicalFrameId] = None,
+    segments: Optional[list[Segment]] = None,
 ) -> ClinicalStructure:
     """`clinical_frame` (tasks/10): the clinician-selected frame.
 
@@ -41,9 +46,16 @@ def structure_encounter(
 
     tasks/15: only coverage needs another call's output, so three branches
     run at once -- structure -> coverage | term candidates | frame checks.
-    Any branch's error is re-raised here, as before."""
+    Any branch's error is re-raised here, as before.
+
+    `segments` (docs/stage1_output.md section 6, option C): the structure
+    call also gets the segments so its action_directives can copy real IDs;
+    manual text gets seg_001.. per line. Directives are grounding-checked
+    once, after all branches are merged."""
+    if segments is None:
+        segments = segments_from_transcript_text(transcript_text)
     with ThreadPoolExecutor(max_workers=3) as pool:
-        slots = pool.submit(_structure_and_coverage, transcript_text, llm_provider, stage_timer)
+        slots = pool.submit(_structure_and_coverage, transcript_text, segments, llm_provider, stage_timer)
         terms = checks = None
         if clinical_frame is not None:
             terms = pool.submit(extract_term_candidates, transcript_text, llm_provider, clinical_frame, stage_timer)
@@ -52,16 +64,31 @@ def structure_encounter(
         return structure.model_copy(update={
             "term_candidates": terms.result() if terms else [],
             "frame_checks": checks.result() if checks else [],
+            "action_directives": validate_action_directives(structure.action_directives, segments),
         })
 
 
 def _structure_and_coverage(
-    transcript_text: str, llm_provider: LLMProvider, stage_timer: Optional[StageTimer]
+    transcript_text: str, segments: list[Segment], llm_provider: LLMProvider, stage_timer: Optional[StageTimer]
 ) -> ClinicalStructure:
-    raw = llm_provider.generate_json("structure_transcript", {"transcript_text": transcript_text},
-                                     stage_timer=stage_timer)
-    structure = ClinicalStructure.model_validate(raw)
+    payload = {"transcript_text": transcript_text, "segments": segments}
+    # CLAUDE.md stage 2 rule: retry an invalid LLM output once. A second
+    # failure propagates to the existing PROCESSING_FAILED path, where the
+    # clinician can retry or edit the draft by hand.
+    try:
+        structure = ClinicalStructure.model_validate(
+            llm_provider.generate_json("structure_transcript", payload, stage_timer=stage_timer)
+        )
+    except ValidationError:
+        structure = ClinicalStructure.model_validate(
+            llm_provider.generate_json("structure_transcript", payload, stage_timer=stage_timer)
+        )
     return add_missed_facts(transcript_text, structure, llm_provider, stage_timer)
+
+
+# Fields the coverage call neither sees nor adds to: each has its own call
+# (term_candidates, frame_checks) or its own grounding check (action_directives).
+_NOT_COVERAGE_FIELDS = {"term_candidates", "frame_checks", "action_directives"}
 
 
 def add_missed_facts(
@@ -75,18 +102,18 @@ def add_missed_facts(
     of misses had no keyword in any summary item, the same items in 3/3
     runs, despite slot rules for them). A second call sees the transcript
     and the structure and returns only what is missing, in the same schema;
-    it is appended. Term candidates and frame checks are not this call's job
-    and are dropped."""
+    it is appended. Term candidates, frame checks and action directives are
+    not this call's job and are dropped."""
     raw = llm_provider.generate_json(
         "coverage_check",
         {"transcript_text": transcript_text,
-         "structure": structure.model_dump(exclude={"term_candidates", "frame_checks"})},
+         "structure": structure.model_dump(exclude=_NOT_COVERAGE_FIELDS)},
         stage_timer=stage_timer,
     )
     missed = ClinicalStructure.model_validate(raw)
     update = {}
     for field in ClinicalStructure.model_fields:
-        if field in ("term_candidates", "frame_checks"):
+        if field in _NOT_COVERAGE_FIELDS:
             continue
         existing = getattr(structure, field)
         seen = {_dedup_key(item) for item in existing}

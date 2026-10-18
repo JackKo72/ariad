@@ -1,0 +1,48 @@
+{
+  "visit_id": "V06",
+  "description": "음주: 거부 후 절주로 합의",
+  "synthetic": true,
+  "label_status": "draft_unreviewed",
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "술은 이제 끊으셔야 해요."
+    },
+    {
+      "id": "seg_002",
+      "speaker": "B",
+      "role": "patient",
+      "text": "그건 못 하겠어요. 일 때문에 회식이 많아서요."
+    },
+    {
+      "id": "seg_003",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "그럼 우선 주 2잔 이하로 줄이세요."
+    },
+    {
+      "id": "seg_004",
+      "speaker": "B",
+      "role": "patient",
+      "text": "그 정도는 해볼게요."
+    }
+  ],
+  "expected_directives": [
+    {
+      "segment_ids": [
+        "seg_001"
+      ],
+      "catalog_code": "A1",
+      "agreement": "refused"
+    },
+    {
+      "segment_ids": [
+        "seg_003"
+      ],
+      "catalog_code": "A1",
+      "agreement": "agreed"
+    }
+  ]
+}
