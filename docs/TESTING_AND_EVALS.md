@@ -49,7 +49,7 @@ tasks/06_ASR_OUTPUT_VERIFICATION.md: 기존 "약명/수치 exact match"(네 가�
 
 화자분리 정확도: `app/eval/diarization_metrics.py`(frame 기반 DER, 0.25초 collar, role_purity, overlap recall)가 `scripts/compare_diarization_engines.py`에 연결되어 있다. `<audio>.transcript.json`이 있으면 속도와 함께 정확도를 채점한다.
 
-의사 목소리 등록(평가 전용, 제품 pipeline 미적용 — PRODUCT.md의 생체 음성인식 제외 원칙 유지): `scripts/benchmark_doctor_enrollment.py` + `app/eval/doctor_enrollment.py`. 의사 voiceprint로 의사 군집을 찾고 작은 외부 군집을 오염으로 표시하는 방식을 doctor recall/precision, contamination kept, conversation dropped, similarity margin으로 채점한다. 실제 의사 음성·진료 녹음은 저장소에 넣지 않는다. 첫 합성 측정(2026-10-23, espeak 음성): 등록 의사 판별은 정확(진짜 0.87 vs 다른 의사 0.23)했지만 diarizer가 의사·환자를 한 군집으로 합쳐 군집 단위 판정의 한계가 드러났다. 합성 음성끼리는 실제 사람보다 서로 비슷하므로 실제 녹음으로 재측정해야 한다.
+의사 목소리 등록(평가 전용, 제품 pipeline 미적용 — PRODUCT.md의 생체 음성인식 제외 원칙 유지): `scripts/benchmark_doctor_enrollment.py` + `app/eval/doctor_enrollment.py`. 의사 voiceprint로 의사 군집을 찾고 작은 외부 군집을 오염으로 표시하는 방식을 doctor recall/precision, contamination kept, conversation dropped, similarity margin으로 채점한다. 실제 의사 음성·진료 녹음은 저장소에 넣지 않는다. 첫 합성 측정(2026-10-23, espeak 음성): 등록 의사 판별은 정확(진짜 0.87 vs 다른 의사 0.23)했지만 diarizer가 의사·환자를 한 군집으로 합쳐 군집 단위 판정의 한계가 드러났다. 합성 음성끼리는 실제 사람보다 서로 비슷하므로 실제 녹음으로 재측정해야 한다. 이후 발화 단위 판정(`label_turns`)을 추가해 같은 화자분리 결과 위에서 군집 단위와 나란히 채점한다. THRESHOLD=0.8에서 깨끗한 녹음은 doctor precision이 0.795→1.000으로 올랐다(합성 환자 발화의 유사도 0.66~0.75, 의사 0.86~0.92). 반면 옆방 소리가 겹친 녹음에서는 의사 발화 유사도 자체가 떨어져 recall이 0.28~0.51로 낮아졌다. 이는 소프트웨어보다 마이크(근접 녹음)로 풀 문제다. 기본 THRESHOLD 0.5는 이 임베딩 모델에 낮으므로 실제 녹음으로 margin을 보고 정한다. 같은 설정에서도 군집 결과가 실행마다 약간 달라질 수 있어 반복 실행으로 확인한다.
 
 ## 5. Non-negotiable release gates
 

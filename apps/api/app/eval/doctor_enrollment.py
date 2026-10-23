@@ -17,6 +17,8 @@ How it works (no model training -- "enrollment" is the standard approach):
      ("other" = patient/guardian; telling those apart is not attempted.)
      Several clusters may be "doctor" -- that also auto-merges a
      doctor who was over-segmented into two clusters.
+  4. label_turns(): the same voiceprint test per utterance, so a cluster
+     that wrongly merged doctor and patient still gets split.
 
 Scoring is time-weighted against a reference whose turns carry
 `expected_role` ("doctor", "patient", "guardian", or "contamination" for
@@ -93,6 +95,37 @@ def label_clusters(
         else:
             label = "other"
         decisions[name] = ClusterDecision(label, sim, share)
+    return decisions
+
+
+def label_turns(
+    turn_similarities: Sequence[float | None],
+    turn_clusters: Sequence[str],
+    cluster_decisions: dict[str, ClusterDecision],
+    threshold: float = 0.5,
+) -> list[ClusterDecision]:
+    """Per-utterance doctor decision, for when the diarizer merged doctor and
+    patient into one cluster (seen in the first synthetic run) -- a cluster
+    label can't split that, but each turn compared to the voiceprint can.
+
+    sim >= threshold                  -> "doctor" (whatever its cluster says)
+    no sim (turn too short to embed)  -> inherits its cluster's label
+    cluster flagged "contamination"   -> stays "contamination"
+    otherwise                         -> "other" (even inside a "doctor" cluster)
+    """
+    decisions = []
+    for sim, cluster in zip(turn_similarities, turn_clusters, strict=True):
+        parent = cluster_decisions[cluster]
+        if sim is None:
+            decisions.append(parent)
+            continue
+        if sim >= threshold:
+            label: Label = "doctor"
+        elif parent.label == "contamination":
+            label = "contamination"
+        else:
+            label = "other"
+        decisions.append(ClusterDecision(label, sim, parent.share))
     return decisions
 
 

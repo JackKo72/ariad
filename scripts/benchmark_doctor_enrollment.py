@@ -46,6 +46,7 @@ from app.eval.doctor_enrollment import (  # noqa: E402
     cluster_majority_roles,
     cosine,
     label_clusters,
+    label_turns,
     score_enrollment,
     similarity_margin,
 )
@@ -135,7 +136,6 @@ def _run_case(case: dict, base: Path, diarizer, extractor, voiceprints: dict, cf
     doctor_vp = voiceprints[case["doctor"]]
     decisions = label_clusters(clusters, doctor_vp, cfg["threshold"], cfg["min_share"])
     majority = cluster_majority_roles(reference, hyp)
-    score = score_enrollment(reference, hyp, decisions, collar=cfg["collar"])
     der = compute_der(reference, hyp, collar=cfg["collar"])
 
     # Other enrolled doctors must NOT match this doctor's clusters.
@@ -143,16 +143,33 @@ def _run_case(case: dict, base: Path, diarizer, extractor, voiceprints: dict, cf
     impostor = [
         cosine(clusters[s].embedding, vp) for d, vp in voiceprints.items() if d != case["doctor"] for s in true_doctor
     ]
-
-    return {
+    common = {
         "der": der.der,
         "speakers_ref_hyp": [der.ref_speakers, der.hyp_speakers],
-        "doctor_recall": score.doctor_recall,
-        "doctor_precision": score.doctor_precision,
-        "contamination_kept": score.contamination_kept,
-        "conversation_dropped": score.conversation_dropped,
-        "margin": similarity_margin(decisions, majority),
         "impostor_max_sim": max(impostor) if impostor else None,
+    }
+
+    # Turn mode: same diarizer output, but each turn gets its own id and its
+    # own voiceprint test (label_turns); clusterless ids keep scoring generic.
+    turn_hyp = [Turn(t.start, t.end, f"{t.speaker}.{i}") for i, t in enumerate(hyp)]
+    turn_sims = []
+    for t in hyp:
+        emb = _embed(extractor, frames[int(t.start * sr) : int(t.end * sr)], sr) if t.end - t.start >= MIN_TURN_SECONDS else None
+        turn_sims.append(cosine(emb, doctor_vp) if emb else None)
+    parents = {s: decisions[s] for s in {t.speaker for t in hyp} if s in decisions}
+    kept = [i for i, t in enumerate(hyp) if t.speaker in parents]
+    turn_decisions = dict(
+        zip(
+            [turn_hyp[i].speaker for i in kept],
+            label_turns([turn_sims[i] for i in kept], [hyp[i].speaker for i in kept], parents, cfg["threshold"]),
+            strict=True,
+        )
+    )
+
+    return {
+        "cluster": {**common, **_evaluate(reference, hyp, decisions, cfg)},
+        "turn": {**common, **_evaluate(reference, turn_hyp, turn_decisions, cfg)},
+        "turns_relabelled": sum(1 for i in kept if turn_decisions[turn_hyp[i].speaker].label != decisions[hyp[i].speaker].label),
         "clusters": [
             {
                 "cluster": s,
@@ -163,6 +180,17 @@ def _run_case(case: dict, base: Path, diarizer, extractor, voiceprints: dict, cf
             }
             for s, d in decisions.items()
         ],
+    }
+
+
+def _evaluate(reference: list[Turn], hyp: list[Turn], decisions: dict, cfg: dict) -> dict:
+    score = score_enrollment(reference, hyp, decisions, collar=cfg["collar"])
+    return {
+        "doctor_recall": score.doctor_recall,
+        "doctor_precision": score.doctor_precision,
+        "contamination_kept": score.contamination_kept,
+        "conversation_dropped": score.conversation_dropped,
+        "margin": similarity_margin(decisions, cluster_majority_roles(reference, hyp)),
     }
 
 
@@ -212,18 +240,26 @@ def main() -> int:
         print(f"[{case['id']}]")
         for c in r["clusters"]:
             print(f"  cluster {c['cluster']}: true={c['true_role']}, label={c['label']}, sim={c['similarity']}, share={c['share']}")
+        print(f"  turn mode relabelled {r['turns_relabelled']} turn(s) vs cluster mode")
 
-    header = f"{'case':<26}{'DER':>7}{'spk':>7}{'dr_rec':>8}{'dr_prec':>9}{'contam_kept':>13}{'conv_drop':>11}{'margin':>8}{'impostor':>10}"
+    header = (
+        f"{'case':<26}{'mode':>8}{'DER':>7}{'spk':>7}{'dr_rec':>8}{'dr_prec':>9}"
+        f"{'contam_kept':>13}{'conv_drop':>11}{'margin':>8}{'impostor':>10}"
+    )
     print("\n" + header + "\n" + "-" * len(header))
-    for cid, r in results.items():
-        spk = "{}/{}".format(*r["speakers_ref_hyp"])
-        print(
-            f"{cid:<26}{_fmt(r['der']):>7}{spk:>7}{_fmt(r['doctor_recall']):>8}{_fmt(r['doctor_precision']):>9}"
-            f"{_fmt(r['contamination_kept']):>13}{_fmt(r['conversation_dropped']):>11}{_fmt(r['margin']):>8}"
-            f"{_fmt(r['impostor_max_sim']):>10}"
-        )
+    for cid, res in results.items():
+        for mode in ("cluster", "turn"):
+            r = res[mode]
+            spk = "{}/{}".format(*r["speakers_ref_hyp"])
+            print(
+                f"{cid if mode == 'cluster' else '':<26}{mode:>8}{_fmt(r['der']):>7}{spk:>7}"
+                f"{_fmt(r['doctor_recall']):>8}{_fmt(r['doctor_precision']):>9}"
+                f"{_fmt(r['contamination_kept']):>13}{_fmt(r['conversation_dropped']):>11}{_fmt(r['margin']):>8}"
+                f"{_fmt(r['impostor_max_sim']):>10}"
+            )
     print(
-        "\ndr_rec/dr_prec: 의사 발화를 의사로 찾은 비율 / 의사로 표시한 것 중 진짜 의사 비율 (높을수록 좋음)\n"
+        "\nmode: cluster = 화자 묶음 단위 판정, turn = 발화 단위 판정 (같은 화자분리 결과 위에서 비교)\n"
+        "dr_rec/dr_prec: 의사 발화를 의사로 찾은 비율 / 의사로 표시한 것 중 진짜 의사 비율 (높을수록 좋음)\n"
         "contam_kept: 섞어 넣은 오염 발화가 대화로 살아남은 비율 (낮을수록 좋음)\n"
         "conv_drop: 진짜 대화가 오염으로 버려진 비율 (낮을수록 좋음 -- 조용한 보호자 누락 확인)\n"
         "margin: 의사 묶음 최저 유사도 - 나머지 최고 유사도. 양수이고 클수록 THRESHOLD 설정 여유가 큼\n"

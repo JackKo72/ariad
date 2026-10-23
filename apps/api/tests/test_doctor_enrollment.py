@@ -11,6 +11,7 @@ from app.eval.doctor_enrollment import (
     cluster_majority_roles,
     cosine,
     label_clusters,
+    label_turns,
     score_enrollment,
     similarity_margin,
 )
@@ -76,6 +77,31 @@ def test_patient_mislabelled_as_doctor_lowers_precision():
     s = score_enrollment(REF, HYP, _decisions(**{"0": "doctor", "1": "doctor", "2": "contamination"}), collar=0)
     assert s.doctor_recall == pytest.approx(1.0)
     assert s.doctor_precision == pytest.approx(10 / 20)
+
+
+def test_label_turns_splits_merged_doctor_patient_cluster():
+    # diarizer put doctor and patient in one cluster "0" labelled doctor
+    parents = {"0": ClusterDecision("doctor", 0.8, 0.9), "9": ClusterDecision("contamination", 0.1, 0.05)}
+    out = label_turns(
+        turn_similarities=[0.85, 0.25, None, 0.20, 0.70],
+        turn_clusters=["0", "0", "0", "9", "9"],
+        cluster_decisions=parents,
+        threshold=0.5,
+    )
+    assert [d.label for d in out] == ["doctor", "other", "doctor", "contamination", "doctor"]
+    assert out[1].similarity == pytest.approx(0.25)
+    assert out[2] is parents["0"]  # too short to embed -> inherits cluster
+
+
+def test_turn_level_scoring_fixes_merged_cluster():
+    hyp_one_cluster = [Turn(0.0, 10.0, "0"), Turn(10.0, 20.0, "0")]
+    ref = REF[:2]
+    cluster_level = score_enrollment(ref, hyp_one_cluster, _decisions(**{"0": "doctor"}), collar=0)
+    assert cluster_level.doctor_precision == pytest.approx(0.5)
+    per_turn = [Turn(t.start, t.end, f"0.{i}") for i, t in enumerate(hyp_one_cluster)]
+    turn_level = score_enrollment(ref, per_turn, _decisions(**{"0.0": "doctor", "0.1": "other"}), collar=0)
+    assert turn_level.doctor_precision == pytest.approx(1.0)
+    assert turn_level.doctor_recall == pytest.approx(1.0)
 
 
 def test_majority_roles_and_margin():
