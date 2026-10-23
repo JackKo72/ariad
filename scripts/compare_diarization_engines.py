@@ -54,6 +54,18 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "apps" / "api"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from app.eval.diarization_metrics import Turn, compute_der, turns_from_fixture  # noqa: E402
+
+
+def _find_reference(audio_path: Path) -> Path | None:
+    """REF env var wins; otherwise the fixture convention
+    `<name>.wav` + `<name>.transcript.json` side by side."""
+    explicit = os.environ.get("REF")
+    if explicit:
+        return Path(explicit)
+    sibling = audio_path.with_name(f"{audio_path.stem}.transcript.json")
+    return sibling if sibling.exists() else None
+
 
 def _load_env_local() -> None:
     env_path = REPO_ROOT / "apps" / "api" / ".env.local"
@@ -114,6 +126,7 @@ def _run_sherpa(audio_path: Path, provider: str) -> dict:
         "audio_duration_seconds": round(audio_duration, 2),
         "rtf": round(warm_ms / 1000 / audio_duration, 3) if audio_duration else None,
         "turns_detected": len(turns),
+        "_turns": [Turn(t.start, t.end, str(t.speaker)) for t in turns],  # for scoring; never printed
         **sampler.summary(),
     }
 
@@ -185,6 +198,7 @@ def _run_pyannote(audio_path: Path, device: str) -> dict:
         "audio_duration_seconds": round(audio_duration, 2),
         "rtf": round(warm_ms / 1000 / audio_duration, 3) if audio_duration else None,
         "turns_detected": len(turns),
+        "_turns": [Turn(seg.start, seg.end, str(label)) for seg, _, label in turns],  # for scoring; never printed
         "device": device,
         **sampler.summary(),
     }
@@ -214,7 +228,12 @@ def main() -> int:
     requested = os.environ.get("ENGINES")
     engine_keys = [k.strip() for k in requested.split(",")] if requested else list(CANDIDATES)
 
+    ref_path = _find_reference(audio_path)
+    reference = turns_from_fixture(json.loads(ref_path.read_text())) if ref_path else None
+    collar = float(os.environ.get("COLLAR", "0.25"))
+
     print(f"audio: {audio_path}")
+    print(f"reference: {ref_path or '(없음 -- 속도만 측정, 정확도 채점 생략)'}")
     print(f"engines: {engine_keys}\n")
 
     results = {}
@@ -224,6 +243,20 @@ def main() -> int:
             continue
         print(f"[{key}] running ...")
         result = CANDIDATES[key](audio_path)
+        hyp_turns = result.pop("_turns", None)
+        if reference is not None and hyp_turns is not None:
+            score = compute_der(reference, hyp_turns, collar=collar)
+            result["accuracy"] = {
+                "der": round(score.der, 4) if score.der is not None else None,
+                "missed_s": score.missed,
+                "false_alarm_s": score.false_alarm,
+                "confusion_s": score.confusion,
+                "scored_speech_s": score.scored_speech,
+                "speakers_ref_hyp": [score.ref_speakers, score.hyp_speakers],
+                "role_purity": round(score.role_purity, 4) if score.role_purity is not None else None,
+                "overlap_recall": round(score.overlap_recall, 4) if score.overlap_recall is not None else None,
+                "collar_s": collar,
+            }
         results[key] = result
         if result.get("skipped"):
             print(f"  SKIPPED: {result['reason']}")
@@ -234,7 +267,10 @@ def main() -> int:
     print("=" * 78)
     print("요약 (RTF = warm_diarize_ms / audio_duration_ms; 낮을수록 빠름, 목표 <= 0.1)")
     print("=" * 78)
-    header = f"{'engine':<16}{'RTF':>8}{'warm_ms':>12}{'gpu_util%':>12}{'cpu_util%':>12}"
+    header = (
+        f"{'engine':<16}{'RTF':>8}{'warm_ms':>12}{'gpu_util%':>12}{'cpu_util%':>12}"
+        f"{'DER':>8}{'spk(ref/hyp)':>14}{'role_purity':>13}"
+    )
     print(header)
     print("-" * len(header))
     for key, result in results.items():
@@ -251,6 +287,7 @@ def main() -> int:
             f"{(f'{warm_ms:.0f}' if warm_ms is not None else '-'):>12}"
             f"{(f'{gpu_util:.0f}' if gpu_util is not None else '-'):>12}"
             f"{(f'{cpu_util:.0f}' if cpu_util is not None else '-'):>12}"
+            + _accuracy_columns(result.get("accuracy"))
         )
     print(
         "\n주의: pyannote_cuda의 gpu_util%가 0에 가깝거나 '-'이면 torch가 모델을 cuda 디바이스로 "
@@ -258,7 +295,27 @@ def main() -> int:
         "'pipeline.to(cuda) 성공'과 '실제 가속'을 혼동하지 말 것(sherpa-onnx provider=cuda가 "
         "fallback했던 것과 같은 함정)."
     )
+    if reference is not None:
+        print(
+            "\nDER = (놓친 발화 + 없는데 잡은 발화 + 화자 혼동) / 정답 발화시간; 낮을수록 좋음. "
+            "role_purity = 이 군집 위에서 역할지정이 낼 수 있는 최대 정확도 -- "
+            "DER만 높고 role_purity가 1.0에 가까우면 과분할(수동 병합으로 해결), "
+            "role_purity가 낮으면 한 군집에 의사·환자 발화가 섞인 것(위험)."
+        )
     return 0
+
+
+def _accuracy_columns(acc: dict | None) -> str:
+    if not acc:
+        return f"{'-':>8}{'-':>14}{'-':>13}"
+    der = acc.get("der")
+    purity = acc.get("role_purity")
+    spk = "{}/{}".format(*acc["speakers_ref_hyp"])
+    return (
+        f"{(f'{der:.3f}' if der is not None else '-'):>8}"
+        f"{spk:>14}"
+        f"{(f'{purity:.3f}' if purity is not None else '-'):>13}"
+    )
 
 
 if __name__ == "__main__":
