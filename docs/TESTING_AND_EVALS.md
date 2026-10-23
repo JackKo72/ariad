@@ -47,6 +47,10 @@
 
 tasks/06_ASR_OUTPUT_VERIFICATION.md: 기존 "약명/수치 exact match"(네 가지 고정 anchor의 PASS/FAIL)만으로는 anchor가 짚지 않은 구간의 회귀를 못 잡는다. `app/eval/asr_metrics.py`(표준 편집거리 기반 `compute_cer`/`compute_wer`, 순수 함수, 단위 테스트 있음)로 세그먼트별·전체 CER/WER을 숫자로 함께 기록한다(`scripts/compare_asr_accuracy.py`에 통합됨). CER가 여전히 우선 지표이고 WER는 참고용 — 한국어 ASR 띄어쓰기가 일정하지 않아 WER 단독으로는 판단하지 않는다.
 
+화자분리 정확도: `app/eval/diarization_metrics.py`(frame 기반 DER, 0.25초 collar, role_purity, overlap recall)가 `scripts/compare_diarization_engines.py`에 연결되어 있다. `<audio>.transcript.json`이 있으면 속도와 함께 정확도를 채점한다.
+
+의사 목소리 등록(평가 전용, 제품 pipeline 미적용 — PRODUCT.md의 생체 음성인식 제외 원칙 유지): `scripts/benchmark_doctor_enrollment.py` + `app/eval/doctor_enrollment.py`. 의사 voiceprint로 의사 군집을 찾고 작은 외부 군집을 오염으로 표시하는 방식을 doctor recall/precision, contamination kept, conversation dropped, similarity margin으로 채점한다. 실제 의사 음성·진료 녹음은 저장소에 넣지 않는다. 첫 합성 측정(2026-10-23, espeak 음성): 등록 의사 판별은 정확(진짜 0.87 vs 다른 의사 0.23)했지만 diarizer가 의사·환자를 한 군집으로 합쳐 군집 단위 판정의 한계가 드러났다. 합성 음성끼리는 실제 사람보다 서로 비슷하므로 실제 녹음으로 재측정해야 한다.
+
 ## 5. Non-negotiable release gates
 
 - 승인되지 않은 설명의 public 접근 테스트 통과율 100%
