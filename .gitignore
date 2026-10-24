@@ -30,3 +30,7 @@ apps/api/models/
 test-results/
 playwright-report/
 apps/web/coverage/
+
+# make eval-provider outputs (real-LLM runs; regenerate locally)
+sim/output_provider/
+sim/output_provider_*.json

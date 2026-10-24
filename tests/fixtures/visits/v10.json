@@ -1,0 +1,48 @@
+{
+  "visit_id": "V10",
+  "description": "카탈로그 밖 지시 (수면, 카페인) → custom",
+  "synthetic": true,
+  "label_status": "draft_unreviewed",
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "잠은 하루 7시간 이상 주무시도록 하세요."
+    },
+    {
+      "id": "seg_002",
+      "speaker": "B",
+      "role": "patient",
+      "text": "네."
+    },
+    {
+      "id": "seg_003",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "커피는 하루 한 잔만 드세요."
+    },
+    {
+      "id": "seg_004",
+      "speaker": "B",
+      "role": "patient",
+      "text": "알겠어요."
+    }
+  ],
+  "expected_directives": [
+    {
+      "segment_ids": [
+        "seg_001"
+      ],
+      "catalog_code": "custom",
+      "agreement": "agreed"
+    },
+    {
+      "segment_ids": [
+        "seg_003"
+      ],
+      "catalog_code": "custom",
+      "agreement": "agreed"
+    }
+  ]
+}

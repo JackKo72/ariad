@@ -1,0 +1,41 @@
+{
+  "visit_id": "V17",
+  "description": "인슐린 사용자 자가혈당 + 저혈당 대처(경고, 생활습관 지시 아님)",
+  "synthetic": true,
+  "label_status": "draft_unreviewed",
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "인슐린 맞으시니까 혈당은 아침 공복이랑 자기 전에 측정하세요."
+    },
+    {
+      "id": "seg_002",
+      "speaker": "B",
+      "role": "patient",
+      "text": "바늘이 무서워서 잘 안 하게 돼요."
+    },
+    {
+      "id": "seg_003",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "70 아래로 떨어지면 사탕 드시고 바로 연락 주세요."
+    },
+    {
+      "id": "seg_004",
+      "speaker": "B",
+      "role": "patient",
+      "text": "알겠습니다."
+    }
+  ],
+  "expected_directives": [
+    {
+      "segment_ids": [
+        "seg_001"
+      ],
+      "catalog_code": "H2",
+      "agreement": "unclear"
+    }
+  ]
+}

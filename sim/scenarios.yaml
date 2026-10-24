@@ -1,0 +1,122 @@
+# ARIAD stage 2 시나리오 A–D (docs/ARIAD_stage2_design.md Part 2-3, Step 7).
+#
+# 전부 가상 환자·가상 응답이다. 의료진 결정(clinician)도 시뮬레이션용 가상 값이며
+# 임상 권고가 아니다.
+#
+# behavior (catalog_code별):
+#   done:  4주 각 주의 "그날/그 회차 실천 확률"
+#   respond: 질문을 받았을 때 응답할 확률
+#   done_value / miss_value: CheckIn.value (기본: ">=" 목표는 1/0, "<=" 목표는 0/1)
+#   measured_value: 측정형(H1·H2) 기록 값
+# barriers: 주간 판정이 부분/미이행인 주에 받는 자유 응답 (주별 리스트)
+# events: 특정 날의 측정값 (red flag 확인용). day는 0=월요일.
+
+start_date: 2026-10-12  # 월요일, 2026-W42
+weeks: 4
+seed: 20261009
+red_flag_measurements:
+  H2: hypoglycemia
+
+scenarios:
+  - id: A
+    description: "68세 남성, 우측 경도 편마비, 혼자 거주, HTN·DL, 국물 선호, 하루 10개비 흡연"
+    # Part 2-3 A는 "하루 최대 2문항"이지만 매일 항목(S1·D2)만으로 2칸이 차서 P1이
+    # 한 번도 질문되지 않는다 (Step 7 발견, never_asked_items가 승인 시 차단).
+    # 결정: 상한 3, P1은 주 3회(월·수·금)만 질문 → 걷기 날만 3문항, 나머지 날 2문항.
+    max_questions_per_day: 3
+    transcript: |
+      의사: 혈압이 아직 높게 나오네요.
+      환자: 요즘 국을 많이 먹었어요.
+      의사: 담배는 오늘부터 끊으셔야 합니다.
+      환자: 노력은 해볼게요.
+      의사: 국물은 이제 드시지 마시고요, 건더기만 드세요.
+      환자: 그게 제일 어렵네요. 혼자 살아서 라면을 자주 먹어요.
+      의사: 주 3일 15분 정도 걸으세요. 집 안에서 제자리 걷기도 괜찮습니다.
+      환자: 네, 알겠습니다.
+    clinician:
+      respondent: patient
+      targets:
+        D2: { value: 6, unit: days_per_week, comparator: ">=" }
+      # 걷기 목표가 "주 3일"이므로 매일 대신 주 3회(월·수·금) 질문.
+      cadences:
+        P1: { times: 3, per: week }
+    behavior:
+      S1: { done: [0.5, 0.7, 0.85, 0.9], respond: 0.9, miss_value: 5 }
+      D2: { done: [0.2, 0.5, 0.7, 0.8], respond: 0.9 }
+      P1: { done: [0.4, 0.5, 0.6, 0.6], respond: 0.9, done_value: 15 }
+    barriers:
+      S1: [["담배 생각이 나서 참기 힘들었어요."], ["담배 생각이 나서 참기 힘들었어요."], [], []]
+      D2: [["식사 챙겨 줄 가족이 없어서 라면을 먹었어요."], ["혼자 먹으니 배달 음식을 자꾸 시켜요."], [], []]
+
+  - id: B
+    description: "55세 여성, T2DM + HTN, 사무직, 외식·회식 잦음"
+    transcript: |
+      의사: 회사에서 오래 앉아 계시면 30분마다 일어나서 3분씩 움직이세요.
+      환자: 회의가 많아서 쉽지 않을 것 같아요.
+      의사: 퇴근하고 주 5일 30분 걸으세요.
+      환자: 네, 해볼게요.
+      의사: 단 음료는 끊으시고요.
+      환자: 알겠습니다.
+      의사: 아침 공복 혈당을 매일 재세요.
+      환자: 네.
+    clinician:
+      respondent: patient
+      targets:
+        H2: { value: 7, unit: measurements_per_week, comparator: ">=" }
+        P3: { value: 2, unit: prompted_breaks_per_day, comparator: ">=" }
+      # Part 2-3 B: 근무 시간대 알림은 점심·오후 2회로 제한
+      cadences:
+        P3: { times: 2, per: day }
+    behavior:
+      P3: { done: [0.5, 0.4, 0.6, 0.6], respond: 0.8 }
+      P1: { done: [0.6, 0.3, 0.4, 0.6], respond: 0.9, done_value: 30 }
+      D5: { done: [0.5, 0.8, 0.6, 0.9], respond: 0.9, miss_value: 2 }
+      H2: { done: [0.9, 0.85, 0.8, 0.9], respond: 1.0, measured_value: 112 }
+    barriers:
+      P1: [["회식이 세 번이나 있었어요."], ["야근 때문에 시간이 없었어요."], ["약을 먹으니까 굳이 운동까지 할 필요는 없는 것 같아요."], []]
+      P3: [["회의가 계속 이어져서 일어날 수가 없었어요."], [], [], []]
+      D5: [["회식에서 동료들이 음료를 계속 권했어요."], [], [], []]
+
+  - id: C
+    description: "75세 남성, 실어증·경도 인지저하, 배우자가 조리 담당, HTN·DM·DL (보호자 응답)"
+    transcript: |
+      의사: 오늘은 보호자분께 말씀드릴게요.
+      보호자: 네, 말씀하세요.
+      의사: 국 끓이실 때 간을 지금보다 싱겁게 해주세요.
+      보호자: 남편이 싱거우면 안 먹으려고 해서 걱정이에요.
+      의사: 혈압은 아침저녁으로 재서 기록해 주세요.
+      보호자: 네, 그렇게 할게요.
+      의사: 운동 전에는 혈당을 꼭 측정해 주세요.
+      보호자: 알겠습니다.
+    clinician:
+      respondent: caregiver
+      targets:
+        D2: { value: 6, unit: days_per_week, comparator: ">=" }
+        H1: { value: 3, unit: days_per_week, comparator: ">=" }
+        H2: { value: 7, unit: measurements_per_week, comparator: ">=" }
+    behavior:
+      D2: { done: [0.6, 0.6, 0.5, 0.4], respond: 0.9 }
+      H1: { done: [0.8, 0.7, 0.5, 0.4], respond: 1.0, measured_value: 138 }
+      H2: { done: [0.9, 0.8, 0.6, 0.5], respond: 1.0, measured_value: 121 }
+    events:
+      - { week: 1, day: 3, code: H2, measured_value: 62 }
+    barriers:
+      D2: [[], ["요즘 기운이 없어서 음식 챙기기가 힘들어요."], ["요즘 기운이 없어서 음식 챙기기가 힘들어요."], ["남편이 싱거우면 안 먹으려고 해요."]]
+      H1: [[], [], ["혈압계가 고장 났어요."], ["혈압계가 고장 났어요."]]
+
+  - id: D
+    description: "재진 시나리오: 4주간 P1 이행률 약 30%, 무릎 통증·날씨"
+    transcript: |
+      의사: 지난번처럼 주 4일 30분 걸으세요.
+      환자: 무릎이 아파서 자신은 없어요.
+    clinician:
+      respondent: patient
+      targets: {}
+    behavior:
+      P1: { done: [0.3, 0.3, 0.3, 0.3], respond: 0.95, done_value: 18 }
+    barriers:
+      P1:
+        - ["무릎이 아파서 못 걸었어요."]
+        - ["무릎이 아파서 걷기 힘들었어요.", "비가 와서 못 나갔어요."]
+        - ["날이 추워서 안 나갔어요."]
+        - ["무릎이 또 아파서 쉬었어요."]

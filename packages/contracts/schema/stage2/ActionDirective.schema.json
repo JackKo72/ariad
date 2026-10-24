@@ -1,0 +1,183 @@
+{
+  "$defs": {
+    "Agreement": {
+      "description": "How the patient responded to a directive in the visit (Part 5-2).\nClinical information -- distinct from needs_review, which is about\nextraction quality (docs/stage1_output.md section 7, item 10).",
+      "enum": [
+        "agreed",
+        "hesitant",
+        "refused",
+        "unclear"
+      ],
+      "title": "Agreement",
+      "type": "string"
+    },
+    "BarrierMention": {
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "source_spans": {
+          "items": {
+            "$ref": "#/$defs/SourceSpan"
+          },
+          "title": "Source Spans",
+          "type": "array"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "BarrierMention",
+      "type": "object"
+    },
+    "PatientResponse": {
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "agreement": {
+          "$ref": "#/$defs/Agreement"
+        },
+        "source_spans": {
+          "items": {
+            "$ref": "#/$defs/SourceSpan"
+          },
+          "title": "Source Spans",
+          "type": "array"
+        }
+      },
+      "required": [
+        "text",
+        "agreement"
+      ],
+      "title": "PatientResponse",
+      "type": "object"
+    },
+    "SourceSpan": {
+      "description": "Links one enrichment finding back to the exact transcript segment\nand verbatim quote it came from (never edited/paraphrased) plus who\nsaid it and, if the segment carries times, when.",
+      "properties": {
+        "segment_id": {
+          "title": "Segment Id",
+          "type": "string"
+        },
+        "quote": {
+          "title": "Quote",
+          "type": "string"
+        },
+        "speaker": {
+          "title": "Speaker",
+          "type": "string"
+        },
+        "role": {
+          "default": "unknown",
+          "title": "Role",
+          "type": "string"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start"
+        },
+        "end": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End"
+        }
+      },
+      "required": [
+        "segment_id",
+        "quote",
+        "speaker"
+      ],
+      "title": "SourceSpan",
+      "type": "object"
+    }
+  },
+  "description": "One lifestyle directive the doctor gave in the visit (Part 5-2).\n\nraw_text is copied verbatim, never paraphrased. source_spans must point\nat real input segments; app/pipeline/directive_validation.py enforces that and sets\nneeds_review instead of failing the whole structure output, so no\nhard length constraint here. domain_hint/target_hint are hints only --\nthe normalizer does the final catalog match.",
+  "properties": {
+    "directive_id": {
+      "title": "Directive Id",
+      "type": "string"
+    },
+    "raw_text": {
+      "title": "Raw Text",
+      "type": "string"
+    },
+    "source_spans": {
+      "items": {
+        "$ref": "#/$defs/SourceSpan"
+      },
+      "title": "Source Spans",
+      "type": "array"
+    },
+    "domain_hint": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Domain Hint"
+    },
+    "target_hint": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Hint"
+    },
+    "patient_response": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PatientResponse"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "barrier_mentions": {
+      "items": {
+        "$ref": "#/$defs/BarrierMention"
+      },
+      "title": "Barrier Mentions",
+      "type": "array"
+    },
+    "needs_review": {
+      "default": true,
+      "title": "Needs Review",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "directive_id",
+    "raw_text"
+  ],
+  "title": "ActionDirective",
+  "type": "object"
+}

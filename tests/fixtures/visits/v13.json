@@ -1,0 +1,29 @@
+{
+  "visit_id": "V13",
+  "description": "지방 섭취 제한, 횟수 목표",
+  "synthetic": true,
+  "label_status": "draft_unreviewed",
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "튀김이랑 삼겹살은 주 1회 이하로 줄이세요."
+    },
+    {
+      "id": "seg_002",
+      "speaker": "B",
+      "role": "patient",
+      "text": "네 알겠습니다."
+    }
+  ],
+  "expected_directives": [
+    {
+      "segment_ids": [
+        "seg_001"
+      ],
+      "catalog_code": "D4",
+      "agreement": "agreed"
+    }
+  ]
+}

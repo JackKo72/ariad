@@ -1,0 +1,411 @@
+# ARIAD stage 2 행동 카탈로그 (docs/ARIAD_stage2_design.md Step 1)
+#
+# 출처: 설계 문서 Part 1-1(권고 통합표), Part 1-2(결과 지표), Part 2-2(체크리스트).
+# 규칙:
+#   - 수치는 위 표에 있는 값만 쓴다. 표에 없는 값은 "TODO_CLINICIAN"으로 남긴다.
+#   - guideline_values: 가이드라인 원문 수치 (참고값, 환자에게 직접 묻는 목표 아님).
+#   - default_target: 체크인/이행 판정에 쓰는 환자 행동 목표의 기본값.
+#     진료에서 합의된 값이 있으면 ActionItem.target이 이 값을 덮어쓴다.
+#   - metric_type (Part 3-2): frequency=횟수형(주 N일), amount=양형(주 N분),
+#     binary=이진형(금연), measurement=측정 기록형(혈압·혈당·체중).
+#   - comparator: ">=" 목표 이상 수행 / "<=" 목표 이하로 제한.
+#   - contraindication_rules: 규칙 ID + 근거 문구. 판정 로직은 이후 Step에서 구현.
+
+catalog_version: "0.1.0"
+todo_marker: TODO_CLINICIAN
+
+actions:
+  # ---------------------------------------------------------------- 식사
+  - catalog_code: D1
+    name_ko: 지중해식·DASH 식사 패턴
+    domain: diet_pattern
+    guideline_refs: [AHA/ASA 2021, KSoLA 2026, AHA/ACC 2025]
+    guideline_values:
+      pattern: "지중해식 또는 DASH: 채소·과일·통곡물·콩·생선·견과, 적색·가공육·단 음료·과자류 제한"
+      note: "한국 지침은 '균형 잡힌 한식'을 명시 → 한국형 문항 필요"
+    atomic_behaviors:
+      - 끼니마다 채소 반찬 2가지
+      - 잡곡밥
+      - 생선 주 2회 이상
+      - 가공육/단 음료 피하기
+    metric_type: amount
+    default_target:
+      value: TODO_CLINICIAN  # 7문항 점수의 목표 점수는 표에 없음
+      unit: score_of_7
+      comparator: ">="
+    check_method:
+      channel: weekly_questionnaire
+      question_id: Q-D1-01
+      description: 주 1회 7문항 식사 체크 (지중해식 점수 축약판)
+      cadence: { times: 1, per: week }
+      objective_source: 식사 사진 (선택)
+    contraindication_rules: []
+    adjustable_params: [default_target]
+
+  - catalog_code: D2
+    name_ko: 저염 식사
+    domain: diet_sodium
+    guideline_refs: [AHA/ACC 2025, AHA/ASA 2021]
+    guideline_values:
+      sodium_ideal_mg_per_day: { lt: 1500 }
+      sodium_min_reduction_mg_per_day: 1000
+      potassium_salt_substitute: allowed_with_exclusions
+    atomic_behaviors:
+      - 국·찌개 국물 남기기
+      - 김치/장아찌 1회 소량
+      - 라면·가공식품 주 N회 이하  # N은 진료 합의값
+      - 외식 시 "싱겁게" 요청
+    metric_type: frequency
+    default_target:
+      value: TODO_CLINICIAN  # Part 5-3 예시 JSON의 6 days_per_week는 근거 표 값이 아님
+      unit: days_per_week
+      comparator: ">="
+    check_method:
+      channel: daily_question
+      question_id: Q-D2-01
+      description: 매일 저녁 1문항
+      example_question: "오늘 국물은 얼마나 드셨나요?"
+      answer_options: [안 먹음, 반, 다]
+      cadence: { times: 1, per: day }
+      objective_source: 외래 스팟 소변 나트륨 (의료진 판단)
+    contraindication_rules:
+      - id: potassium_salt_substitute_if_ckd_or_hyperkalemia_risk
+        rule: "칼륨 기반 대체염은 CKD·고칼륨 위험 환자 제외"
+    adjustable_params: [default_target, atomic_behaviors]
+
+  - catalog_code: D3
+    name_ko: 칼륨 섭취
+    domain: diet_potassium
+    guideline_refs: [AHA/ACC 2025]
+    guideline_values:
+      potassium_mg_per_day: { min: 3500, max: 5000 }
+      source_preference: "보충제보다 음식으로"
+    atomic_behaviors: TODO_CLINICIAN  # Part 2-2 체크리스트에 D3 행이 없음
+    metric_type: TODO_CLINICIAN
+    default_target:
+      value: TODO_CLINICIAN
+      unit: TODO_CLINICIAN
+      comparator: TODO_CLINICIAN
+    check_method:
+      channel: TODO_CLINICIAN
+      question_id: Q-D3-01
+      description: TODO_CLINICIAN
+      cadence: TODO_CLINICIAN
+    contraindication_rules:
+      - id: clinician_confirm_if_low_egfr_or_raas_inhibitor
+        rule: "eGFR 저하·RAAS 억제제 병용 시 의료진 확인"
+    adjustable_params: [default_target]
+
+  - catalog_code: D4
+    name_ko: 지방·콜레스테롤 조절
+    domain: diet_fat
+    guideline_refs: [KSoLA 2026]
+    guideline_values:
+      total_fat_pct_energy: { max: 30 }
+      saturated_fat_pct_energy: { max: 7 }
+      trans_fat: avoid
+      note: "포화지방→불포화지방 대체, 고콜레스테롤혈증 시 식이 콜레스테롤 제한"
+    atomic_behaviors:
+      - 튀김·삼겹살 주 N회 이하  # N은 진료 합의값
+    metric_type: frequency
+    default_target:
+      value: TODO_CLINICIAN
+      unit: times_per_week
+      comparator: "<="
+    check_method:
+      channel: weekly_questionnaire
+      question_id: Q-D45-01  # D4–D5 공통 주 1회 3문항
+      description: 주 1회 3문항 (D4–D5 공통)
+      cadence: { times: 1, per: week }
+      objective_source: 지질·혈당 검사 추세
+    contraindication_rules: []
+    adjustable_params: [default_target]
+
+  - catalog_code: D5
+    name_ko: 탄수화물·당·식이섬유 조절
+    domain: diet_carb_sugar
+    guideline_refs: [KSoLA 2026, KDA 2025, ADA 2026]
+    guideline_values:
+      carbohydrate_pct_energy: { min: 50, max: 65 }
+      total_sugar_pct_energy: { max: 20 }
+      dietary_fiber_g_per_day: { min: 25 }
+      note: "잡곡·통곡물, 가당음료·가공식품 제한. DM은 개별화 MNT"
+    atomic_behaviors:
+      - 가당음료 0
+      - 과일은 주스 대신 생과일
+    metric_type: frequency
+    default_target:
+      value: 0  # Part 2-2 "가당음료 0"
+      unit: sugary_drinks_per_week
+      comparator: "<="
+    check_method:
+      channel: weekly_questionnaire
+      question_id: Q-D45-01
+      description: 주 1회 3문항 (D4–D5 공통)
+      cadence: { times: 1, per: week }
+      objective_source: 지질·혈당 검사 추세
+    contraindication_rules: []
+    flags:
+      - id: dm_dietitian_mnt_referral
+        rule: "DM은 영양사 MNT 연계 여부를 플래그로"
+    adjustable_params: [default_target]
+
+  # ---------------------------------------------------------------- 신체활동
+  - catalog_code: P1
+    name_ko: 유산소 운동 (걷기)
+    domain: activity_aerobic
+    guideline_refs: [KSoLA 2026, KDA 2025, ADA 2026, AHA/ASA 2021]
+    guideline_values:
+      moderate_min_per_week: { min: 150, max: 300 }
+      vigorous_min_per_week: { min: 75, max: 150 }
+      days_per_week: { min: 3 }
+      max_consecutive_rest_days: 1  # "2일 연속 쉬지 않기"
+      stroke_survivor_if_able: "40분 × 3–4회/주"
+      note: "불가 시 장애·회복 단계 맞춤. 뇌졸중은 '감독 하 안전하게' 강조"
+    atomic_behaviors:
+      - 주 N일 M분 걷기  # 목표는 진료 합의값
+    metric_type: amount
+    default_target:
+      value: TODO_CLINICIAN  # 가이드라인은 범위(150–300분)이고 뇌졸중 환자는 맞춤 → 의료진 결정
+      unit: minutes_per_week
+      comparator: ">="
+    check_method:
+      channel: device_or_daily_question
+      question_id: Q-P1-01
+      description: 걸음 수/활동 분 자동 수집 + 미연동 시 질문
+      example_question: "오늘 걸으셨나요? 몇 분?"
+      cadence: { times: 1, per: day }
+      objective_source: HealthKit/Health Connect
+    contraindication_rules:
+      - id: pre_exercise_evaluation_if_high_risk
+        rule: "고위험군은 운동 전 평가"
+      - id: gait_safety_check_before_activation
+        rule: "보행 안전 확인 후 활성화 (Part 2-3 시나리오 A)"
+      - id: pre_exercise_glucose_if_hypoglycemia_risk_medication
+        rule: "저혈당 위험 약제 사용자는 운동 전후 혈당 측정 (H2 연계)"
+    adjustable_params: [default_target, atomic_behaviors]
+
+  - catalog_code: P2
+    name_ko: 저항 운동
+    domain: activity_resistance
+    guideline_refs: [ADA 2026, KDA 2025, KSoLA 2026, AHA/ACC 2025]
+    guideline_values:
+      sessions_per_week: { min: 2, max: 3 }
+      non_consecutive_days: true
+      dynamic_resistance_min_per_week: { min: 90, max: 150 }
+    atomic_behaviors:
+      - 주 2회 의자 일어서기·밴드 운동 N세트  # 세트 수 N은 진료 합의값
+    metric_type: frequency
+    default_target:
+      value: 2  # Part 2-2 "주 2회"
+      unit: sessions_per_week
+      comparator: ">="
+    check_method:
+      channel: exercise_day_question
+      question_id: Q-P2-01
+      description: 운동일 저녁 Y/N + 세트 수
+      cadence: { times: 2, per: week }
+      objective_source: 없음 (자기보고)
+    contraindication_rules:
+      - id: chair_or_band_based_if_hemiparesis_or_fall_risk
+        rule: "편마비·낙상 위험 시 의자·밴드 기반으로 대체"
+    adjustable_params: [default_target, atomic_behaviors]
+
+  - catalog_code: P3
+    name_ko: 좌식 중단
+    domain: activity_sedentary_break
+    guideline_refs: [ADA 2026, AHA/ASA 2021, KSoLA 2026]
+    guideline_values:
+      break_interval_min: 30
+      break_duration_min: 3
+      note: "KSoLA는 30–60분마다. 뇌졸중 생존자는 깨어 있는 시간의 >78%가 좌식"
+    atomic_behaviors:
+      - 30분마다 일어나 3분 움직이기
+    metric_type: frequency
+    default_target:
+      value: 3  # Part 2-2 "낮 시간 알림 3회"
+      unit: prompted_breaks_per_day
+      comparator: ">="
+    check_method:
+      channel: daytime_prompt
+      question_id: Q-P3-01
+      description: 낮 시간 알림 3회 → 응답률
+      cadence: { times: 3, per: day }
+      objective_source: 워치 비활동 알림
+    contraindication_rules: []
+    adjustable_params: [default_target, check_method.cadence]
+
+  # ---------------------------------------------------------------- 체중
+  - catalog_code: W1
+    name_ko: 체중 관리
+    domain: weight
+    guideline_refs: [AHA/ASA 2021, KSH 2026, KDA 2025, ADA 2026]
+    guideline_values:
+      weight_loss_pct_from_baseline: { min: 5, max: 10 }  # 과체중·비만 시. KDA ≥5%, ADA 5–7%
+      behavioral_counseling_sessions_per_year: { min: 12 }
+    atomic_behaviors:
+      - 주 1회 아침 공복·배뇨 후 체중 측정
+    metric_type: measurement
+    default_target:
+      value: 1  # Part 2-2 "주 1회"
+      unit: measurements_per_week
+      comparator: ">="
+    outcome_target:
+      value: TODO_CLINICIAN  # 5–10% 범위 중 개인 목표는 의료진 결정
+      unit: pct_weight_loss_from_baseline
+      comparator: ">="
+    check_method:
+      channel: value_entry_or_device
+      question_id: Q-W1-01
+      description: 수치 입력 또는 체중계 연동
+      cadence: { times: 1, per: week }
+      objective_source: 체중 추세
+    contraindication_rules:
+      - id: no_weight_loss_target_if_underweight
+        rule: "저체중 뇌졸중 환자는 감량 목표 금지"
+    adjustable_params: [outcome_target]
+
+  # ---------------------------------------------------------------- 음주·흡연
+  - catalog_code: A1
+    name_ko: 금주·절주
+    domain: alcohol
+    guideline_refs: [AHA/ACC 2025, AHA/ASA 2021, ADA 2026]
+    guideline_values:
+      heavy_drinking_male: { drinks_per_day_gt: 4, drinks_per_week_gt: 14 }
+      heavy_drinking_female: { drinks_per_day_gt: 3, drinks_per_week_gt: 7 }
+      recurrence_risk_g_per_day_gt: 60
+      note: "AHA/ACC 2025는 '적정 음주 허용'에서 후퇴 → 기본값 '금주' 권장"
+    atomic_behaviors:
+      - 금주 (또는 합의한 잔 수 이하)
+    metric_type: binary
+    default_target:
+      value: 0  # 기본값 "금주" (Part 1-1)
+      unit: drinks_per_week
+      comparator: "<="
+    check_method:
+      channel: weekly_question
+      question_id: Q-A1-01
+      description: 주 1회 지난 7일 음주
+      example_question: "지난 7일 중 술 마신 날·잔 수"
+      cadence: { times: 1, per: week }
+      objective_source: 없음
+    contraindication_rules: []
+    adjustable_params: [default_target]
+
+  - catalog_code: S1
+    name_ko: 금연
+    domain: smoking
+    guideline_refs: [AHA/ASA 2021, KSH 2026]
+    guideline_values:
+      target: "완전 금연(전자담배 포함), 간접흡연 회피"
+      support: "상담 + 약물(NRT·바레니클린·부프로피온)"
+      note: "퇴원 후 최소 1개월 지지 접촉이 성공률을 높임"
+    atomic_behaviors:
+      - 흡연 0개비 (전자담배 포함)
+      - 금연약 복용
+      - 금연클리닉 방문
+    metric_type: binary
+    default_target:
+      value: 0  # Part 2-2 "흡연 0개비"
+      unit: cigarettes_per_day
+      comparator: "<="
+    check_method:
+      channel: daily_question
+      question_id: Q-S1-01
+      description: 매일 흡연 여부 + 주 1회 약물·상담
+      example_question: "오늘 담배(전자담배 포함) 피우셨나요?"
+      cadence: { times: 1, per: day }
+      secondary_question_id: Q-S1-02
+      secondary_cadence: { times: 1, per: week }
+      objective_source: 보건소 금연클리닉 CO 측정
+    contraindication_rules: []
+    adjustable_params: []
+
+  # ---------------------------------------------------------------- 스트레스
+  - catalog_code: M1
+    name_ko: 스트레스 관리 (호흡운동)
+    domain: stress
+    guideline_refs: [KSH 2026, AHA/ACC 2025]
+    guideline_values:
+      methods: "호흡운동·마음챙김·명상"
+      note: "뇌졸중 후 우울 선별과 연결"
+    atomic_behaviors:
+      - 하루 1회 5분 호흡운동
+    metric_type: frequency
+    default_target:
+      value: 7  # Part 2-2 "하루 1회" = 주 7일
+      unit: days_per_week
+      comparator: ">="
+    check_method:
+      channel: question_y_n
+      question_id: Q-M1-01
+      description: 주 3회 Y/N
+      cadence: { times: 3, per: week }
+      objective_source: 없음
+    contraindication_rules: []
+    flags:
+      - id: link_post_stroke_depression_screening
+        rule: "뇌졸중 후 우울 선별과 연결"
+    adjustable_params: [default_target]
+
+  # ---------------------------------------------------------------- 자가측정
+  - catalog_code: H1
+    name_ko: 가정혈압 측정
+    domain: home_bp
+    guideline_refs: [KSH 2026, AHA/ACC 2025]
+    guideline_values:
+      protocol_722: { days: 7, sessions_per_day: 2, readings_per_session: 2 }
+      bp_target_mmhg: { systolic_lt: 130, diastolic_lt: 80 }  # Part 1-2 결과 지표
+    atomic_behaviors:
+      - "722 측정 (외래 전 7일 집중, 평소 주 2–3일)"
+    metric_type: measurement
+    default_target:
+      pre_visit:
+        value: 7  # 722: 7일
+        unit: days
+        sessions_per_day: 2
+        readings_per_session: 2
+        comparator: ">="
+      routine:
+        value: TODO_CLINICIAN  # 평소 "주 2–3일" 범위 중 결정
+        unit: days_per_week
+        comparator: ">="
+    check_method:
+      channel: device_or_value_entry
+      question_id: Q-H1-01
+      description: 기기 연동 또는 수치 입력, 결측일 자동 감지
+      cadence: measurement_days
+      objective_source: 혈압계 기록
+    contraindication_rules:
+      - id: individualize_bp_target_if_severe_intracranial_stenosis
+        rule: "중증 두개내 협착은 혈압 목표 개별화"
+    adjustable_params: [default_target.routine]
+
+  - catalog_code: H2
+    name_ko: 자가혈당 측정
+    domain: home_glucose
+    guideline_refs: [KDA 2025]
+    guideline_values:
+      indication: "인슐린 사용자는 필수, 비인슐린 T2DM은 고려"
+      timing: "공복·식후 2시간 중심, 빈도 개별화"
+    atomic_behaviors:
+      - 처방된 시점의 혈당 측정
+    metric_type: measurement
+    default_target:
+      value: TODO_CLINICIAN  # "처방대로" — 개별화
+      unit: measurements_per_week
+      comparator: ">="
+    check_method:
+      channel: device_or_value_entry
+      question_id: Q-H2-01
+      description: 기기 연동/입력
+      cadence: as_prescribed
+      objective_source: 혈당계·CGM
+    contraindication_rules:
+      - id: pre_post_exercise_glucose_if_hypoglycemia_risk_medication
+        rule: "저혈당 위험 약제 사용자는 운동 전후 측정"
+    safety_rules:
+      - id: hypoglycemia_immediate_safety_guidance
+        rule: "70 mg/dL 미만은 즉시 안전 안내"
+        glucose_mg_dl_lt: 70
+    adjustable_params: [default_target]

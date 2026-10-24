@@ -1,0 +1,41 @@
+{
+  "visit_id": "V19",
+  "description": "운동 보류 지시(이행 대상 아님) + 저염",
+  "synthetic": true,
+  "label_status": "draft_unreviewed",
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "지금은 어지럼이 있으니까 운동은 아직 하지 마시고 다음 진료 때 다시 정하죠."
+    },
+    {
+      "id": "seg_002",
+      "speaker": "B",
+      "role": "patient",
+      "text": "네."
+    },
+    {
+      "id": "seg_003",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "대신 짜게 드시지 마세요."
+    },
+    {
+      "id": "seg_004",
+      "speaker": "B",
+      "role": "patient",
+      "text": "네, 그럴게요."
+    }
+  ],
+  "expected_directives": [
+    {
+      "segment_ids": [
+        "seg_003"
+      ],
+      "catalog_code": "D2",
+      "agreement": "agreed"
+    }
+  ]
+}

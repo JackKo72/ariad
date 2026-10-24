@@ -1,4 +1,4 @@
-.PHONY: doctor setup dev test e2e eval lint sample-audio vital-signs-audio vital-signs-isolated-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization parallel-asr-diarization-mp compare-diarization-engines
+.PHONY: doctor setup dev test e2e eval eval-provider sim lint sample-audio vital-signs-audio vital-signs-isolated-audio test-provider-audio benchmark-audio diagnose-asr compare-asr-accuracy detect-asr-hardware compare-asr-engines check-faster-whisper-accuracy parallel-asr-diarization parallel-asr-diarization-mp compare-diarization-engines
 
 doctor:
 	@echo "Checking required tools..."
@@ -69,6 +69,25 @@ e2e:
 eval:
 	apps/api/.venv/bin/python tests/evals/run_eval.py
 	apps/api/.venv/bin/python scripts/eval_clinical_enrichment.py
+	apps/api/.venv/bin/python scripts/eval_action_directives.py
+	apps/api/.venv/bin/python scripts/eval_barriers.py
+
+# docs/ARIAD_stage2_design.md Step 7: scenarios A–D through the stage 2
+# pipeline (mock provider by default); reports land in sim/output/.
+sim:
+	apps/api/.venv/bin/python sim/run_scenarios.py --out sim/output
+
+# Stage 2 evals and simulation against the real LLM (ARIAD_MODE=provider).
+# Reads OPENAI_API_KEY / OPENAI_TEXT_MODEL from apps/api/.env.local, like
+# `make dev`. Calls the OpenAI API with synthetic data only. Simulation
+# reports go to sim/output_provider/ (gitignored) so the committed mock
+# outputs stay comparable.
+eval-provider:
+	@test -f apps/api/.env.local || (echo "apps/api/.env.local with OPENAI_API_KEY is required" && exit 1)
+	set -a; . apps/api/.env.local; set +a; export ARIAD_MODE=provider; \
+	apps/api/.venv/bin/python scripts/eval_action_directives.py --json sim/output_provider_directives.json; \
+	apps/api/.venv/bin/python scripts/eval_barriers.py --json sim/output_provider_barriers.json; \
+	apps/api/.venv/bin/python sim/run_scenarios.py --out sim/output_provider
 
 lint:
 	apps/api/.venv/bin/ruff check apps/api scripts

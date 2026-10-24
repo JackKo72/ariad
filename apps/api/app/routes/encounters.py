@@ -21,6 +21,7 @@ from app.ids import new_id
 from app.observability import StageTimer
 from app.pipeline.enrichment import enrich_clinical_findings
 from app.pipeline.run import run_pipeline
+from app.pipeline.segments import ROLE_LABELS_KO, segments_from_pipeline_run
 from app.pipeline.validation import validate_grounding
 from app.providers.base import LLMProvider
 from app.providers.demo_asr import load_demo_structure_and_explanation
@@ -31,19 +32,12 @@ from app.dependencies import get_llm_provider, get_repository
 router = APIRouter(prefix="/encounters", tags=["encounters"])
 logger = logging.getLogger("ariad.pipeline")
 
-_ROLE_LABELS_KO = {
-    "doctor": "의사",
-    "patient": "환자",
-    "guardian": "보호자",
-    "unknown": "화자",
-}
-
 
 def _derive_transcript_text(run: PipelineRun) -> str:
     lines = []
     for seg in sorted(run.segments, key=lambda s: s.start):
         role = run.roles.get(seg.speaker, "unknown")
-        label = _ROLE_LABELS_KO.get(role, "화자")
+        label = ROLE_LABELS_KO.get(role, "화자")
         lines.append(f"{label}: {seg.text}")
     return "\n".join(lines)
 
@@ -172,7 +166,14 @@ def process_encounter(
                     # either way (purely additive stage).
                     if active_run is not None and active_run.segments:
                         enrichment = enrich_clinical_findings(active_run.segments, llm_provider, stage_timer=timer)
-                    result = run_pipeline(draft.transcript_text, llm_provider, stage_timer=timer)
+                    # Audio path: hand the structure LLM the run's real segment
+                    # IDs/speaker/role (option C); manual text derives seg_001.. itself.
+                    segments = (
+                        segments_from_pipeline_run(active_run)
+                        if active_run is not None and active_run.segments and active_run.roles
+                        else None
+                    )
+                    result = run_pipeline(draft.transcript_text, llm_provider, stage_timer=timer, segments=segments)
                     structure, explanation = result.structure, result.explanation  # type: ignore[assignment]
             except Exception as exc:
                 # The transcript itself lives on encounter_versions and is

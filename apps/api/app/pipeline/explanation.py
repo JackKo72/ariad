@@ -13,8 +13,13 @@ from app.providers.mock import PROMPT_VERSION_EXPLANATION
 def generate_patient_explanation(
     structure: ClinicalStructure, llm_provider: LLMProvider, stage_timer: Optional[StageTimer] = None
 ) -> ExplanationDraft:
+    # action_directives carry the patient's reply and barriers (stage 2
+    # data); the patient explanation is built from the original seven
+    # fields only. Directives reach the patient via the approved Action Plan.
     raw = llm_provider.generate_json(
-        "patient_explanation", {"structure": structure.model_dump()}, stage_timer=stage_timer
+        "patient_explanation",
+        {"structure": structure.model_dump(exclude={"action_directives"})},
+        stage_timer=stage_timer,
     )
     return ExplanationDraft.model_validate(raw)
 

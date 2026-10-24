@@ -1,0 +1,45 @@
+{
+  "visit_id": "V05",
+  "description": "병력 질문만 있음 (지시 아님)",
+  "synthetic": true,
+  "label_status": "draft_unreviewed",
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "담배는 지금도 피우세요?"
+    },
+    {
+      "id": "seg_002",
+      "speaker": "B",
+      "role": "patient",
+      "text": "하루 반 갑 정도요."
+    },
+    {
+      "id": "seg_003",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "술은 일주일에 몇 번 드세요?"
+    },
+    {
+      "id": "seg_004",
+      "speaker": "B",
+      "role": "patient",
+      "text": "주말에 소주 한 병 정도요."
+    },
+    {
+      "id": "seg_005",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "운동은 따로 하시나요?"
+    },
+    {
+      "id": "seg_006",
+      "speaker": "B",
+      "role": "patient",
+      "text": "아니요, 안 해요."
+    }
+  ],
+  "expected_directives": []
+}

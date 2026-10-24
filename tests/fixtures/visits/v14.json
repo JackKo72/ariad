@@ -1,0 +1,35 @@
+{
+  "visit_id": "V14",
+  "description": "외래 전 가정혈압, 혈압계 고장, 보호자 개입",
+  "synthetic": true,
+  "label_status": "draft_unreviewed",
+  "segments": [
+    {
+      "id": "seg_001",
+      "speaker": "A",
+      "role": "doctor",
+      "text": "다음 외래 전 일주일 동안은 아침저녁 두 번씩 혈압을 재 오세요."
+    },
+    {
+      "id": "seg_002",
+      "speaker": "B",
+      "role": "patient",
+      "text": "혈압계가 고장 났어요."
+    },
+    {
+      "id": "seg_003",
+      "speaker": "C",
+      "role": "guardian",
+      "text": "제가 새로 사 놓을게요."
+    }
+  ],
+  "expected_directives": [
+    {
+      "segment_ids": [
+        "seg_001"
+      ],
+      "catalog_code": "H1",
+      "agreement": "unclear"
+    }
+  ]
+}
